@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+*.egg
+
+# Node / TypeScript
+node_modules/
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# Docker
+*.override.yml
+
+# dbt
+target/
+dbt_packages/
+logs/
+
+# Linear / Claude
+.claude/settings.local.json
