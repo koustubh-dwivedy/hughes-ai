@@ -2,7 +2,7 @@
 members = ["packages/synth-data", "packages/nl-engine", "packages/api"]
 
 [dependency-groups]
-dev = ["ruff", "mypy", "bandit", "semgrep", "pre-commit"]
+dev = ["ruff", "mypy", "bandit", "semgrep", "pre-commit", "pytest"]
 
 [tool.ruff]
 line-length = 88
@@ -19,3 +19,6 @@ strict = true
 [tool.bandit]
 targets = ["packages"]
 exclude_dirs = [".venv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
