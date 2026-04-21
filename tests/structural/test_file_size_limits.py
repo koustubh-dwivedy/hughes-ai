@@ -18,9 +18,8 @@ def test_file_line_limits() -> None:
     for py_file in _py_files():
         count = len(py_file.read_text().splitlines())
         if count > MAX_FILE_LINES:
-            violations.append(
-                f"{py_file.relative_to(PACKAGES_ROOT)}: {count} lines (max {MAX_FILE_LINES})"
-            )
+            rel = py_file.relative_to(PACKAGES_ROOT)
+            violations.append(f"{rel}: {count} lines (max {MAX_FILE_LINES})")
     assert not violations, "File too long:\n" + "\n".join(violations)
 
 
@@ -29,12 +28,14 @@ def test_function_line_limits() -> None:
     for py_file in _py_files():
         tree = ast.parse(py_file.read_text())
         for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if node.end_lineno and node.lineno:
-                    length = node.end_lineno - node.lineno + 1
-                    if length > MAX_FUNCTION_LINES:
-                        violations.append(
-                            f"{py_file.relative_to(PACKAGES_ROOT)}:{node.lineno}: "
-                            f"'{node.name}' is {length} lines (max {MAX_FUNCTION_LINES})"
-                        )
+            if (
+                isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.end_lineno
+                and node.lineno
+            ):
+                length = node.end_lineno - node.lineno + 1
+                if length > MAX_FUNCTION_LINES:
+                    rel = py_file.relative_to(PACKAGES_ROOT)
+                    msg = f"'{node.name}' is {length} lines (max {MAX_FUNCTION_LINES})"
+                    violations.append(f"{rel}:{node.lineno}: {msg}")
     assert not violations, "Function too long:\n" + "\n".join(violations)

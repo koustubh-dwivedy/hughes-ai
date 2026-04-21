@@ -52,9 +52,12 @@ jobs:
       - run: uv sync
       - name: Run unit tests
         run: |
+          set +e
           uv run pytest tests/ --ignore=tests/structural/ --ignore=tests/integration/ -v
           EXIT=$?
-          [ $EXIT -eq 5 ] && echo "No unit tests yet — skipping" && exit 0 || exit $EXIT
+          set -e
+          if [ $EXIT -eq 5 ]; then echo "No unit tests yet — skipping"; exit 0; fi
+          exit $EXIT
 
   structural-test:
     name: Structural Tests
@@ -117,9 +120,12 @@ jobs:
       - run: uv sync
       - name: Run integration tests
         run: |
+          set +e
           uv run pytest tests/integration/ -v
           EXIT=$?
-          [ $EXIT -eq 5 ] && echo "No integration tests yet — skipping" && exit 0 || exit $EXIT
+          set -e
+          if [ $EXIT -eq 5 ]; then echo "No integration tests yet — skipping"; exit 0; fi
+          exit $EXIT
 
   build:
     name: Build
