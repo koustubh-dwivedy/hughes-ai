@@ -1,0 +1,1 @@
+-- Placeholder: schema DDL populated in HUG-20

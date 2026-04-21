@@ -1,0 +1,14 @@
+[tool.uv.workspace]
+members = ["packages/synth-data", "packages/nl-engine", "packages/api"]
+
+[dependency-groups]
+dev = ["ruff", "mypy"]
+
+[tool.ruff]
+# Full configuration in HUG-16
+
+[tool.mypy]
+# Full configuration in HUG-16
+
+[tool.bandit]
+# Full configuration in HUG-16
