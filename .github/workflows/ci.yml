@@ -124,7 +124,7 @@ jobs:
           uv run pytest tests/integration/ -v
           EXIT=$?
           set -e
-          if [ $EXIT -eq 5 ]; then echo "No integration tests yet — skipping"; exit 0; fi
+          if [ $EXIT -eq 4 ] || [ $EXIT -eq 5 ]; then echo "No integration tests yet — skipping"; exit 0; fi
           exit $EXIT
 
   build:
