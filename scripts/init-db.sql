@@ -1,1 +1,1 @@
--- Placeholder: schema DDL populated in HUG-20
+\i migrations/001_lending_schema.sql
