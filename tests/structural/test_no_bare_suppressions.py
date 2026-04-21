@@ -14,9 +14,10 @@ def test_no_bare_suppressions() -> None:
             continue
         for i, line in enumerate(py_file.read_text().splitlines(), 1):
             if _BARE_TYPE_IGNORE.search(line):
+                rel = py_file.relative_to(PACKAGES_ROOT)
                 violations.append(
-                    f"{py_file.relative_to(PACKAGES_ROOT)}:{i}: "
-                    "bare '# type: ignore' — add reason, e.g. '# type: ignore[assignment]  # reason'"
+                    f"{rel}:{i}: bare '# type: ignore' — add reason, "
+                    "e.g. '# type: ignore[assignment]  # reason'"
                 )
             elif _BARE_NOQA.search(line):
                 violations.append(

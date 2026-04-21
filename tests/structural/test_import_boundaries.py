@@ -22,43 +22,43 @@ def _get_imports(filepath: Path) -> list[str]:
     return result
 
 
+def _py_files_for(package_name: str) -> list[Path]:
+    src_dir = PACKAGES_ROOT / package_name.replace("_", "-") / "src" / package_name
+    if not src_dir.exists():
+        return []
+    return [p for p in src_dir.rglob("*.py") if "__pycache__" not in p.parts]
+
+
+def _build_import_graph() -> dict[str, set[str]]:
+    graph: dict[str, set[str]] = {pkg: set() for pkg in LAYER_RULES}
+    for package_name in LAYER_RULES:
+        for py_file in _py_files_for(package_name):
+            for imp in _get_imports(py_file):
+                if imp in graph and imp != package_name:
+                    graph[package_name].add(imp)
+    return graph
+
+
 def test_no_forbidden_imports() -> None:
     violations = []
     for package_name, forbidden in LAYER_RULES.items():
-        src_dir = PACKAGES_ROOT / package_name.replace("_", "-") / "src" / package_name
-        if not src_dir.exists():
-            continue
-        for py_file in src_dir.rglob("*.py"):
-            if "__pycache__" in py_file.parts:
-                continue
+        for py_file in _py_files_for(package_name):
             for imp in _get_imports(py_file):
                 if imp in forbidden:
+                    rel = py_file.relative_to(PACKAGES_ROOT)
                     violations.append(
-                        f"{py_file.relative_to(PACKAGES_ROOT)}: "
-                        f"'{package_name}' must not import from '{imp}'"
+                        f"{rel}: '{package_name}' must not import from '{imp}'"
                     )
     assert not violations, "Import boundary violations:\n" + "\n".join(violations)
 
 
 def test_no_circular_imports() -> None:
-    graph: dict[str, set[str]] = {pkg: set() for pkg in LAYER_RULES}
-    for package_name in LAYER_RULES:
-        src_dir = PACKAGES_ROOT / package_name.replace("_", "-") / "src" / package_name
-        if not src_dir.exists():
-            continue
-        for py_file in src_dir.rglob("*.py"):
-            if "__pycache__" in py_file.parts:
-                continue
-            for imp in _get_imports(py_file):
-                if imp in graph and imp != package_name:
-                    graph[package_name].add(imp)
-
-    cycles = []
+    graph = _build_import_graph()
+    cycles: set[tuple[str, str]] = set()
     for pkg_a, deps in graph.items():
         for pkg_b in deps:
             if pkg_a in graph.get(pkg_b, set()):
-                pair = tuple(sorted([pkg_a, pkg_b]))
-                if pair not in [tuple(sorted(c)) for c in cycles]:
-                    cycles.append([pkg_a, pkg_b])
-
-    assert not cycles, "Circular imports: " + ", ".join(f"{a}↔{b}" for a, b in cycles)
+                cycles.add(tuple(sorted([pkg_a, pkg_b])))  # type: ignore[arg-type]
+    assert not cycles, "Circular imports: " + ", ".join(
+        f"{a}↔{b}" for a, b in cycles
+    )
