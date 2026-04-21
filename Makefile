@@ -14,12 +14,14 @@ seed:
 
 lint:
 	uv run ruff check .
+	uv run bandit -c pyproject.toml -r packages/
+	uv run semgrep --config .semgrep/ --error packages/
 
 lint-fix:
 	uv run ruff check --fix .
 
 typecheck:
-	uv run mypy packages/synth-data packages/nl-engine packages/api
+	uv run mypy packages/synth-data packages/nl-engine packages/api --strict
 
 test:
 	pytest

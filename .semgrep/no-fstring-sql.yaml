@@ -1,0 +1,9 @@
+rules:
+  - id: no-fstring-sql
+    pattern-regex: "f['\"].*\\b(SELECT|INSERT|UPDATE|DELETE)\\b"
+    message: "Use parameterized queries: `cursor.execute('...', (val,))` — never interpolate SQL via f-strings"
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include:
+        - "*.py"
