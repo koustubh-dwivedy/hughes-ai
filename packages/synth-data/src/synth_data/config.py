@@ -11,6 +11,9 @@ class SynthProfile(BaseModel):
     applications: int = Field(gt=0)
     approval_rate: float = Field(ge=0.0, le=1.0)
     funding_rate: float = Field(ge=0.0, le=1.0)
+    dpd_30_rate: float = Field(default=0.08, ge=0.0, le=1.0)
+    charge_off_rate: float = Field(default=0.02, ge=0.0, le=1.0)
+    branch_count: int = Field(default=5, gt=0)
 
 
 def load_profile(name: str) -> SynthProfile:

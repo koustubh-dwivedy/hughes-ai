@@ -2,3 +2,6 @@ seed: 42
 applications: 500
 approval_rate: 0.72
 funding_rate: 0.85
+dpd_30_rate: 0.08
+charge_off_rate: 0.02
+branch_count: 5
