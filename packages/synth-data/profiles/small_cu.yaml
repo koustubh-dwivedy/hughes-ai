@@ -1,0 +1,4 @@
+seed: 42
+applications: 500
+approval_rate: 0.72
+funding_rate: 0.85
