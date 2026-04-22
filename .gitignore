@@ -41,6 +41,7 @@ Thumbs.db
 packages/dbt-models/target/
 packages/dbt-models/dbt_packages/
 packages/dbt-models/logs/
+packages/dbt-models/packages/
 
 # Seed cache
 .synth_cache/
