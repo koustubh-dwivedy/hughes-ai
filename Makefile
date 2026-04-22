@@ -12,6 +12,12 @@ dev: up
 seed:
 	uv run python scripts/seed.py --profile small_cu
 
+dbt-build:
+	cd packages/dbt-models && uv run dbt build --select staging --profiles-dir .
+
+dbt-test:
+	cd packages/dbt-models && uv run dbt test --select staging --profiles-dir .
+
 lint:
 	uv run ruff check .
 	uv run bandit -c pyproject.toml -r packages/

@@ -1,0 +1,121 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: public
+    description: Raw synthetic data tables loaded by make seed
+
+    tables:
+      - name: product_types
+        columns:
+          - name: product_type_id
+            tests: [not_null, unique]
+          - name: name
+            tests: [not_null, unique]
+
+      - name: channels
+        columns:
+          - name: channel_id
+            tests: [not_null, unique]
+          - name: name
+            tests: [not_null, unique]
+
+      - name: applications
+        columns:
+          - name: application_id
+            tests: [not_null, unique]
+          - name: member_id
+            tests: [not_null]
+          - name: status
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [pending, approved, declined, withdrawn, funded]
+
+      - name: stages
+        columns:
+          - name: application_id
+            tests: [not_null]
+          - name: stage_name
+            tests: [not_null]
+          - name: entered_at
+            tests: [not_null]
+
+      - name: approvals
+        columns:
+          - name: approval_id
+            tests: [not_null, unique]
+          - name: application_id
+            tests: [not_null]
+          - name: decision
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [approved, declined, conditional]
+
+      - name: funding_events
+        columns:
+          - name: funding_id
+            tests: [not_null, unique]
+          - name: application_id
+            tests: [not_null]
+          - name: funded_at
+            tests: [not_null]
+          - name: funded_amount
+            tests: [not_null]
+
+      - name: branches
+        columns:
+          - name: branch_id
+            tests: [not_null, unique]
+          - name: name
+            tests: [not_null, unique]
+
+      - name: booked_loans
+        columns:
+          - name: loan_id
+            tests: [not_null, unique]
+          - name: branch_id
+            tests: [not_null]
+          - name: member_id
+            tests: [not_null]
+          - name: status
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [current, delinquent, charged_off, paid_off]
+
+      - name: loan_balances
+        columns:
+          - name: balance_id
+            tests: [not_null, unique]
+          - name: loan_id
+            tests: [not_null]
+          - name: snapshot_date
+            tests: [not_null]
+
+      - name: payments
+        columns:
+          - name: payment_id
+            tests: [not_null, unique]
+          - name: loan_id
+            tests: [not_null]
+          - name: paid_at
+            tests: [not_null]
+
+      - name: delinquency_snapshots
+        columns:
+          - name: snapshot_id
+            tests: [not_null, unique]
+          - name: loan_id
+            tests: [not_null]
+
+      - name: reconciliation_bridge
+        columns:
+          - name: bridge_id
+            tests: [not_null, unique]
+          - name: match_type
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [matched, unmatched, ambiguous]

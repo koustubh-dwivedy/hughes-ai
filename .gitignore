@@ -38,12 +38,13 @@ Thumbs.db
 *.override.yml
 
 # dbt
-target/
-dbt_packages/
-logs/
+packages/dbt-models/target/
+packages/dbt-models/dbt_packages/
+packages/dbt-models/logs/
 
 # Seed cache
 .synth_cache/
 
 # Linear / Claude
 .claude/settings.local.json
+packages/dbt-models/.user.yml
