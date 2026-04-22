@@ -2,7 +2,7 @@
 members = ["packages/synth-data", "packages/nl-engine", "packages/api"]
 
 [dependency-groups]
-dev = ["ruff", "mypy", "bandit", "semgrep", "pre-commit", "pytest"]
+dev = ["ruff", "mypy", "bandit", "semgrep", "pre-commit", "pytest", "types-PyYAML"]
 
 [tool.ruff]
 line-length = 88

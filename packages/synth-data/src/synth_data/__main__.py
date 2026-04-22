@@ -50,7 +50,9 @@ def main() -> None:
 
     gen = sub.add_parser("generate", help="Generate and optionally load synthetic data")
     gen.add_argument("--profile", required=True, help="Profile name (e.g. small_cu)")
-    gen.add_argument("--load-postgres", action="store_true", help="Load into DATABASE_URL")
+    gen.add_argument(
+        "--load-postgres", action="store_true", help="Load into DATABASE_URL",
+    )
 
     args = parser.parse_args()
     if args.command == "generate":
