@@ -1,0 +1,100 @@
+metrics:
+  - name: origination_volume
+    label: Origination Volume
+    description: Total number of loan applications received in a period
+    formula_plain_english: >
+      Count all loan applications where the application date falls within the
+      requested time period. Includes every status unless filtered.
+    caveats: >
+      Includes all application statuses (pending, approved, declined, withdrawn).
+      Filter by status for specific counts. Use funded_at for funded-loan volume,
+      applied_at for application submission volume.
+    related_questions:
+      - "How many loans did we originate last month?"
+      - "What is our origination volume by channel this year?"
+      - "How many applications did we receive in Q1?"
+      - "Show me origination trends over the last 12 months"
+
+  - name: approval_rate
+    label: Approval Rate
+    description: Percentage of completed applications that were approved
+    formula_plain_english: >
+      Divide the number of approved decisions by the total number of completed
+      decisions (approved + declined). Exclude pending and withdrawn applications
+      from both numerator and denominator.
+    caveats: >
+      Excludes withdrawn and in-progress applications — denominator is completed
+      decisions only. A high approval rate with low volume may indicate tighter
+      application screening rather than improved underwriting.
+    related_questions:
+      - "What was our approval rate last quarter?"
+      - "How does approval rate vary by branch?"
+      - "What is the approval rate for auto loans vs personal loans?"
+      - "Has our approval rate improved this year?"
+
+  - name: funding_rate
+    label: Funding Rate
+    description: Percentage of approved applications that were funded
+    formula_plain_english: >
+      Divide the count of distinct funded applications by the count of approved
+      applications. A funding event must exist in the LOS for a loan to count
+      as funded.
+    caveats: >
+      Denominator is approved applications only, not total applications.
+      Approved-but-not-yet-funded applications reduce this rate.
+      Use recon_bridge match_rate for LOS-to-core reconciliation instead.
+    related_questions:
+      - "What percentage of approved loans were actually funded?"
+      - "What is our pull-through rate?"
+      - "How many approvals did not result in funded loans?"
+
+  - name: avg_loan_amount
+    label: Average Loan Amount
+    description: Mean funded loan amount in a period
+    formula_plain_english: >
+      Calculate the average of funded_amount across all funding events where
+      the funded_at date falls within the requested period.
+    caveats: >
+      Uses funded_amount (actual disbursed amount), not requested_amount.
+      Use funded_at as the date field, not applied_at or originated_at.
+      Outliers (very large or very small loans) can skew the average.
+    related_questions:
+      - "What is the average loan size this year?"
+      - "How does average loan amount compare across product types?"
+      - "What was the average funded amount last quarter?"
+      - "Show average loan size by branch"
+
+  - name: portfolio_balance
+    label: Portfolio Balance
+    description: Total outstanding principal balance of all active booked loans
+    formula_plain_english: >
+      Sum the current outstanding balance across all active booked loans as of
+      a specific date. Always requires specifying the as-of date because balances
+      change daily with payments and new originations.
+    caveats: >
+      Uses the most recent balance snapshot from fct_loan_performance.
+      Balance changes daily — always specify the snapshot_date.
+      Excludes paid-off and charged-off loans (status = 'active' / 'current').
+    related_questions:
+      - "What is our total portfolio balance today?"
+      - "How has our portfolio balance grown this year?"
+      - "What is the outstanding balance by product type?"
+      - "Show portfolio balance trend over the last 6 months"
+
+  - name: delinquency_rate
+    label: Delinquency Rate
+    description: Percentage of active loans that are 30+ days past due
+    formula_plain_english: >
+      Divide the count of active loans with 30 or more days past due by the
+      total count of active loans, as of a specific snapshot date.
+    caveats: >
+      Measured at a specific snapshot_date — not real-time.
+      30+ DPD is the standard threshold. Use days_past_due >= 30 directly
+      for precision; is_delinquent flag also captures 30+ DPD.
+      60+ and 90+ bucket rates available via delinquency_bucket column.
+    related_questions:
+      - "What is our current delinquency rate?"
+      - "How many loans are 30+ days past due?"
+      - "What is the delinquency rate by branch?"
+      - "Show delinquency trend over the last 12 months"
+      - "How many loans are 90+ days past due?"

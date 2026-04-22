@@ -1,0 +1,124 @@
+examples:
+  - question: "What was our approval rate last quarter?"
+    sql: |
+      SELECT
+        ROUND(
+          COUNT(CASE WHEN loan_status IS NOT NULL THEN 1 END)::NUMERIC
+          / NULLIF(COUNT(*), 0) * 100,
+          2
+        ) AS approval_rate_pct
+      FROM fct_loan_originations
+      WHERE funded_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')
+        AND funded_at <  DATE_TRUNC('quarter', CURRENT_DATE)
+    notes: >
+      fct_loan_originations only contains approved+funded loans so this
+      approximates approval rate; for true approval rate query the raw
+      applications table grouped by status.
+
+  - question: "How many loans did we originate last month?"
+    sql: |
+      SELECT COUNT(*) AS origination_count
+      FROM fct_loan_originations
+      WHERE funded_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+        AND funded_at <  DATE_TRUNC('month', CURRENT_DATE)
+    notes: Use funded_at not applied_at for origination date.
+
+  - question: "What is the average loan amount this year?"
+    sql: |
+      SELECT ROUND(AVG(funded_amount), 2) AS avg_loan_amount
+      FROM fct_loan_originations
+      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
+        AND funded_at <  CURRENT_DATE + INTERVAL '1 day'
+    notes: Uses funded_amount (actual disbursement), not requested_amount.
+
+  - question: "What is our current delinquency rate?"
+    sql: |
+      SELECT
+        ROUND(
+          SUM(CASE WHEN is_delinquent THEN 1 ELSE 0 END)::NUMERIC
+          / NULLIF(COUNT(*), 0) * 100,
+          2
+        ) AS delinquency_rate_pct
+      FROM fct_loan_performance
+      WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
+        AND loan_status IN ('current', 'delinquent')
+    notes: Always filter to a single snapshot_date to avoid overcounting.
+
+  - question: "What is our total portfolio balance as of the latest snapshot?"
+    sql: |
+      SELECT
+        TO_CHAR(snapshot_date, 'YYYY-MM-DD') AS as_of_date,
+        ROUND(SUM(balance), 2)               AS total_portfolio_balance
+      FROM fct_loan_performance
+      WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
+        AND loan_status IN ('current', 'delinquent')
+      GROUP BY snapshot_date
+    notes: Exclude paid_off and charged_off loans from active portfolio balance.
+
+  - question: "Show origination volume by channel this year"
+    sql: |
+      SELECT
+        channel,
+        COUNT(*)                  AS origination_count,
+        ROUND(SUM(funded_amount), 2) AS total_funded_amount
+      FROM fct_loan_originations
+      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
+      GROUP BY channel
+      ORDER BY origination_count DESC
+    notes: channel comes from the Origence LOS application record.
+
+  - question: "What is origination volume by product type last quarter?"
+    sql: |
+      SELECT
+        product_type,
+        COUNT(*)                     AS loan_count,
+        ROUND(AVG(funded_amount), 2) AS avg_amount,
+        ROUND(SUM(funded_amount), 2) AS total_funded
+      FROM fct_loan_originations
+      WHERE funded_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')
+        AND funded_at <  DATE_TRUNC('quarter', CURRENT_DATE)
+      GROUP BY product_type
+      ORDER BY loan_count DESC
+    notes: ""
+
+  - question: "Which branches had the highest origination volume this year?"
+    sql: |
+      SELECT
+        branch_name,
+        branch_region,
+        COUNT(*)                     AS loan_count,
+        ROUND(SUM(funded_amount), 2) AS total_funded
+      FROM fct_loan_originations
+      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
+      GROUP BY branch_name, branch_region
+      ORDER BY loan_count DESC
+      LIMIT 5
+    notes: branch_name from Symitar; branch_region groups branches geographically.
+
+  - question: "How many loans are 30+ days past due right now?"
+    sql: |
+      SELECT
+        COUNT(*)              AS delinquent_loans,
+        ROUND(SUM(balance), 2) AS delinquent_balance
+      FROM fct_loan_performance
+      WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
+        AND days_past_due >= 30
+    notes: >
+      Use days_past_due >= 30 explicitly rather than is_delinquent = true for
+      transparency. Both produce the same result.
+
+  - question: "Show the delinquency rate trend over the last 6 months"
+    sql: |
+      SELECT
+        snapshot_date,
+        ROUND(
+          SUM(CASE WHEN is_delinquent THEN 1 ELSE 0 END)::NUMERIC
+          / NULLIF(COUNT(*), 0) * 100,
+          2
+        ) AS delinquency_rate_pct
+      FROM fct_loan_performance
+      WHERE snapshot_date >= CURRENT_DATE - INTERVAL '6 months'
+        AND loan_status IN ('current', 'delinquent')
+      GROUP BY snapshot_date
+      ORDER BY snapshot_date
+    notes: One row per monthly snapshot; filter active loans only.

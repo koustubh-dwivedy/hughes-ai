@@ -1,0 +1,89 @@
+rules:
+  - id: date_origination
+    rule: >
+      Use funded_at (not applied_at or originated_at) as the origination date
+      for loan volume and origination metrics.
+    rationale: >
+      Applications can be submitted weeks before a loan is funded.
+      funded_at marks when the loan was actually made and money was disbursed,
+      making it the correct date for origination volume reporting.
+
+  - id: delinquency_threshold
+    rule: >
+      Delinquency means 30+ days past due. Use days_past_due >= 30 or the
+      is_delinquent flag. Do not use loan_status = 'delinquent' alone as the
+      delinquency status in fct_loan_performance can lag snapshot updates.
+    rationale: >
+      30-DPD is the NCUA and industry standard for credit union delinquency
+      reporting. is_delinquent is derived as (days_past_due >= 30) and is
+      the canonical flag for 30+ DPD.
+
+  - id: approval_rate_denominator
+    rule: >
+      Approval rate denominator must include only approved and declined
+      decisions. Exclude pending, withdrawn, and in-progress applications.
+    rationale: >
+      Pending and withdrawn applications have not received a credit decision.
+      Including them would understate the approval rate and misrepresent
+      underwriting performance.
+
+  - id: funding_rate_denominator
+    rule: >
+      Funding rate denominator is approved applications only, not total
+      applications submitted.
+    rationale: >
+      The funding rate measures pull-through from approval to funding.
+      Using total applications would conflate approval rate and funding rate.
+
+  - id: portfolio_balance_as_of
+    rule: >
+      Portfolio balance queries must specify an as-of date using snapshot_date
+      from fct_loan_performance. Never return a balance without a date context.
+    rationale: >
+      Loan balances change daily as payments are received and new loans are
+      originated. A balance without a date is meaningless for financial reporting.
+
+  - id: recon_bridge_source_of_truth
+    rule: >
+      recon_bridge is the authoritative source for LOS-to-core matching.
+      fct_loan_originations only contains match_type = 'matched' loans.
+      For full portfolio analysis (including unmatched loans), use dim_loan
+      joined to fct_loan_performance.
+    rationale: >
+      Not all Symitar booked loans have a corresponding Origence application.
+      Branch-originated or transferred loans may be 'unmatched' or 'ambiguous'.
+
+  - id: fixed_rate_only
+    rule: >
+      All loans at this credit union are fixed-rate. Do not filter by rate_type;
+      rate_type = 'fixed' for every loan in the portfolio.
+    rationale: >
+      This credit union offers only fixed-rate loan products. Variable-rate
+      filtering would return zero results and should not be applied.
+
+  - id: snapshot_date_required
+    rule: >
+      Delinquency rate, portfolio balance, and any metric from fct_loan_performance
+      are point-in-time. Always include a WHERE snapshot_date = <date> clause
+      or aggregate over an explicit date range.
+    rationale: >
+      fct_loan_performance has one row per loan per monthly snapshot. Without
+      a date filter, queries return all historical snapshots and overcount balances.
+
+  - id: no_member_pii
+    rule: >
+      Do not include member_id or any personally identifiable information in
+      query results. Aggregate to branch, region, channel, or product level.
+    rationale: >
+      member_id is a system identifier used for joins only. Surfacing it in
+      answers would constitute a PII exposure. Analytics are at portfolio level.
+
+  - id: origination_table_scope
+    rule: >
+      fct_loan_originations contains only matched funded loans (match_type =
+      'matched'). For total booked loan counts including unmatched loans,
+      query dim_loan or fct_loan_performance instead.
+    rationale: >
+      The reconciliation process may leave 5-10% of loans unmatched when they
+      originate outside the LOS (e.g. branch direct entry). Origination metrics
+      from fct_loan_originations deliberately exclude these.

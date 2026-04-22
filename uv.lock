@@ -1030,11 +1030,17 @@ name = "nl-engine"
 version = "0.1.0"
 source = { editable = "packages/nl-engine" }
 dependencies = [
+    { name = "pydantic" },
+    { name = "pyyaml" },
     { name = "structlog" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "structlog", specifier = ">=24.0.0" }]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.0" },
+    { name = "structlog", specifier = ">=24.0.0" },
+]
 
 [[package]]
 name = "nodeenv"
