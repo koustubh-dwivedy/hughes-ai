@@ -46,6 +46,12 @@ wheels = [
 name = "api"
 version = "0.1.0"
 source = { editable = "packages/api" }
+dependencies = [
+    { name = "structlog" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "structlog", specifier = ">=24.0.0" }]
 
 [[package]]
 name = "attrs"
@@ -662,6 +668,12 @@ wheels = [
 name = "nl-engine"
 version = "0.1.0"
 source = { editable = "packages/nl-engine" }
+dependencies = [
+    { name = "structlog" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "structlog", specifier = ">=24.0.0" }]
 
 [[package]]
 name = "nodeenv"
