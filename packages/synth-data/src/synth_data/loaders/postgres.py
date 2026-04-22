@@ -8,20 +8,23 @@ from synth_data.generators.symitar import BranchRow, SymitarData
 
 log = structlog.get_logger()
 
-_PK_COL = {
-    "product_types": "product_type_id",
-    "channels": "channel_id",
-    "branches": "branch_id",
+_INSERT_SQL = {
+    "product_types": (
+        "INSERT INTO product_types(name) VALUES (%s) ON CONFLICT (name) DO NOTHING"
+    ),
+    "channels": (
+        "INSERT INTO channels(name) VALUES (%s) ON CONFLICT (name) DO NOTHING"
+    ),
+}
+_SELECT_SQL = {
+    "product_types": "SELECT product_type_id, name FROM product_types",
+    "channels": "SELECT channel_id, name FROM channels",
 }
 
 
 def _upsert_lookup(cur: psycopg.Cursor, table: str, names: list[str]) -> dict[str, int]:
-    cur.executemany(
-        f"INSERT INTO {table}(name) VALUES (%s) ON CONFLICT (name) DO NOTHING",  # noqa: S608  # nosec B608
-        [(n,) for n in names],
-    )
-    pk = _PK_COL[table]
-    cur.execute(f"SELECT {pk}, name FROM {table}")  # noqa: S608  # nosec B608
+    cur.executemany(_INSERT_SQL[table], [(n,) for n in names])
+    cur.execute(_SELECT_SQL[table])
     return {name: id_ for id_, name in cur.fetchall()}
 
 
