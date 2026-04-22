@@ -16,5 +16,35 @@ services:
     ports:
       - "6379:6379"
 
+  vector:
+    image: timberio/vector:0.38-alpine
+    ports:
+      - "8686:8686"   # Vector API / health
+      - "4317:4317"   # OTLP gRPC receiver
+    volumes:
+      - ./config/vector.toml:/etc/vector/vector.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - victorialogs
+      - victoria-metrics
+      - jaeger
+
+  victorialogs:
+    image: victoriametrics/victoria-logs:latest
+    ports:
+      - "9428:9428"
+
+  victoria-metrics:
+    image: victoriametrics/victoria-metrics:latest
+    ports:
+      - "8428:8428"
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # HTTP collector (traces from Vector)
+      - "4318:4318"    # OTLP HTTP receiver
+
 volumes:
   postgres_data:

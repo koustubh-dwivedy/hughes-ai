@@ -1,0 +1,61 @@
+# Vector configuration — dev observability fan-out for Hughes AI
+# Sources: container logs + OTLP receiver
+# Sinks: VictoriaLogs (logs), VictoriaMetrics remote_write (metrics), Jaeger (traces)
+
+[api]
+enabled = true
+address = "0.0.0.0:8686"
+
+# ---------------------------------------------------------------------------
+# Sources
+# ---------------------------------------------------------------------------
+
+[sources.docker_logs]
+type = "docker_logs"
+# Collect stdout/stderr from all containers in this compose project
+exclude_containers = ["vector"]
+
+[sources.otlp_receiver]
+type = "opentelemetry"
+grpc.address = "0.0.0.0:4317"
+
+# ---------------------------------------------------------------------------
+# Transforms
+# ---------------------------------------------------------------------------
+
+[transforms.parse_logs]
+type = "remap"
+inputs = ["docker_logs"]
+source = '''
+.timestamp = to_string!(.timestamp)
+'''
+
+# Route OTLP data by type
+[transforms.route_otlp]
+type = "route"
+inputs = ["otlp_receiver"]
+
+[transforms.route_otlp.route]
+metrics = '.metrics != null'
+traces  = '.traces != null'
+
+# ---------------------------------------------------------------------------
+# Sinks
+# ---------------------------------------------------------------------------
+
+[sinks.victoria_logs]
+type = "loki"
+inputs = ["parse_logs"]
+endpoint = "http://victorialogs:9428"
+encoding.codec = "json"
+labels.container = "{{ container_name }}"
+
+[sinks.victoria_metrics]
+type = "prometheus_remote_write"
+inputs = ["route_otlp.metrics"]
+endpoint = "http://victoria-metrics:8428/api/v1/write"
+
+[sinks.jaeger]
+type = "jaeger"
+inputs = ["route_otlp.traces"]
+endpoint = "http://jaeger:14268/api/traces"
