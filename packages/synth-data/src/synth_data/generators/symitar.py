@@ -13,6 +13,7 @@ from synth_data.generators.origence import (
     FundingEventRow,
     OrigenceData,
 )
+from synth_data.generators.symitar_standalone import generate_standalone_loans
 from synth_data.generators.symitar_types import (
     BookedLoanRow,
     BranchRow,
@@ -280,7 +281,12 @@ def generate_symitar_data(origence: OrigenceData, profile: SynthProfile) -> Symi
         bals.extend(lb)
         pmts.extend(p)
         drows.extend(d)
+    member_pool = [a.member_id for a in origence.applications if a.status == "funded"]
+    standalone = generate_standalone_loans(
+        rng, profile.standalone_loan_count,
+        member_pool, origence.product_types, branches,
+    )
     return SymitarData(
-        branches=branches, booked_loans=booked, loan_balances=bals,
+        branches=branches, booked_loans=booked + standalone, loan_balances=bals,
         payments=pmts, delinquency_snapshots=drows,
     )

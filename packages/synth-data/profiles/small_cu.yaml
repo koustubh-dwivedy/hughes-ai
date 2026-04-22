@@ -5,3 +5,4 @@ funding_rate: 0.85
 dpd_30_rate: 0.08
 charge_off_rate: 0.02
 branch_count: 5
+standalone_loan_count: 10

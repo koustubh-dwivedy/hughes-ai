@@ -5,6 +5,7 @@ import structlog
 
 from synth_data.generators.origence import OrigenceData
 from synth_data.generators.symitar import BranchRow, SymitarData
+from synth_data.reconciliation import ReconciliationRow
 
 log = structlog.get_logger()
 
@@ -192,8 +193,20 @@ def _load_loan_details(cur: psycopg.Cursor, symitar: SymitarData) -> None:
     log.info("loaded delinquency snapshots", count=len(delinq_rows))
 
 
+def _load_reconciliation_bridge(
+    cur: psycopg.Cursor, rows: list[ReconciliationRow]
+) -> None:
+    cur.executemany(
+        "INSERT INTO reconciliation_bridge(application_id, loan_id, match_type)"
+        " VALUES (%s, %s, %s)",
+        [(r.application_id, r.loan_id, r.match_type) for r in rows],
+    )
+    log.info("loaded reconciliation bridge", count=len(rows))
+
+
 def load_postgres(
-    origence: OrigenceData, symitar: SymitarData, database_url: str
+    origence: OrigenceData, symitar: SymitarData, database_url: str,
+    recon_rows: list[ReconciliationRow] | None = None,
 ) -> None:
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
@@ -208,5 +221,7 @@ def load_postgres(
             log.info("upserted branches", count=len(branch_map))
             _load_booked_loans(cur, symitar, pt_map, branch_map)
             _load_loan_details(cur, symitar)
+            if recon_rows is not None:
+                _load_reconciliation_bridge(cur, recon_rows)
         conn.commit()
         log.info("committed transaction")

@@ -10,7 +10,7 @@ dev: up
 	@echo "Dev servers not yet implemented (HUG-31, HUG-33)"
 
 seed:
-	python scripts/seed.py
+	uv run python scripts/seed.py --profile small_cu
 
 lint:
 	uv run ruff check .

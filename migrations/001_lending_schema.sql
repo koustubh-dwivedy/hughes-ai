@@ -152,3 +152,22 @@ CREATE TABLE IF NOT EXISTS delinquency_snapshots (
 );
 
 CREATE INDEX IF NOT EXISTS idx_delinquency_snapshots_loan_id ON delinquency_snapshots(loan_id);
+
+-- ============================================================
+-- RECONCILIATION BRIDGE
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS reconciliation_bridge (
+    bridge_id      SERIAL PRIMARY KEY,
+    application_id UUID        REFERENCES applications(application_id),
+    loan_id        UUID        REFERENCES booked_loans(loan_id),
+    match_type     TEXT        NOT NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT reconciliation_bridge_match_type_check
+        CHECK (match_type IN ('matched', 'unmatched', 'ambiguous'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_reconciliation_bridge_loan_id
+    ON reconciliation_bridge(loan_id);
+CREATE INDEX IF NOT EXISTS idx_reconciliation_bridge_application_id
+    ON reconciliation_bridge(application_id);

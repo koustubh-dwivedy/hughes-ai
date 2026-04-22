@@ -42,5 +42,8 @@ target/
 dbt_packages/
 logs/
 
+# Seed cache
+.synth_cache/
+
 # Linear / Claude
 .claude/settings.local.json
