@@ -1,0 +1,81 @@
+version: 2
+
+# Metric definitions for the Hughes AI NL engine.
+# Formulas match docs/metrics.md exactly — do not edit formulas here without updating that file.
+# Consumed by packages/nl-engine/context/metrics.yaml (HUG-26).
+
+metrics:
+  - name: origination_volume
+    label: Origination Volume
+    description: Total number of loan applications received in a period
+    formula: "COUNT(*) FROM applications WHERE created_at BETWEEN :start AND :end"
+    source_columns:
+      - applications.created_at
+      - applications.status
+    caveats: >
+      Includes all application statuses (pending, approved, declined, withdrawn).
+      Filter by status for specific counts.
+
+  - name: approval_rate
+    label: Approval Rate
+    description: Percentage of completed applications that were approved
+    formula: >
+      COUNT(CASE WHEN status = 'approved' THEN 1 END) /
+      COUNT(CASE WHEN status IN ('approved', 'declined') THEN 1 END)
+    source_columns:
+      - applications.status
+      - approvals.decision
+    caveats: >
+      Excludes withdrawn and in-progress applications.
+      Denominator is completed decisions only.
+
+  - name: funding_rate
+    label: Funding Rate
+    description: Percentage of approved applications that were funded
+    formula: >
+      COUNT(DISTINCT funding_events.application_id) /
+      COUNT(CASE WHEN status = 'approved' THEN 1 END)
+    source_columns:
+      - approvals.decision
+      - funding_events.application_id
+    caveats: >
+      A funding event must exist and have status = 'funded'.
+      Approved-but-not-yet-funded applications are excluded.
+
+  - name: avg_loan_amount
+    label: Average Loan Amount
+    description: Mean funded loan amount in a period
+    formula: "AVG(funded_amount) FROM funding_events WHERE funded_at BETWEEN :start AND :end"
+    source_columns:
+      - funding_events.funded_amount
+      - funding_events.funded_at
+    caveats: >
+      Uses funded amount, not requested amount.
+      Use funded_at as the date field, not created_at.
+
+  - name: portfolio_balance
+    label: Portfolio Balance
+    description: Total outstanding principal balance of all active booked loans
+    formula: "SUM(current_balance) FROM booked_loans WHERE status = 'active'"
+    source_columns:
+      - booked_loans.status
+      - loan_balances.balance
+      - loan_balances.snapshot_date
+    caveats: >
+      Uses most recent balance snapshot.
+      Balance changes daily — always specify the as-of date.
+
+  - name: delinquency_rate
+    label: Delinquency Rate
+    description: Percentage of active loans that are 30+ days past due
+    formula: >
+      COUNT(CASE WHEN days_past_due >= 30 THEN 1 END) / COUNT(*) FROM
+      delinquency_snapshots WHERE snapshot_date = :date AND loan_status = 'active'
+    source_columns:
+      - delinquency_snapshots.days_past_due
+      - delinquency_snapshots.snapshot_date
+      - booked_loans.status
+    caveats: >
+      Measured at snapshot date, not current.
+      30+, 60+, and 90+ buckets available.
+      Use snapshot_date field — delinquency status is point-in-time.

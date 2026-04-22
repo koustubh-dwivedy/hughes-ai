@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: recon_bridge
+    description: Raw reconciliation bridge enriched with human-readable match labels
+    columns:
+      - name: bridge_id
+        data_tests: [not_null, unique]
+      - name: match_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [matched, unmatched, ambiguous]
+      - name: has_los_link
+        data_tests: [not_null]
+      - name: has_symitar_link
+        data_tests: [not_null]
+
+  - name: fct_loan_originations
+    description: One row per matched funded loan linking Origence applications to Symitar booked loans
+    columns:
+      - name: loan_id
+        data_tests: [not_null, unique]
+      - name: application_id
+        data_tests: [not_null]
+      - name: member_id
+        data_tests: [not_null]
+      - name: funded_at
+        data_tests: [not_null]
+      - name: loan_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [current, delinquent, charged_off, paid_off]
+
+  - name: fct_loan_performance
+    description: Monthly balance snapshot per loan with delinquency status
+    columns:
+      - name: loan_id
+        data_tests: [not_null]
+      - name: snapshot_date
+        data_tests: [not_null]
+      - name: balance
+        data_tests: [not_null]
+      - name: days_past_due
+        data_tests: [not_null]
+      - name: is_delinquent
+        data_tests: [not_null]
+
+  - name: dim_loan
+    description: Loan dimension with product, channel, branch, and term attributes
+    columns:
+      - name: loan_id
+        data_tests: [not_null, unique]
+      - name: product_type
+        data_tests: [not_null]
+      - name: rate_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [fixed]
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [current, delinquent, charged_off, paid_off]
