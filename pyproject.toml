@@ -22,7 +22,7 @@ strict = true
 
 [tool.bandit]
 targets = ["packages"]
-exclude_dirs = [".venv"]
+exclude_dirs = [".venv", "packages/nl-engine/tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
