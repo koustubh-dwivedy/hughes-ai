@@ -36,5 +36,9 @@ jobs:
         with:
           enable-caching: true
       - run: uv sync
+      - name: Apply schema migrations
+        run: |
+          psql $DATABASE_URL -f migrations/001_lending_schema.sql
+          psql $DATABASE_URL -f migrations/002_query_history.sql
       - name: Run NL eval
         run: bash scripts/run-nl-eval.sh 85
