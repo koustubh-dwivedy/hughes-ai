@@ -19,10 +19,12 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "T20", "S", "C90"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
+mypy_path = "packages/synth-data/src:packages/nl-engine/src:packages/api/src"
+exclude = ["packages/.*/tests/"]
 
 [tool.bandit]
 targets = ["packages"]
-exclude_dirs = [".venv", "packages/nl-engine/tests"]
+exclude_dirs = [".venv", "packages/nl-engine/tests", "packages/api/tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
