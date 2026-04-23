@@ -13,7 +13,7 @@ from nl_engine.executor import execute_sql
 from nl_engine.sql_validator import validate_sql
 from nl_engine.telemetry import span_stage
 
-_MODEL = "gemma-4-26b-a4b-it"
+_MODEL = "gemma-4-31b-it"
 
 _ROLE = (
     "You are a read-only SQL analyst for a credit union lending analytics "
