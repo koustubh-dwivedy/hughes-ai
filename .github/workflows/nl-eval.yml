@@ -4,11 +4,32 @@ on:
   schedule:
     - cron: '0 2 * * *'
   workflow_dispatch:
+  push:
+    paths:
+      - 'packages/nl-engine/**'
+      - 'scripts/eval.py'
+      - 'scripts/run-nl-eval.sh'
 
 jobs:
   nl-eval:
     name: NL Accuracy Benchmark
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cubidev
+          POSTGRES_PASSWORD: localdev
+          POSTGRES_DB: cubi
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://cubidev:localdev@localhost:5432/cubi
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -16,7 +37,4 @@ jobs:
           enable-caching: true
       - run: uv sync
       - name: Run NL eval
-        run: uv run python scripts/eval.py
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: bash scripts/run-nl-eval.sh 85

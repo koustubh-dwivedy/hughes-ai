@@ -46,6 +46,9 @@ packages/dbt-models/packages/
 # Seed cache
 .synth_cache/
 
+# NL eval cache
+packages/nl-engine/benchmarks/.cache/
+
 # Linear / Claude
 .claude/settings.local.json
 packages/dbt-models/.user.yml

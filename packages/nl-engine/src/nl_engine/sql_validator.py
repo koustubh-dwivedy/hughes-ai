@@ -26,6 +26,13 @@ def validate_sql(sql: str, ctx: SelectedContext) -> None:
     allowed_tables = {t.name for t in ctx.relevant_tables}
     allowed_columns = {c.name for c in ctx.relevant_columns}
 
+    # Collect query-level aliases so ORDER BY alias references pass validation
+    aliases = {
+        alias.alias
+        for alias in ast.find_all(sqlglot_exp.Alias)
+        if alias.alias
+    }
+
     for table in ast.find_all(sqlglot_exp.Table):
         if table.name and table.name not in allowed_tables:
             raise SQLValidationError(
@@ -33,7 +40,7 @@ def validate_sql(sql: str, ctx: SelectedContext) -> None:
             )
 
     for col in ast.find_all(sqlglot_exp.Column):
-        if col.name and col.name not in allowed_columns:
+        if col.name and col.name not in allowed_columns and col.name not in aliases:
             raise SQLValidationError(
                 "Column '" + col.name + "' is not in the allowlist"
             )

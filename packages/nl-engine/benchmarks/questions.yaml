@@ -1,681 +1,625 @@
 questions:
+- question: How many loans did we originate last month?
+  ground_truth_sql: "SELECT COUNT(*) AS origination_count\nFROM fct_loan_originations\n\
+    WHERE funded_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')\n  AND\
+    \ funded_at <  DATE_TRUNC('month', CURRENT_DATE)\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - funded_at
+  - DATE_TRUNC
+  question_type: origination_volume
+- question: What is our origination volume this year?
+  ground_truth_sql: "SELECT\n  COUNT(*) AS origination_count,\n  ROUND(SUM(funded_amount),\
+    \ 2) AS total_funded_amount\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('year',\
+    \ CURRENT_DATE)\n  AND funded_at <  CURRENT_DATE + INTERVAL '1 day'\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - SUM
+  - funded_at
+  - DATE_TRUNC
+  question_type: origination_volume
+- question: How many loans did we fund in Q1 this year?
+  ground_truth_sql: "SELECT COUNT(*) AS origination_count\nFROM fct_loan_originations\n\
+    WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)\n  AND funded_at <  DATE_TRUNC('year',\
+    \ CURRENT_DATE) + INTERVAL '3 months'\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - funded_at
+  - DATE_TRUNC
+  question_type: origination_volume
+- question: Show origination volume by channel this year
+  ground_truth_sql: "SELECT\n  channel,\n  COUNT(*) AS origination_count,\n  ROUND(SUM(funded_amount),\
+    \ 2) AS total_funded_amount\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('year',\
+    \ CURRENT_DATE)\nGROUP BY channel\nORDER BY origination_count DESC\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - SUM
+  - channel
+  - GROUP BY
+  - funded_at
+  question_type: origination_volume
+- question: What is origination volume by product type last quarter?
+  ground_truth_sql: "SELECT\n  product_type,\n  COUNT(*) AS loan_count,\n  ROUND(AVG(funded_amount),\
+    \ 2) AS avg_amount,\n  ROUND(SUM(funded_amount), 2) AS total_funded\nFROM fct_loan_originations\n\
+    WHERE funded_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')\n\
+    \  AND funded_at <  DATE_TRUNC('quarter', CURRENT_DATE)\nGROUP BY product_type\n\
+    ORDER BY loan_count DESC\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - SUM
+  - product_type
+  - GROUP BY
+  question_type: origination_volume
+- question: Which branches had the highest origination volume this year?
+  ground_truth_sql: "SELECT\n  branch_name,\n  branch_region,\n  COUNT(*) AS loan_count,\n\
+    \  ROUND(SUM(funded_amount), 2) AS total_funded\nFROM fct_loan_originations\n\
+    WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)\nGROUP BY branch_name, branch_region\n\
+    ORDER BY loan_count DESC\nLIMIT 5\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - branch_name
+  - GROUP BY
+  - ORDER BY
+  - LIMIT
+  question_type: origination_volume
+- question: Show origination trends by month over the last 12 months
+  ground_truth_sql: "SELECT\n  DATE_TRUNC('month', funded_at) AS month,\n  COUNT(*)\
+    \ AS loan_count,\n  ROUND(SUM(funded_amount), 2) AS total_funded\nFROM fct_loan_originations\n\
+    WHERE funded_at >= CURRENT_DATE - INTERVAL '12 months'\nGROUP BY DATE_TRUNC('month',\
+    \ funded_at)\nORDER BY month\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - DATE_TRUNC
+  - month
+  - GROUP BY
+  question_type: origination_volume
+- question: What is the total funded amount this year?
+  ground_truth_sql: "SELECT ROUND(SUM(funded_amount), 2) AS total_funded_amount\n\
+    FROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)\n\
+    \  AND funded_at <  CURRENT_DATE + INTERVAL '1 day'\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - SUM
+  - funded_amount
+  - funded_at
+  question_type: origination_volume
+- question: How many auto loans did we originate last quarter?
+  ground_truth_sql: "SELECT COUNT(*) AS auto_loan_count\nFROM fct_loan_originations\n\
+    WHERE product_type = 'auto'\n  AND funded_at >= DATE_TRUNC('quarter', CURRENT_DATE\
+    \ - INTERVAL '3 months')\n  AND funded_at <  DATE_TRUNC('quarter', CURRENT_DATE)\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - product_type
+  - funded_at
+  - DATE_TRUNC
+  question_type: origination_volume
+- question: How many loans did we originate in the north region this year?
+  ground_truth_sql: "SELECT\n  COUNT(*) AS origination_count,\n  ROUND(SUM(funded_amount),\
+    \ 2) AS total_funded\nFROM fct_loan_originations\nWHERE branch_region = 'north'\n\
+    \  AND funded_at >= DATE_TRUNC('year', CURRENT_DATE)\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - branch_region
+  - funded_at
+  question_type: origination_volume
+- question: What was our approval rate last quarter?
+  ground_truth_sql: "SELECT\n  ROUND(\n    COUNT(CASE WHEN has_symitar_link THEN 1\
+    \ END)::NUMERIC\n    / NULLIF(COUNT(CASE WHEN has_los_link THEN 1 END), 0) * 100,\n\
+    \    2\n  ) AS approval_rate_pct\nFROM recon_bridge\nWHERE created_at >= DATE_TRUNC('quarter',\
+    \ CURRENT_DATE - INTERVAL '3 months')\n  AND created_at <  DATE_TRUNC('quarter',\
+    \ CURRENT_DATE)\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - approval_rate_pct
+  - has_symitar_link
+  - has_los_link
+  question_type: approval_rate
+- question: How does approval rate vary by product type?
+  ground_truth_sql: "SELECT\n  product_type,\n  COUNT(*) AS funded_count\nFROM fct_loan_originations\n\
+    WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)\nGROUP BY product_type\nORDER\
+    \ BY funded_count DESC\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - product_type
+  - GROUP BY
+  question_type: approval_rate
+- question: What is the approval rate for auto loans vs personal loans last quarter?
+  ground_truth_sql: "SELECT\n  product_type,\n  COUNT(*) AS funded_count\nFROM fct_loan_originations\n\
+    WHERE product_type IN ('auto', 'personal')\n  AND funded_at >= DATE_TRUNC('quarter',\
+    \ CURRENT_DATE - INTERVAL '3 months')\n  AND funded_at <  DATE_TRUNC('quarter',\
+    \ CURRENT_DATE)\nGROUP BY product_type\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - product_type
+  - funded_at
+  - GROUP BY
+  question_type: approval_rate
+- question: How has our approval rate trended over the last 4 quarters?
+  ground_truth_sql: "SELECT\n  DATE_TRUNC('quarter', funded_at) AS quarter,\n  COUNT(*)\
+    \ AS funded_loans\nFROM fct_loan_originations\nWHERE funded_at >= CURRENT_DATE\
+    \ - INTERVAL '12 months'\nGROUP BY DATE_TRUNC('quarter', funded_at)\nORDER BY\
+    \ quarter\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - DATE_TRUNC
+  - quarter
+  - GROUP BY
+  question_type: approval_rate
+- question: What is the approval rate for online vs branch channel?
+  ground_truth_sql: "SELECT\n  channel,\n  COUNT(*) AS funded_count\nFROM fct_loan_originations\n\
+    WHERE channel IN ('online', 'branch')\n  AND funded_at >= DATE_TRUNC('year', CURRENT_DATE)\n\
+    GROUP BY channel\nORDER BY funded_count DESC\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - channel
+  - GROUP BY
+  question_type: approval_rate
+- question: What percentage of approved loans were actually funded?
+  ground_truth_sql: "SELECT\n  ROUND(\n    COUNT(CASE WHEN has_symitar_link THEN 1\
+    \ END)::NUMERIC\n    / NULLIF(COUNT(CASE WHEN has_los_link THEN 1 END), 0) * 100,\n\
+    \    2\n  ) AS funding_rate_pct\nFROM recon_bridge\n"
+  expected_tables:
+  - recon_bridge
+  expected_keywords:
+  - COUNT
+  - funding_rate_pct
+  - has_symitar_link
+  - has_los_link
+  question_type: funding_rate
+- question: What is our pull-through rate this year?
+  ground_truth_sql: "SELECT\n  ROUND(\n    COUNT(CASE WHEN has_symitar_link THEN 1\
+    \ END)::NUMERIC\n    / NULLIF(COUNT(CASE WHEN has_los_link THEN 1 END), 0) * 100,\n\
+    \    2\n  ) AS pull_through_rate_pct\nFROM recon_bridge\nWHERE created_at >= DATE_TRUNC('year',\
+    \ CURRENT_DATE)\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - funded_at
+  - application_id
+  - DATE_TRUNC
+  question_type: funding_rate
+- question: How many approvals did not result in funded loans last quarter?
+  ground_truth_sql: "SELECT COUNT(*) AS unfunded_approvals\nFROM recon_bridge\nWHERE\
+    \ has_los_link = true\n  AND has_symitar_link = false\n  AND created_at >= DATE_TRUNC('quarter',\
+    \ CURRENT_DATE - INTERVAL '3 months')\n  AND created_at <  DATE_TRUNC('quarter',\
+    \ CURRENT_DATE)\n"
+  expected_tables:
+  - recon_bridge
+  expected_keywords:
+  - COUNT
+  - has_los_link
+  - has_symitar_link
+  question_type: funding_rate
+- question: What is the funding rate by channel this year?
+  ground_truth_sql: "SELECT\n  channel,\n  COUNT(*) AS funded_count\nFROM fct_loan_originations\n\
+    WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)\nGROUP BY channel\nORDER BY\
+    \ funded_count DESC\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - channel
+  - GROUP BY
+  question_type: funding_rate
+- question: How has our funding rate changed over the last 12 months?
+  ground_truth_sql: "SELECT\n  DATE_TRUNC('month', funded_at) AS month,\n  COUNT(*)\
+    \ AS funded_loans\nFROM fct_loan_originations\nWHERE funded_at >= CURRENT_DATE\
+    \ - INTERVAL '12 months'\nGROUP BY DATE_TRUNC('month', funded_at)\nORDER BY month\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - COUNT
+  - DATE_TRUNC
+  - month
+  - funded_at
+  - GROUP BY
+  question_type: funding_rate
+- question: What is our current delinquency rate?
+  ground_truth_sql: "SELECT\n  ROUND(\n    SUM(CASE WHEN is_delinquent THEN 1 ELSE\
+    \ 0 END)::NUMERIC\n    / NULLIF(COUNT(*), 0) * 100,\n    2\n  ) AS delinquency_rate_pct\n\
+    FROM fct_loan_performance\nWHERE snapshot_date = (SELECT MAX(snapshot_date) FROM\
+    \ fct_loan_performance)\n  AND loan_status IN ('current', 'delinquent')\n"
+  expected_tables:
+  - fct_loan_performance
+  expected_keywords:
+  - is_delinquent
+  - delinquency_rate_pct
+  - snapshot_date
+  - loan_status IN
+  question_type: delinquency_rate
+- question: How many loans are 30+ days past due right now?
+  ground_truth_sql: "SELECT\n  COUNT(*) AS delinquent_loans,\n  ROUND(SUM(balance),\
+    \ 2) AS delinquent_balance\nFROM fct_loan_performance\nWHERE snapshot_date = (SELECT\
+    \ MAX(snapshot_date) FROM fct_loan_performance)\n  AND days_past_due >= 30\n"
+  expected_tables:
+  - fct_loan_performance
+  expected_keywords:
+  - COUNT
+  - days_past_due
+  - snapshot_date
+  - SUM
+  question_type: delinquency_rate
+- question: Show the delinquency rate trend over the last 6 months
+  ground_truth_sql: "SELECT\n  snapshot_date,\n  ROUND(\n    SUM(CASE WHEN is_delinquent\
+    \ THEN 1 ELSE 0 END)::NUMERIC\n    / NULLIF(COUNT(*), 0) * 100,\n    2\n  ) AS\
+    \ delinquency_rate_pct\nFROM fct_loan_performance\nWHERE snapshot_date >= CURRENT_DATE\
+    \ - INTERVAL '6 months'\n  AND loan_status IN ('current', 'delinquent')\nGROUP\
+    \ BY snapshot_date\nORDER BY snapshot_date\n"
+  expected_tables:
+  - fct_loan_performance
+  expected_keywords:
+  - is_delinquent
+  - delinquency_rate_pct
+  - snapshot_date
+  - GROUP BY
+  question_type: delinquency_rate
+- question: What is the delinquency rate by product type?
+  ground_truth_sql: "SELECT\n  o.product_type,\n  ROUND(\n    SUM(CASE WHEN p.is_delinquent\
+    \ THEN 1 ELSE 0 END)::NUMERIC\n    / NULLIF(COUNT(*), 0) * 100,\n    2\n  ) AS\
+    \ delinquency_rate_pct\nFROM fct_loan_performance p\nJOIN fct_loan_originations\
+    \ o USING (loan_id)\nWHERE p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)\n\
+    \  AND p.loan_status IN ('current', 'delinquent')\nGROUP BY o.product_type\nORDER\
+    \ BY delinquency_rate_pct DESC\n"
+  expected_tables:
+  - fct_loan_performance
+  - dim_loan
+  expected_keywords:
+  - is_delinquent
+  - product_type
+  - GROUP BY
+  - JOIN
+  - snapshot_date
+  question_type: delinquency_rate
+- question: Which branches have the highest delinquency rate?
+  ground_truth_sql: "SELECT\n  o.branch_name,\n  o.branch_region,\n  ROUND(\n    SUM(CASE\
+    \ WHEN p.is_delinquent THEN 1 ELSE 0 END)::NUMERIC\n    / NULLIF(COUNT(*), 0)\
+    \ * 100,\n    2\n  ) AS delinquency_rate_pct,\n  COUNT(*) AS active_loans\nFROM\
+    \ fct_loan_performance p\nJOIN fct_loan_originations o USING (loan_id)\nWHERE\
+    \ p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)\n  AND\
+    \ p.loan_status IN ('current', 'delinquent')\nGROUP BY o.branch_name, o.branch_region\n\
+    ORDER BY delinquency_rate_pct DESC\nLIMIT 5\n"
+  expected_tables:
+  - fct_loan_performance
+  - dim_loan
+  expected_keywords:
+  - is_delinquent
+  - branch_name
+  - GROUP BY
+  - JOIN
+  - snapshot_date
+  question_type: delinquency_rate
+- question: How many loans are 90+ days past due?
+  ground_truth_sql: "SELECT\n  COUNT(*) AS severely_delinquent_loans,\n  ROUND(SUM(balance),\
+    \ 2) AS delinquent_balance\nFROM fct_loan_performance\nWHERE snapshot_date = (SELECT\
+    \ MAX(snapshot_date) FROM fct_loan_performance)\n  AND days_past_due >= 90\n"
+  expected_tables:
+  - fct_loan_performance
+  expected_keywords:
+  - COUNT
+  - days_past_due
+  - snapshot_date
+  - SUM
+  question_type: delinquency_rate
+- question: What is the delinquency rate by DPD bucket at the latest snapshot?
+  ground_truth_sql: "SELECT\n  delinquency_bucket,\n  COUNT(*) AS loan_count,\n  ROUND(SUM(balance),\
+    \ 2) AS total_balance\nFROM fct_loan_performance\nWHERE snapshot_date = (SELECT\
+    \ MAX(snapshot_date) FROM fct_loan_performance)\n  AND delinquency_bucket IS NOT\
+    \ NULL\nGROUP BY delinquency_bucket\nORDER BY delinquency_bucket\n"
+  expected_tables:
+  - fct_loan_performance
+  expected_keywords:
+  - delinquency_bucket
+  - COUNT
+  - SUM
+  - snapshot_date
+  - GROUP BY
+  question_type: delinquency_rate
+- question: Show delinquency breakdown by region
+  ground_truth_sql: "SELECT\n  o.branch_region,\n  ROUND(\n    SUM(CASE WHEN p.is_delinquent\
+    \ THEN 1 ELSE 0 END)::NUMERIC\n    / NULLIF(COUNT(*), 0) * 100,\n    2\n  ) AS\
+    \ delinquency_rate_pct,\n  COUNT(*) AS active_loans\nFROM fct_loan_performance\
+    \ p\nJOIN fct_loan_originations o USING (loan_id)\nWHERE p.snapshot_date = (SELECT\
+    \ MAX(snapshot_date) FROM fct_loan_performance)\n  AND p.loan_status IN ('current',\
+    \ 'delinquent')\nGROUP BY o.branch_region\nORDER BY delinquency_rate_pct DESC\n"
+  expected_tables:
+  - fct_loan_performance
+  - dim_loan
+  expected_keywords:
+  - is_delinquent
+  - branch_region
+  - GROUP BY
+  - JOIN
+  question_type: delinquency_rate
+- question: What percentage of auto loans are delinquent?
+  ground_truth_sql: "SELECT\n  ROUND(\n    SUM(CASE WHEN p.is_delinquent THEN 1 ELSE\
+    \ 0 END)::NUMERIC\n    / NULLIF(COUNT(*), 0) * 100,\n    2\n  ) AS delinquency_rate_pct\n\
+    FROM fct_loan_performance p\nJOIN fct_loan_originations o USING (loan_id)\nWHERE\
+    \ p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)\n  AND\
+    \ p.loan_status IN ('current', 'delinquent')\n  AND o.product_type = 'auto'\n"
+  expected_tables:
+  - fct_loan_performance
+  - dim_loan
+  expected_keywords:
+  - is_delinquent
+  - product_type
+  - JOIN
+  - snapshot_date
+  question_type: delinquency_rate
+- question: How has the 90+ DPD rate trended over the last year?
+  ground_truth_sql: "SELECT\n  snapshot_date,\n  ROUND(\n    SUM(CASE WHEN days_past_due\
+    \ >= 90 THEN 1 ELSE 0 END)::NUMERIC\n    / NULLIF(COUNT(*), 0) * 100,\n    2\n\
+    \  ) AS severe_delinquency_rate_pct\nFROM fct_loan_performance\nWHERE snapshot_date\
+    \ >= CURRENT_DATE - INTERVAL '12 months'\n  AND loan_status IN ('current', 'delinquent')\n\
+    GROUP BY snapshot_date\nORDER BY snapshot_date\n"
+  expected_tables:
+  - fct_loan_performance
+  expected_keywords:
+  - days_past_due
+  - snapshot_date
+  - GROUP BY
+  - ROUND
+  question_type: delinquency_rate
+- question: What is our total portfolio balance today?
+  ground_truth_sql: "SELECT\n  TO_CHAR(snapshot_date, 'YYYY-MM-DD') AS as_of_date,\n\
+    \  ROUND(SUM(balance), 2) AS total_portfolio_balance\nFROM fct_loan_performance\n\
+    WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)\n\
+    \  AND loan_status IN ('current', 'delinquent')\nGROUP BY snapshot_date\n"
+  expected_tables:
+  - fct_loan_performance
+  expected_keywords:
+  - SUM
+  - balance
+  - snapshot_date
+  - total_portfolio_balance
+  question_type: portfolio_balance
+- question: How has our portfolio balance grown over the last 6 months?
+  ground_truth_sql: "SELECT\n  snapshot_date,\n  ROUND(SUM(balance), 2) AS total_balance\n\
+    FROM fct_loan_performance\nWHERE snapshot_date >= CURRENT_DATE - INTERVAL '6 months'\n\
+    \  AND loan_status IN ('current', 'delinquent')\nGROUP BY snapshot_date\nORDER\
+    \ BY snapshot_date\n"
+  expected_tables:
+  - fct_loan_performance
+  expected_keywords:
+  - SUM
+  - balance
+  - snapshot_date
+  - GROUP BY
+  question_type: portfolio_balance
+- question: What is the outstanding balance by product type?
+  ground_truth_sql: "SELECT\n  o.product_type,\n  ROUND(SUM(p.balance), 2) AS total_balance,\n\
+    \  COUNT(*) AS active_loans\nFROM fct_loan_performance p\nJOIN fct_loan_originations\
+    \ o USING (loan_id)\nWHERE p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)\n\
+    \  AND p.loan_status IN ('current', 'delinquent')\nGROUP BY o.product_type\nORDER\
+    \ BY total_balance DESC\n"
+  expected_tables:
+  - fct_loan_performance
+  - dim_loan
+  expected_keywords:
+  - SUM
+  - balance
+  - product_type
+  - GROUP BY
+  - JOIN
+  question_type: portfolio_balance
+- question: Show portfolio balance trend over the last 12 months
+  ground_truth_sql: "SELECT\n  snapshot_date,\n  ROUND(SUM(balance), 2) AS total_balance\n\
+    FROM fct_loan_performance\nWHERE snapshot_date >= CURRENT_DATE - INTERVAL '12\
+    \ months'\n  AND loan_status IN ('current', 'delinquent')\nGROUP BY snapshot_date\n\
+    ORDER BY snapshot_date\n"
+  expected_tables:
+  - fct_loan_performance
+  expected_keywords:
+  - SUM
+  - balance
+  - snapshot_date
+  - GROUP BY
+  question_type: portfolio_balance
+- question: What is the portfolio balance by region at the latest snapshot?
+  ground_truth_sql: "SELECT\n  o.branch_region,\n  ROUND(SUM(p.balance), 2) AS total_balance,\n\
+    \  COUNT(*) AS active_loans\nFROM fct_loan_performance p\nJOIN fct_loan_originations\
+    \ o USING (loan_id)\nWHERE p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)\n\
+    \  AND p.loan_status IN ('current', 'delinquent')\nGROUP BY o.branch_region\n\
+    ORDER BY total_balance DESC\n"
+  expected_tables:
+  - fct_loan_performance
+  - dim_loan
+  expected_keywords:
+  - SUM
+  - balance
+  - branch_region
+  - GROUP BY
+  - JOIN
+  question_type: portfolio_balance
+- question: What is our loan mix by product type this year?
+  ground_truth_sql: "SELECT\n  product_type,\n  COUNT(*) AS loan_count,\n  ROUND(SUM(funded_amount),\
+    \ 2) AS total_funded,\n  ROUND(COUNT(*)::NUMERIC / NULLIF(SUM(COUNT(*)) OVER (),\
+    \ 0) * 100, 2) AS mix_pct\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('year',\
+    \ CURRENT_DATE)\nGROUP BY product_type\nORDER BY loan_count DESC\n"
+  expected_tables:
+  - dim_loan
+  expected_keywords:
+  - product_type
+  - COUNT
+  - SUM
+  - GROUP BY
+  - mix_pct
+  question_type: product_mix
+- question: How are loans distributed across channels this quarter?
+  ground_truth_sql: "SELECT\n  channel,\n  COUNT(*) AS loan_count,\n  ROUND(SUM(funded_amount),\
+    \ 2) AS total_funded,\n  ROUND(COUNT(*)::NUMERIC / NULLIF(SUM(COUNT(*)) OVER (),\
+    \ 0) * 100, 2) AS channel_pct\nFROM fct_loan_originations\nWHERE funded_at >=\
+    \ DATE_TRUNC('quarter', CURRENT_DATE)\nGROUP BY channel\nORDER BY loan_count DESC\n"
+  expected_tables:
+  - dim_loan
+  expected_keywords:
+  - channel
+  - COUNT
+  - SUM
+  - GROUP BY
+  - channel_pct
+  question_type: channel_mix
+- question: What percentage of loans came from online vs branch this year?
+  ground_truth_sql: "SELECT\n  channel,\n  COUNT(*) AS loan_count,\n  ROUND(COUNT(*)::NUMERIC\
+    \ / NULLIF(SUM(COUNT(*)) OVER (), 0) * 100, 2) AS share_pct\nFROM fct_loan_originations\n\
+    WHERE channel IN ('online', 'branch')\n  AND funded_at >= DATE_TRUNC('year', CURRENT_DATE)\n\
+    GROUP BY channel\n"
+  expected_tables:
+  - dim_loan
+  expected_keywords:
+  - channel
+  - COUNT
+  - share_pct
+  - GROUP BY
+  question_type: channel_mix
+- question: Show average loan amount by product type last quarter
+  ground_truth_sql: "SELECT\n  product_type,\n  ROUND(AVG(funded_amount), 2) AS avg_loan_amount,\n\
+    \  COUNT(*) AS loan_count\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('quarter',\
+    \ CURRENT_DATE - INTERVAL '3 months')\n  AND funded_at <  DATE_TRUNC('quarter',\
+    \ CURRENT_DATE)\nGROUP BY product_type\nORDER BY avg_loan_amount DESC\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - AVG
+  - funded_amount
+  - product_type
+  - GROUP BY
+  question_type: product_mix
+- question: Which product type has the highest average loan amount?
+  ground_truth_sql: "SELECT\n  product_type,\n  ROUND(AVG(funded_amount), 2) AS avg_loan_amount,\n\
+    \  COUNT(*) AS loan_count\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('year',\
+    \ CURRENT_DATE)\nGROUP BY product_type\nORDER BY avg_loan_amount DESC\nLIMIT 1\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - AVG
+  - funded_amount
+  - product_type
+  - GROUP BY
+  - ORDER BY
+  question_type: product_mix
+- question: What is our approval rate and delinquency rate this quarter?
+  ground_truth_sql: null
+  expected_tables: []
+  expected_keywords:
+  - approval_rate
+  - delinquency_rate
+  question_type: ambiguous
+- question: How does funding rate compare to our portfolio balance trend?
+  ground_truth_sql: null
+  expected_tables: []
+  expected_keywords:
+  - funding_rate
+  - portfolio_balance
+  question_type: ambiguous
+- question: Show me both our delinquency and portfolio balance by region
+  ground_truth_sql: null
+  expected_tables: []
+  expected_keywords:
+  - delinquency_rate
+  - portfolio_balance
+  question_type: ambiguous
+- question: Are we originating more loans and is approval improving?
+  ground_truth_sql: null
+  expected_tables: []
+  expected_keywords:
+  - origination_volume
+  - approval_rate
+  question_type: ambiguous
+- question: Compare our pull-through rate and approval rate over the last year
+  ground_truth_sql: null
+  expected_tables: []
+  expected_keywords:
+  - funding_rate
+  - approval_rate
+  question_type: ambiguous
+- question: What is the average loan amount for mortgage loans this year?
+  ground_truth_sql: "SELECT ROUND(AVG(funded_amount), 2) AS avg_mortgage_amount\n\
+    FROM fct_loan_originations\nWHERE product_type = 'mortgage'\n  AND funded_at >=\
+    \ DATE_TRUNC('year', CURRENT_DATE)\n  AND funded_at <  CURRENT_DATE + INTERVAL\
+    \ '1 day'\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - AVG
+  - funded_amount
+  - product_type
+  - mortgage
+  question_type: edge_case
+- question: How many unmatched loans are in our system?
+  ground_truth_sql: 'SELECT COUNT(*) AS unmatched_count
 
-  # ─── ORIGINATION VOLUME (10) ─────────────────────────────────────────────
+    FROM recon_bridge
 
-  - question: "How many loans did we originate last month?"
-    ground_truth_sql: |
-      SELECT COUNT(*) AS origination_count
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
-        AND funded_at <  DATE_TRUNC('month', CURRENT_DATE)
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, funded_at, DATE_TRUNC]
-    question_type: origination_volume
+    WHERE match_type = ''unmatched''
 
-  - question: "What is our origination volume this year?"
-    ground_truth_sql: |
-      SELECT
-        COUNT(*) AS origination_count,
-        ROUND(SUM(funded_amount), 2) AS total_funded_amount
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-        AND funded_at <  CURRENT_DATE + INTERVAL '1 day'
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, SUM, funded_at, DATE_TRUNC]
-    question_type: origination_volume
-
-  - question: "How many loans did we fund in Q1 this year?"
-    ground_truth_sql: |
-      SELECT COUNT(*) AS origination_count
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-        AND funded_at <  DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '3 months'
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, funded_at, DATE_TRUNC]
-    question_type: origination_volume
-
-  - question: "Show origination volume by channel this year"
-    ground_truth_sql: |
-      SELECT
-        channel,
-        COUNT(*) AS origination_count,
-        ROUND(SUM(funded_amount), 2) AS total_funded_amount
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-      GROUP BY channel
-      ORDER BY origination_count DESC
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, SUM, channel, "GROUP BY", funded_at]
-    question_type: origination_volume
-
-  - question: "What is origination volume by product type last quarter?"
-    ground_truth_sql: |
-      SELECT
-        product_type,
-        COUNT(*) AS loan_count,
-        ROUND(AVG(funded_amount), 2) AS avg_amount,
-        ROUND(SUM(funded_amount), 2) AS total_funded
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')
-        AND funded_at <  DATE_TRUNC('quarter', CURRENT_DATE)
-      GROUP BY product_type
-      ORDER BY loan_count DESC
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, SUM, product_type, "GROUP BY"]
-    question_type: origination_volume
-
-  - question: "Which branches had the highest origination volume this year?"
-    ground_truth_sql: |
-      SELECT
-        branch_name,
-        branch_region,
-        COUNT(*) AS loan_count,
-        ROUND(SUM(funded_amount), 2) AS total_funded
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-      GROUP BY branch_name, branch_region
-      ORDER BY loan_count DESC
-      LIMIT 5
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, branch_name, "GROUP BY", "ORDER BY", LIMIT]
-    question_type: origination_volume
-
-  - question: "Show origination trends by month over the last 12 months"
-    ground_truth_sql: |
-      SELECT
-        DATE_TRUNC('month', funded_at) AS month,
-        COUNT(*) AS loan_count,
-        ROUND(SUM(funded_amount), 2) AS total_funded
-      FROM fct_loan_originations
-      WHERE funded_at >= CURRENT_DATE - INTERVAL '12 months'
-      GROUP BY DATE_TRUNC('month', funded_at)
-      ORDER BY month
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, DATE_TRUNC, month, "GROUP BY"]
-    question_type: origination_volume
-
-  - question: "What is the total funded amount this year?"
-    ground_truth_sql: |
-      SELECT ROUND(SUM(funded_amount), 2) AS total_funded_amount
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-        AND funded_at <  CURRENT_DATE + INTERVAL '1 day'
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [SUM, funded_amount, funded_at]
-    question_type: origination_volume
-
-  - question: "How many auto loans did we originate last quarter?"
-    ground_truth_sql: |
-      SELECT COUNT(*) AS auto_loan_count
-      FROM fct_loan_originations
-      WHERE product_type = 'auto'
-        AND funded_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')
-        AND funded_at <  DATE_TRUNC('quarter', CURRENT_DATE)
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, product_type, funded_at, DATE_TRUNC]
-    question_type: origination_volume
-
-  - question: "How many loans did we originate in the north region this year?"
-    ground_truth_sql: |
-      SELECT
-        COUNT(*) AS origination_count,
-        ROUND(SUM(funded_amount), 2) AS total_funded
-      FROM fct_loan_originations
-      WHERE branch_region = 'north'
-        AND funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, branch_region, funded_at]
-    question_type: origination_volume
-
-  # ─── APPROVAL RATE (5) ───────────────────────────────────────────────────
-  # Note: true approval rate requires the raw applications table (not in context).
-  # These use recon_bridge (funded/all-LOS-apps) or fct_loan_originations as proxies.
-
-  - question: "What was our approval rate last quarter?"
-    ground_truth_sql: |
-      SELECT
-        ROUND(
-          COUNT(CASE WHEN has_symitar_link THEN 1 END)::NUMERIC
-          / NULLIF(COUNT(CASE WHEN has_los_link THEN 1 END), 0) * 100,
-          2
-        ) AS approval_rate_pct
-      FROM recon_bridge
-      WHERE created_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')
-        AND created_at <  DATE_TRUNC('quarter', CURRENT_DATE)
-    expected_tables: [recon_bridge]
-    expected_keywords: [COUNT, approval_rate_pct, has_symitar_link, has_los_link]
-    question_type: approval_rate
-
-  - question: "How does approval rate vary by product type?"
-    ground_truth_sql: |
-      SELECT
-        product_type,
-        COUNT(*) AS funded_count
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-      GROUP BY product_type
-      ORDER BY funded_count DESC
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, product_type, "GROUP BY"]
-    question_type: approval_rate
-
-  - question: "What is the approval rate for auto loans vs personal loans last quarter?"
-    ground_truth_sql: |
-      SELECT
-        product_type,
-        COUNT(*) AS funded_count
-      FROM fct_loan_originations
-      WHERE product_type IN ('auto', 'personal')
-        AND funded_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')
-        AND funded_at <  DATE_TRUNC('quarter', CURRENT_DATE)
-      GROUP BY product_type
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, product_type, funded_at, "GROUP BY"]
-    question_type: approval_rate
-
-  - question: "How has our approval rate trended over the last 4 quarters?"
-    ground_truth_sql: |
-      SELECT
-        DATE_TRUNC('quarter', funded_at) AS quarter,
-        COUNT(*) AS funded_loans
-      FROM fct_loan_originations
-      WHERE funded_at >= CURRENT_DATE - INTERVAL '12 months'
-      GROUP BY DATE_TRUNC('quarter', funded_at)
-      ORDER BY quarter
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, DATE_TRUNC, quarter, "GROUP BY"]
-    question_type: approval_rate
-
-  - question: "What is the approval rate for online vs branch channel?"
-    ground_truth_sql: |
-      SELECT
-        channel,
-        COUNT(*) AS funded_count
-      FROM fct_loan_originations
-      WHERE channel IN ('online', 'branch')
-        AND funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-      GROUP BY channel
-      ORDER BY funded_count DESC
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, channel, "GROUP BY"]
-    question_type: approval_rate
-
-  # ─── FUNDING RATE (5) ────────────────────────────────────────────────────
-  # Note: true funding rate requires raw applications+approvals tables (not in context).
-  # recon_bridge proxy: has_symitar_link / has_los_link.
-
-  - question: "What percentage of approved loans were actually funded?"
-    ground_truth_sql: |
-      SELECT
-        ROUND(
-          COUNT(CASE WHEN has_symitar_link THEN 1 END)::NUMERIC
-          / NULLIF(COUNT(CASE WHEN has_los_link THEN 1 END), 0) * 100,
-          2
-        ) AS funding_rate_pct
-      FROM recon_bridge
-    expected_tables: [recon_bridge]
-    expected_keywords: [COUNT, funding_rate_pct, has_symitar_link, has_los_link]
-    question_type: funding_rate
-
-  - question: "What is our pull-through rate this year?"
-    ground_truth_sql: |
-      SELECT
-        ROUND(
-          COUNT(CASE WHEN has_symitar_link THEN 1 END)::NUMERIC
-          / NULLIF(COUNT(CASE WHEN has_los_link THEN 1 END), 0) * 100,
-          2
-        ) AS pull_through_rate_pct
-      FROM recon_bridge
-      WHERE created_at >= DATE_TRUNC('year', CURRENT_DATE)
-    expected_tables: [recon_bridge]
-    expected_keywords: [COUNT, pull_through_rate_pct, has_symitar_link, created_at]
-    question_type: funding_rate
-
-  - question: "How many approvals did not result in funded loans last quarter?"
-    ground_truth_sql: |
-      SELECT COUNT(*) AS unfunded_approvals
-      FROM recon_bridge
-      WHERE has_los_link = true
-        AND has_symitar_link = false
-        AND created_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')
-        AND created_at <  DATE_TRUNC('quarter', CURRENT_DATE)
-    expected_tables: [recon_bridge]
-    expected_keywords: [COUNT, has_los_link, has_symitar_link]
-    question_type: funding_rate
-
-  - question: "What is the funding rate by channel this year?"
-    ground_truth_sql: |
-      SELECT
-        channel,
-        COUNT(*) AS funded_count
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-      GROUP BY channel
-      ORDER BY funded_count DESC
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, channel, "GROUP BY"]
-    question_type: funding_rate
-
-  - question: "How has our funding rate changed over the last 12 months?"
-    ground_truth_sql: |
-      SELECT
-        DATE_TRUNC('month', funded_at) AS month,
-        COUNT(*) AS funded_loans
-      FROM fct_loan_originations
-      WHERE funded_at >= CURRENT_DATE - INTERVAL '12 months'
-      GROUP BY DATE_TRUNC('month', funded_at)
-      ORDER BY month
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [COUNT, DATE_TRUNC, month, funded_at, "GROUP BY"]
-    question_type: funding_rate
-
-  # ─── DELINQUENCY (10) ────────────────────────────────────────────────────
-
-  - question: "What is our current delinquency rate?"
-    ground_truth_sql: |
-      SELECT
-        ROUND(
-          SUM(CASE WHEN is_delinquent THEN 1 ELSE 0 END)::NUMERIC
-          / NULLIF(COUNT(*), 0) * 100,
-          2
-        ) AS delinquency_rate_pct
-      FROM fct_loan_performance
-      WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
-        AND loan_status IN ('current', 'delinquent')
-    expected_tables: [fct_loan_performance]
-    expected_keywords: [is_delinquent, delinquency_rate_pct, snapshot_date, "loan_status IN"]
-    question_type: delinquency_rate
-
-  - question: "How many loans are 30+ days past due right now?"
-    ground_truth_sql: |
-      SELECT
-        COUNT(*) AS delinquent_loans,
-        ROUND(SUM(balance), 2) AS delinquent_balance
-      FROM fct_loan_performance
-      WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
-        AND days_past_due >= 30
-    expected_tables: [fct_loan_performance]
-    expected_keywords: [COUNT, days_past_due, snapshot_date, SUM]
-    question_type: delinquency_rate
-
-  - question: "Show the delinquency rate trend over the last 6 months"
-    ground_truth_sql: |
-      SELECT
-        snapshot_date,
-        ROUND(
-          SUM(CASE WHEN is_delinquent THEN 1 ELSE 0 END)::NUMERIC
-          / NULLIF(COUNT(*), 0) * 100,
-          2
-        ) AS delinquency_rate_pct
-      FROM fct_loan_performance
-      WHERE snapshot_date >= CURRENT_DATE - INTERVAL '6 months'
-        AND loan_status IN ('current', 'delinquent')
-      GROUP BY snapshot_date
-      ORDER BY snapshot_date
-    expected_tables: [fct_loan_performance]
-    expected_keywords: [is_delinquent, delinquency_rate_pct, snapshot_date, "GROUP BY"]
-    question_type: delinquency_rate
-
-  - question: "What is the delinquency rate by product type?"
-    ground_truth_sql: |
-      SELECT
-        o.product_type,
-        ROUND(
-          SUM(CASE WHEN p.is_delinquent THEN 1 ELSE 0 END)::NUMERIC
-          / NULLIF(COUNT(*), 0) * 100,
-          2
-        ) AS delinquency_rate_pct
-      FROM fct_loan_performance p
-      JOIN fct_loan_originations o USING (loan_id)
-      WHERE p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
-        AND p.loan_status IN ('current', 'delinquent')
-      GROUP BY o.product_type
-      ORDER BY delinquency_rate_pct DESC
-    expected_tables: [fct_loan_performance, fct_loan_originations]
-    expected_keywords: [is_delinquent, product_type, "GROUP BY", JOIN, snapshot_date]
-    question_type: delinquency_rate
-
-  - question: "Which branches have the highest delinquency rate?"
-    ground_truth_sql: |
-      SELECT
-        o.branch_name,
-        o.branch_region,
-        ROUND(
-          SUM(CASE WHEN p.is_delinquent THEN 1 ELSE 0 END)::NUMERIC
-          / NULLIF(COUNT(*), 0) * 100,
-          2
-        ) AS delinquency_rate_pct,
-        COUNT(*) AS active_loans
-      FROM fct_loan_performance p
-      JOIN fct_loan_originations o USING (loan_id)
-      WHERE p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
-        AND p.loan_status IN ('current', 'delinquent')
-      GROUP BY o.branch_name, o.branch_region
-      ORDER BY delinquency_rate_pct DESC
-      LIMIT 5
-    expected_tables: [fct_loan_performance, fct_loan_originations]
-    expected_keywords: [is_delinquent, branch_name, "GROUP BY", JOIN, snapshot_date]
-    question_type: delinquency_rate
-
-  - question: "How many loans are 90+ days past due?"
-    ground_truth_sql: |
-      SELECT
-        COUNT(*) AS severely_delinquent_loans,
-        ROUND(SUM(balance), 2) AS delinquent_balance
-      FROM fct_loan_performance
-      WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
-        AND days_past_due >= 90
-    expected_tables: [fct_loan_performance]
-    expected_keywords: [COUNT, days_past_due, snapshot_date, SUM]
-    question_type: delinquency_rate
-
-  - question: "What is the delinquency rate by DPD bucket at the latest snapshot?"
-    ground_truth_sql: |
-      SELECT
-        delinquency_bucket,
-        COUNT(*) AS loan_count,
-        ROUND(SUM(balance), 2) AS total_balance
-      FROM fct_loan_performance
-      WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
-        AND delinquency_bucket IS NOT NULL
-      GROUP BY delinquency_bucket
-      ORDER BY delinquency_bucket
-    expected_tables: [fct_loan_performance]
-    expected_keywords: [delinquency_bucket, COUNT, SUM, snapshot_date, "GROUP BY"]
-    question_type: delinquency_rate
-
-  - question: "Show delinquency breakdown by region"
-    ground_truth_sql: |
-      SELECT
-        o.branch_region,
-        ROUND(
-          SUM(CASE WHEN p.is_delinquent THEN 1 ELSE 0 END)::NUMERIC
-          / NULLIF(COUNT(*), 0) * 100,
-          2
-        ) AS delinquency_rate_pct,
-        COUNT(*) AS active_loans
-      FROM fct_loan_performance p
-      JOIN fct_loan_originations o USING (loan_id)
-      WHERE p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
-        AND p.loan_status IN ('current', 'delinquent')
-      GROUP BY o.branch_region
-      ORDER BY delinquency_rate_pct DESC
-    expected_tables: [fct_loan_performance, fct_loan_originations]
-    expected_keywords: [is_delinquent, branch_region, "GROUP BY", JOIN]
-    question_type: delinquency_rate
-
-  - question: "What percentage of auto loans are delinquent?"
-    ground_truth_sql: |
-      SELECT
-        ROUND(
-          SUM(CASE WHEN p.is_delinquent THEN 1 ELSE 0 END)::NUMERIC
-          / NULLIF(COUNT(*), 0) * 100,
-          2
-        ) AS delinquency_rate_pct
-      FROM fct_loan_performance p
-      JOIN fct_loan_originations o USING (loan_id)
-      WHERE p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
-        AND p.loan_status IN ('current', 'delinquent')
-        AND o.product_type = 'auto'
-    expected_tables: [fct_loan_performance, fct_loan_originations]
-    expected_keywords: [is_delinquent, product_type, JOIN, snapshot_date]
-    question_type: delinquency_rate
-
-  - question: "How has the 90+ DPD rate trended over the last year?"
-    ground_truth_sql: |
-      SELECT
-        snapshot_date,
-        ROUND(
-          SUM(CASE WHEN days_past_due >= 90 THEN 1 ELSE 0 END)::NUMERIC
-          / NULLIF(COUNT(*), 0) * 100,
-          2
-        ) AS severe_delinquency_rate_pct
-      FROM fct_loan_performance
-      WHERE snapshot_date >= CURRENT_DATE - INTERVAL '12 months'
-        AND loan_status IN ('current', 'delinquent')
-      GROUP BY snapshot_date
-      ORDER BY snapshot_date
-    expected_tables: [fct_loan_performance]
-    expected_keywords: [days_past_due, snapshot_date, "GROUP BY", ROUND]
-    question_type: delinquency_rate
-
-  # ─── PORTFOLIO BALANCE (5) ───────────────────────────────────────────────
-
-  - question: "What is our total portfolio balance today?"
-    ground_truth_sql: |
-      SELECT
-        TO_CHAR(snapshot_date, 'YYYY-MM-DD') AS as_of_date,
-        ROUND(SUM(balance), 2) AS total_portfolio_balance
-      FROM fct_loan_performance
-      WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
-        AND loan_status IN ('current', 'delinquent')
-      GROUP BY snapshot_date
-    expected_tables: [fct_loan_performance]
-    expected_keywords: [SUM, balance, snapshot_date, total_portfolio_balance]
-    question_type: portfolio_balance
-
-  - question: "How has our portfolio balance grown over the last 6 months?"
-    ground_truth_sql: |
-      SELECT
-        snapshot_date,
-        ROUND(SUM(balance), 2) AS total_balance
-      FROM fct_loan_performance
-      WHERE snapshot_date >= CURRENT_DATE - INTERVAL '6 months'
-        AND loan_status IN ('current', 'delinquent')
-      GROUP BY snapshot_date
-      ORDER BY snapshot_date
-    expected_tables: [fct_loan_performance]
-    expected_keywords: [SUM, balance, snapshot_date, "GROUP BY"]
-    question_type: portfolio_balance
-
-  - question: "What is the outstanding balance by product type?"
-    ground_truth_sql: |
-      SELECT
-        o.product_type,
-        ROUND(SUM(p.balance), 2) AS total_balance,
-        COUNT(*) AS active_loans
-      FROM fct_loan_performance p
-      JOIN fct_loan_originations o USING (loan_id)
-      WHERE p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
-        AND p.loan_status IN ('current', 'delinquent')
-      GROUP BY o.product_type
-      ORDER BY total_balance DESC
-    expected_tables: [fct_loan_performance, fct_loan_originations]
-    expected_keywords: [SUM, balance, product_type, "GROUP BY", JOIN]
-    question_type: portfolio_balance
-
-  - question: "Show portfolio balance trend over the last 12 months"
-    ground_truth_sql: |
-      SELECT
-        snapshot_date,
-        ROUND(SUM(balance), 2) AS total_balance
-      FROM fct_loan_performance
-      WHERE snapshot_date >= CURRENT_DATE - INTERVAL '12 months'
-        AND loan_status IN ('current', 'delinquent')
-      GROUP BY snapshot_date
-      ORDER BY snapshot_date
-    expected_tables: [fct_loan_performance]
-    expected_keywords: [SUM, balance, snapshot_date, "GROUP BY"]
-    question_type: portfolio_balance
-
-  - question: "What is the portfolio balance by region at the latest snapshot?"
-    ground_truth_sql: |
-      SELECT
-        o.branch_region,
-        ROUND(SUM(p.balance), 2) AS total_balance,
-        COUNT(*) AS active_loans
-      FROM fct_loan_performance p
-      JOIN fct_loan_originations o USING (loan_id)
-      WHERE p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)
-        AND p.loan_status IN ('current', 'delinquent')
-      GROUP BY o.branch_region
-      ORDER BY total_balance DESC
-    expected_tables: [fct_loan_performance, fct_loan_originations]
-    expected_keywords: [SUM, balance, branch_region, "GROUP BY", JOIN]
-    question_type: portfolio_balance
-
-  # ─── CHANNEL MIX / PRODUCT MIX (5) ──────────────────────────────────────
-
-  - question: "What is our loan mix by product type this year?"
-    ground_truth_sql: |
-      SELECT
-        product_type,
-        COUNT(*) AS loan_count,
-        ROUND(SUM(funded_amount), 2) AS total_funded,
-        ROUND(COUNT(*)::NUMERIC / NULLIF(SUM(COUNT(*)) OVER (), 0) * 100, 2) AS mix_pct
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-      GROUP BY product_type
-      ORDER BY loan_count DESC
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [product_type, COUNT, SUM, "GROUP BY", mix_pct]
-    question_type: product_mix
-
-  - question: "How are loans distributed across channels this quarter?"
-    ground_truth_sql: |
-      SELECT
-        channel,
-        COUNT(*) AS loan_count,
-        ROUND(SUM(funded_amount), 2) AS total_funded,
-        ROUND(COUNT(*)::NUMERIC / NULLIF(SUM(COUNT(*)) OVER (), 0) * 100, 2) AS channel_pct
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('quarter', CURRENT_DATE)
-      GROUP BY channel
-      ORDER BY loan_count DESC
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [channel, COUNT, SUM, "GROUP BY", channel_pct]
-    question_type: channel_mix
-
-  - question: "What percentage of loans came from online vs branch this year?"
-    ground_truth_sql: |
-      SELECT
-        channel,
-        COUNT(*) AS loan_count,
-        ROUND(COUNT(*)::NUMERIC / NULLIF(SUM(COUNT(*)) OVER (), 0) * 100, 2) AS share_pct
-      FROM fct_loan_originations
-      WHERE channel IN ('online', 'branch')
-        AND funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-      GROUP BY channel
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [channel, COUNT, share_pct, "GROUP BY"]
-    question_type: channel_mix
-
-  - question: "Show average loan amount by product type last quarter"
-    ground_truth_sql: |
-      SELECT
-        product_type,
-        ROUND(AVG(funded_amount), 2) AS avg_loan_amount,
-        COUNT(*) AS loan_count
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')
-        AND funded_at <  DATE_TRUNC('quarter', CURRENT_DATE)
-      GROUP BY product_type
-      ORDER BY avg_loan_amount DESC
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [AVG, funded_amount, product_type, "GROUP BY"]
-    question_type: product_mix
-
-  - question: "Which product type has the highest average loan amount?"
-    ground_truth_sql: |
-      SELECT
-        product_type,
-        ROUND(AVG(funded_amount), 2) AS avg_loan_amount,
-        COUNT(*) AS loan_count
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-      GROUP BY product_type
-      ORDER BY avg_loan_amount DESC
-      LIMIT 1
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [AVG, funded_amount, product_type, "GROUP BY", "ORDER BY"]
-    question_type: product_mix
-
-  # ─── AMBIGUOUS (5) ───────────────────────────────────────────────────────
-  # These trigger >=2 metric routes in context_selector → engine returns ClarificationResponse
-
-  - question: "What is our approval rate and delinquency rate this quarter?"
-    ground_truth_sql: null
-    expected_tables: []
-    expected_keywords: [approval_rate, delinquency_rate]
-    question_type: ambiguous
-
-  - question: "How does funding rate compare to our portfolio balance trend?"
-    ground_truth_sql: null
-    expected_tables: []
-    expected_keywords: [funding_rate, portfolio_balance]
-    question_type: ambiguous
-
-  - question: "Show me both our delinquency and portfolio balance by region"
-    ground_truth_sql: null
-    expected_tables: []
-    expected_keywords: [delinquency_rate, portfolio_balance]
-    question_type: ambiguous
-
-  - question: "Are we originating more loans and is approval improving?"
-    ground_truth_sql: null
-    expected_tables: []
-    expected_keywords: [origination_volume, approval_rate]
-    question_type: ambiguous
-
-  - question: "Compare our pull-through rate and approval rate over the last year"
-    ground_truth_sql: null
-    expected_tables: []
-    expected_keywords: [funding_rate, approval_rate]
-    question_type: ambiguous
-
-  # ─── EDGE CASES (5) ──────────────────────────────────────────────────────
-
-  - question: "What is the average loan amount for mortgage loans this year?"
-    ground_truth_sql: |
-      SELECT ROUND(AVG(funded_amount), 2) AS avg_mortgage_amount
-      FROM fct_loan_originations
-      WHERE product_type = 'mortgage'
-        AND funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-        AND funded_at <  CURRENT_DATE + INTERVAL '1 day'
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [AVG, funded_amount, product_type, mortgage]
-    question_type: edge_case
-
-  - question: "How many unmatched loans are in our system?"
-    ground_truth_sql: |
-      SELECT COUNT(*) AS unmatched_count
-      FROM recon_bridge
-      WHERE match_type = 'unmatched'
-    expected_tables: [recon_bridge]
-    expected_keywords: [COUNT, match_type, unmatched]
-    question_type: edge_case
-
-  - question: "What is our reconciliation match rate?"
-    ground_truth_sql: |
-      SELECT
-        ROUND(
-          COUNT(CASE WHEN match_type = 'matched' THEN 1 END)::NUMERIC
-          / NULLIF(COUNT(*), 0) * 100,
-          2
-        ) AS match_rate_pct
-      FROM recon_bridge
-    expected_tables: [recon_bridge]
-    expected_keywords: [COUNT, match_type, match_rate_pct]
-    question_type: edge_case
-
-  - question: "Show average loan term in months by product type"
-    ground_truth_sql: |
-      SELECT
-        product_type,
-        ROUND(AVG(term_months), 1) AS avg_term_months
-      FROM fct_loan_originations
-      GROUP BY product_type
-      ORDER BY avg_term_months DESC
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [AVG, term_months, product_type, "GROUP BY"]
-    question_type: edge_case
-
-  - question: "What is the average interest rate for auto loans funded this year?"
-    ground_truth_sql: |
-      SELECT ROUND(AVG(rate) * 100, 3) AS avg_rate_pct
-      FROM fct_loan_originations
-      WHERE product_type = 'auto'
-        AND funded_at >= DATE_TRUNC('year', CURRENT_DATE)
-    expected_tables: [fct_loan_originations]
-    expected_keywords: [AVG, rate, product_type, funded_at]
-    question_type: edge_case
+    '
+  expected_tables:
+  - recon_bridge
+  expected_keywords:
+  - COUNT
+  - match_type
+  - unmatched
+  question_type: edge_case
+- question: What is our reconciliation match rate?
+  ground_truth_sql: "SELECT\n  ROUND(\n    COUNT(CASE WHEN match_type = 'matched'\
+    \ THEN 1 END)::NUMERIC\n    / NULLIF(COUNT(*), 0) * 100,\n    2\n  ) AS match_rate_pct\n\
+    FROM recon_bridge\n"
+  expected_tables:
+  - recon_bridge
+  expected_keywords:
+  - COUNT
+  - match_type
+  - match_rate_pct
+  question_type: edge_case
+- question: Show average loan term in months by product type
+  ground_truth_sql: "SELECT\n  product_type,\n  ROUND(AVG(term_months), 1) AS avg_term_months\n\
+    FROM fct_loan_originations\nGROUP BY product_type\nORDER BY avg_term_months DESC\n"
+  expected_tables:
+  - dim_loan
+  expected_keywords:
+  - AVG
+  - term_months
+  - product_type
+  - GROUP BY
+  question_type: edge_case
+- question: What is the average interest rate for auto loans funded this year?
+  ground_truth_sql: "SELECT ROUND(AVG(rate) * 100, 3) AS avg_rate_pct\nFROM fct_loan_originations\n\
+    WHERE product_type = 'auto'\n  AND funded_at >= DATE_TRUNC('year', CURRENT_DATE)\n"
+  expected_tables:
+  - fct_loan_originations
+  expected_keywords:
+  - AVG
+  - rate
+  - product_type
+  - funded_at
+  question_type: edge_case

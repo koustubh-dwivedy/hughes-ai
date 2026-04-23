@@ -13,7 +13,7 @@ from nl_engine.executor import execute_sql
 from nl_engine.sql_validator import validate_sql
 from nl_engine.telemetry import span_stage
 
-_MODEL = "gemma-4-27b-it"
+_MODEL = "gemma-4-26b-a4b-it"
 
 _ROLE = (
     "You are a read-only SQL analyst for a credit union lending analytics "
@@ -136,7 +136,12 @@ def _call_llm(system_prompt: str, question: str) -> dict[str, object]:
     text = response.text
     if text is None:
         raise ValueError("Empty LLM response")
-    result: dict[str, object] = json.loads(text)
+    parsed: object = json.loads(text)
+    if isinstance(parsed, list):
+        parsed = parsed[0] if parsed else {}
+    if not isinstance(parsed, dict):
+        raise ValueError(f"Unexpected LLM response shape: {type(parsed)}")
+    result: dict[str, object] = parsed
     return result
 
 
