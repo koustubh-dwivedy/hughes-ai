@@ -52,6 +52,10 @@ class ClarificationResponse:
     question: str
 
 
+def _str_list(val: object) -> list[str]:
+    return [str(v) for v in val] if isinstance(val, list) else []
+
+
 def _fmt_tables(ctx: SelectedContext) -> str:
     parts = []
     for t in ctx.relevant_tables:
@@ -83,6 +87,34 @@ def _build_system_prompt(ctx: SelectedContext) -> str:
         sections.append("## Examples\n" + _fmt_examples(ctx))
     sections.append("## Output format\n" + _JSON_FORMAT)
     return "\n\n".join(sections)
+
+
+def _is_ambiguous(selected: SelectedContext) -> bool:
+    return len(selected.relevant_metrics) >= 2
+
+
+def _ambiguity_clarification(selected: SelectedContext) -> ClarificationResponse:
+    labels = [m.label for m in selected.relevant_metrics]
+    options = ", ".join(labels[:-1]) + " or " + labels[-1]
+    return ClarificationResponse(
+        question="Your question could refer to multiple metrics: "
+        + options
+        + ". Which one are you asking about?"
+    )
+
+
+def _inject_metric_caveats(
+    answer: AnswerResponse, selected: SelectedContext
+) -> AnswerResponse:
+    existing = set(answer.caveats)
+    extra = [
+        m.caveats
+        for m in selected.relevant_metrics
+        if m.caveats and m.caveats not in existing
+    ]
+    if extra:
+        answer.caveats = answer.caveats + extra
+    return answer
 
 
 @span_stage("select_context")
@@ -130,18 +162,15 @@ def ask(
     selected = _select_context(selector, question)
     if not selected.relevant_tables:
         return ClarificationResponse(
-            question=(
-                "Could you clarify which aspect of lending you're asking about?"
-            )
+            question="Could you clarify which aspect of lending you're asking about?"
         )
+    if _is_ambiguous(selected):
+        return _ambiguity_clarification(selected)
     system_prompt = _build_system_prompt(selected)
     raw = _call_llm(system_prompt, question)
     sql = _run_validation(raw, selected)
     rows, columns = _run_query(sql, db_url)
-    def _str_list(val: object) -> list[str]:
-        return [str(v) for v in val] if isinstance(val, list) else []
-
-    return AnswerResponse(
+    answer = AnswerResponse(
         sql=sql,
         explanation=str(raw.get("explanation", "")),
         tables_used=_str_list(raw.get("tables_used")),
@@ -150,3 +179,4 @@ def ask(
         rows=rows,
         columns=columns,
     )
+    return _inject_metric_caveats(answer, selected)
