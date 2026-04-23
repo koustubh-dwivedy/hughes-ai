@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from nl_engine.context_loader import load_all
 
 from api.middleware.request_id import RequestIDMiddleware
-from api.routes import ask, health, metrics_route
+from api.routes import ask, health, history, metrics_route, trust
 
 
 @asynccontextmanager
@@ -22,4 +22,6 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(RequestIDMiddleware)
 app.include_router(ask.router)
 app.include_router(health.router)
+app.include_router(history.router)
 app.include_router(metrics_route.router)
+app.include_router(trust.router)

@@ -40,6 +40,23 @@ def save_query(
     return record_id
 
 
+def get_history_by_id(
+    record_id: uuid.UUID, db_url: str
+) -> dict[str, object] | None:
+    with psycopg.connect(db_url) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, question, sql, answer_json, assumptions, caveats, "
+            "lineage_json, token_usage, created_at "
+            "FROM query_history WHERE id = %s",
+            (record_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [d.name for d in cur.description or []]
+        return dict(zip(cols, row, strict=False))
+
+
 def get_history(limit: int, db_url: str) -> list[dict[str, object]]:
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
