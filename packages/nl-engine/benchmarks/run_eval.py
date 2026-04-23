@@ -58,6 +58,23 @@ def _deserialize(data: dict[str, object]) -> AnswerResponse | ClarificationRespo
     return ClarificationResponse(question=str(data.get("question", "")))
 
 
+def _table_jaccard(
+    expected: set[str], actual: set[str]
+) -> float:
+    if not expected:
+        return 1.0
+    union = expected | actual
+    return len(expected & actual) / len(union) if union else 1.0
+
+
+def _keyword_frac(expected: list[str], sql: str) -> float:
+    if not expected:
+        return 1.0
+    sql_upper = sql.upper()
+    matched = sum(1 for kw in expected if kw.upper() in sql_upper)
+    return matched / len(expected)
+
+
 def _score(
     q: dict[str, object],
     result: AnswerResponse | ClarificationResponse,
@@ -95,29 +112,16 @@ def _score(
 
     sql = result.sql or ""
     sql_valid = bool(sql.strip())
-
-    actual_tables: set[str] = set(result.tables_used or [])
-    if expected_tables:
-        union = expected_tables | actual_tables
-        jaccard = len(expected_tables & actual_tables) / len(union) if union else 1.0
-    else:
-        jaccard = 1.0
-
-    sql_upper = sql.upper()
-    if expected_keywords:
-        matched = sum(1 for kw in expected_keywords if kw.upper() in sql_upper)
-        keyword_frac = matched / len(expected_keywords)
-    else:
-        keyword_frac = 1.0
-
-    correct = sql_valid and jaccard >= PASS_THRESHOLD and keyword_frac >= PASS_THRESHOLD
+    jaccard = _table_jaccard(expected_tables, set(result.tables_used or []))
+    kw_frac = _keyword_frac(expected_keywords, sql)
+    correct = sql_valid and jaccard >= PASS_THRESHOLD and kw_frac >= PASS_THRESHOLD
     return {
         "question": q["question"],
         "question_type": qtype,
         "correct": correct,
         "sql_valid": sql_valid,
         "table_jaccard": round(jaccard, 3),
-        "keyword_frac": round(keyword_frac, 3),
+        "keyword_frac": round(kw_frac, 3),
     }
 
 
