@@ -128,7 +128,7 @@ questions:
     \ CURRENT_DATE - INTERVAL '3 months')\n  AND created_at <  DATE_TRUNC('quarter',\
     \ CURRENT_DATE)\n"
   expected_tables:
-  - fct_loan_originations
+  - recon_bridge
   expected_keywords:
   - COUNT
   - approval_rate_pct
@@ -201,12 +201,12 @@ questions:
     \    2\n  ) AS pull_through_rate_pct\nFROM recon_bridge\nWHERE created_at >= DATE_TRUNC('year',\
     \ CURRENT_DATE)\n"
   expected_tables:
-  - fct_loan_originations
+  - recon_bridge
   expected_keywords:
   - COUNT
-  - funded_at
-  - application_id
-  - DATE_TRUNC
+  - has_symitar_link
+  - has_los_link
+  - created_at
   question_type: funding_rate
 - question: How many approvals did not result in funded loans last quarter?
   ground_truth_sql: "SELECT COUNT(*) AS unfunded_approvals\nFROM recon_bridge\nWHERE\

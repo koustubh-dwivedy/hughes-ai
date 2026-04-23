@@ -24,15 +24,15 @@ _ROUTES: list[_Route] = [
     (
         ["approval", "approve", "approved", "declined", "underwriting",
          "credit decision"],
-        ["fct_loan_originations"],
+        ["fct_loan_originations", "recon_bridge"],
         ["approval_rate"],
-        ["loan_status"],
+        ["loan_status", "has_los_link", "has_symitar_link", "match_type", "created_at"],
     ),
     (
         ["funding rate", "pull-through", "pull through", "pullthrough"],
-        ["fct_loan_originations"],
+        ["fct_loan_originations", "recon_bridge"],
         ["funding_rate"],
-        [],
+        ["has_los_link", "has_symitar_link", "created_at"],
     ),
     (
         ["average loan", "avg loan", "loan amount", "loan size", "mean loan"],

@@ -3,17 +3,16 @@ examples:
     sql: |
       SELECT
         ROUND(
-          COUNT(CASE WHEN loan_status IS NOT NULL THEN 1 END)::NUMERIC
-          / NULLIF(COUNT(*), 0) * 100,
+          COUNT(CASE WHEN has_symitar_link THEN 1 END)::NUMERIC
+          / NULLIF(COUNT(CASE WHEN has_los_link THEN 1 END), 0) * 100,
           2
         ) AS approval_rate_pct
-      FROM fct_loan_originations
-      WHERE funded_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')
-        AND funded_at <  DATE_TRUNC('quarter', CURRENT_DATE)
+      FROM recon_bridge
+      WHERE created_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')
+        AND created_at <  DATE_TRUNC('quarter', CURRENT_DATE)
     notes: >
-      fct_loan_originations only contains approved+funded loans so this
-      approximates approval rate; for true approval rate query the raw
-      applications table grouped by status.
+      Use recon_bridge for approval rate. has_los_link = application received;
+      has_symitar_link = loan booked in core. Ratio gives funded/applied rate.
 
   - question: "How many loans did we originate last month?"
     sql: |

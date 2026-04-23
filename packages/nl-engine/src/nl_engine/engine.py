@@ -1,11 +1,14 @@
-"""NL→SQL pipeline: question → context → Gemma 4 → validate → execute → answer."""
+"""NL→SQL pipeline: question → context → Qwen 3 (Cerebras) → validate → execute."""
 
 import json
 import os
+import time
 from dataclasses import dataclass
 
-import google.genai as genai
-import google.genai.types as gtypes
+from cerebras.cloud.sdk import Cerebras, RateLimitError
+from cerebras.cloud.sdk.types.chat.chat_completion import (
+    ChatCompletionResponse,
+)
 
 from nl_engine.context_loader import AllContext
 from nl_engine.context_selector import ContextSelector, SelectedContext
@@ -13,7 +16,13 @@ from nl_engine.executor import execute_sql
 from nl_engine.sql_validator import validate_sql
 from nl_engine.telemetry import span_stage
 
-_MODEL = "gemma-4-31b-it"
+_MODEL = "qwen-3-235b-a22b-instruct-2507"
+_MODEL_FALLBACK = "llama3.1-8b"
+
+# 5 requests per minute — enforce a minimum gap between calls (13s gives
+# ~4.6 req/min, leaving headroom for calls made outside this process)
+_MIN_CALL_GAP = 13.0
+_last_call_time: float = 0.0
 
 _ROLE = (
     "You are a read-only SQL analyst for a credit union lending analytics "
@@ -117,23 +126,56 @@ def _inject_metric_caveats(
     return answer
 
 
+def _rate_limit_wait() -> None:
+    """Enforce a minimum gap between calls to stay within 5 req/min."""
+    global _last_call_time
+    gap = time.monotonic() - _last_call_time
+    if gap < _MIN_CALL_GAP:
+        time.sleep(_MIN_CALL_GAP - gap)
+    _last_call_time = time.monotonic()
+
+
 @span_stage("select_context")
 def _select_context(selector: ContextSelector, question: str) -> SelectedContext:
     return selector.select(question)
 
 
+def _create(
+    client: Cerebras, model: str, system_prompt: str, question: str
+) -> ChatCompletionResponse:
+    raw = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question},
+        ],
+        response_format={"type": "json_object"},
+    )
+    if not isinstance(raw, ChatCompletionResponse):
+        raise ValueError(f"Unexpected response type: {type(raw)}")
+    return raw
+
+
 @span_stage("call_llm")
 def _call_llm(system_prompt: str, question: str) -> dict[str, object]:
-    client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
-    response = client.models.generate_content(
-        model=_MODEL,
-        contents=question,
-        config=gtypes.GenerateContentConfig(
-            system_instruction=system_prompt,
-            response_mime_type="application/json",
-        ),
-    )
-    text = response.text
+    _rate_limit_wait()
+    client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
+    # Primary: Qwen 235B. On RateLimitError fall back to llama3.1-8b,
+    # then retry the fallback twice (60s, 120s) if the queue is still full.
+    try:
+        response = _create(client, _MODEL, system_prompt, question)
+    except RateLimitError:
+        for wait in [0, 60, 120]:
+            if wait:
+                time.sleep(wait)
+            try:
+                response = _create(client, _MODEL_FALLBACK, system_prompt, question)
+                break
+            except RateLimitError:
+                continue
+        else:
+            raise ValueError("LLM unavailable after fallback retries")
+    text = response.choices[0].message.content
     if text is None:
         raise ValueError("Empty LLM response")
     parsed: object = json.loads(text)
