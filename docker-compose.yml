@@ -17,7 +17,8 @@ services:
       - "6379:6379"
 
   vector:
-    image: timberio/vector:0.38-alpine
+    image: timberio/vector:0.55.0-alpine
+    command: ["--config", "/etc/vector/vector.toml"]
     ports:
       - "8686:8686"   # Vector API / health
       - "4317:4317"   # OTLP gRPC receiver

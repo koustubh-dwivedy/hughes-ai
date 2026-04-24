@@ -2,9 +2,17 @@
 
 import json
 import uuid
+from decimal import Decimal
 
 import psycopg
 from nl_engine.engine import AnswerResponse
+
+
+class _Encoder(json.JSONEncoder):
+    def default(self, o: object) -> object:
+        if isinstance(o, Decimal):
+            return float(o)
+        return super().default(o)
 
 
 def save_query(
@@ -29,12 +37,13 @@ def save_query(
                         "rows": result.rows,
                         "columns": result.columns,
                         "explanation": result.explanation,
-                    }
+                    },
+                    cls=_Encoder,
                 ),
-                json.dumps(result.assumptions),
-                json.dumps(result.caveats),
-                json.dumps({"tables_used": result.tables_used}),
-                json.dumps({}),
+                json.dumps(result.assumptions, cls=_Encoder),
+                json.dumps(result.caveats, cls=_Encoder),
+                json.dumps({"tables_used": result.tables_used}, cls=_Encoder),
+                json.dumps({}, cls=_Encoder),
             ),
         )
     return record_id
