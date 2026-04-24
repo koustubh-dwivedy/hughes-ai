@@ -9,8 +9,8 @@ _Route = tuple[list[str], list[str], list[str], list[str]]
 
 _ROUTES: list[_Route] = [
     (
-        ["origination", "originate", "originated", "how many loan",
-         "loan count", "applications received", "new loan"],
+        ["origination", "originate", "originated", "originating",
+         "how many loan", "loan count", "applications received", "new loan"],
         ["fct_loan_originations"],
         ["origination_volume"],
         [],
@@ -42,7 +42,7 @@ _ROUTES: list[_Route] = [
     ),
     (
         ["portfolio", "balance", "outstanding", "total balance"],
-        ["fct_loan_performance"],
+        ["fct_loan_performance", "dim_loan"],
         ["portfolio_balance"],
         ["balance", "snapshot_date"],
     ),

@@ -33,8 +33,17 @@ def validate_sql(sql: str, ctx: SelectedContext) -> None:
         if alias.alias
     }
 
+    # CTEs are valid — collect their names so FROM references to them pass
+    cte_names = {
+        cte.alias for cte in ast.find_all(sqlglot_exp.CTE) if cte.alias
+    }
+
     for table in ast.find_all(sqlglot_exp.Table):
-        if table.name and table.name not in allowed_tables:
+        if (
+            table.name
+            and table.name not in allowed_tables
+            and table.name not in cte_names
+        ):
             raise SQLValidationError(
                 "Table '" + table.name + "' is not in the allowlist"
             )
