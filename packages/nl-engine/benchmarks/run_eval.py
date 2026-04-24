@@ -136,9 +136,15 @@ def run(fail_under: float) -> int:
     for q in questions:
         key = _cache_key(str(q["question"]), db_url)
         if key in cache:
-            result = _deserialize(cache[key])
+            result: AnswerResponse | ClarificationResponse = _deserialize(cache[key])
         else:
-            result = ask(str(q["question"]), db_url, ctx)
+            try:
+                result = ask(str(q["question"]), db_url, ctx)
+            except Exception as exc:  # noqa: BLE001
+                result = AnswerResponse(
+                    sql="", explanation=str(exc),
+                    tables_used=[], assumptions=[], caveats=[], rows=[], columns=[],
+                )
             cache[key] = _serialize(result)
         results.append(_score(q, result))
 
