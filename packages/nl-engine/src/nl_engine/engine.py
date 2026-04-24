@@ -14,7 +14,7 @@ from nl_engine.context_loader import AllContext
 from nl_engine.context_selector import ContextSelector, SelectedContext
 from nl_engine.executor import execute_sql
 from nl_engine.sql_validator import validate_sql
-from nl_engine.telemetry import span_stage
+from nl_engine.telemetry import get_tracer, span_stage
 
 _MODEL = "qwen-3-235b-a22b-instruct-2507"
 _MODEL_FALLBACK = "llama3.1-8b"
@@ -157,7 +157,9 @@ def _create(
 
 
 @span_stage("call_llm")
-def _call_llm(system_prompt: str, question: str) -> dict[str, object]:
+def _call_llm(
+    system_prompt: str, question: str
+) -> tuple[dict[str, object], int | None, str]:
     _rate_limit_wait()
     client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
     # Primary: Qwen 235B. On RateLimitError fall back to llama3.1-8b,
@@ -184,7 +186,10 @@ def _call_llm(system_prompt: str, question: str) -> dict[str, object]:
     if not isinstance(parsed, dict):
         raise ValueError(f"Unexpected LLM response shape: {type(parsed)}")
     result: dict[str, object] = parsed
-    return result
+    total_tokens: int | None = None
+    if response.usage and response.usage.total_tokens is not None:
+        total_tokens = response.usage.total_tokens
+    return result, total_tokens, response.model
 
 
 @span_stage("validate_sql")
@@ -202,28 +207,36 @@ def _run_query(
 
 
 def ask(
-    question: str, db_url: str, ctx: AllContext
+    question: str, db_url: str, ctx: AllContext, request_id: str = ""
 ) -> AnswerResponse | ClarificationResponse:
     """Run the full NL→SQL pipeline. Raises SQLValidationError on unsafe SQL."""
-    selector = ContextSelector(ctx)
-    selected = _select_context(selector, question)
-    if not selected.relevant_tables:
-        return ClarificationResponse(
-            question="Could you clarify which aspect of lending you're asking about?"
+    tracer = get_tracer()
+    with tracer.start_as_current_span("ask") as root_span:
+        if request_id:
+            root_span.set_attribute("request_id", request_id)
+        selector = ContextSelector(ctx)
+        selected = _select_context(selector, question)
+        if not selected.relevant_tables:
+            return ClarificationResponse(
+                question=(
+                    "Could you clarify which aspect of lending you're asking about?"
+                )
+            )
+        if _is_ambiguous(selected):
+            return _ambiguity_clarification(selected)
+        system_prompt = _build_system_prompt(selected)
+        raw, token_count, model_name = _call_llm(system_prompt, question)
+        root_span.set_attribute("llm.token_count", token_count or 0)
+        root_span.set_attribute("llm.model", model_name)
+        sql = _run_validation(raw, selected)
+        rows, columns = _run_query(sql, db_url)
+        answer = AnswerResponse(
+            sql=sql,
+            explanation=str(raw.get("explanation", "")),
+            tables_used=_str_list(raw.get("tables_used")),
+            assumptions=_str_list(raw.get("assumptions")),
+            caveats=_str_list(raw.get("caveats")),
+            rows=rows,
+            columns=columns,
         )
-    if _is_ambiguous(selected):
-        return _ambiguity_clarification(selected)
-    system_prompt = _build_system_prompt(selected)
-    raw = _call_llm(system_prompt, question)
-    sql = _run_validation(raw, selected)
-    rows, columns = _run_query(sql, db_url)
-    answer = AnswerResponse(
-        sql=sql,
-        explanation=str(raw.get("explanation", "")),
-        tables_used=_str_list(raw.get("tables_used")),
-        assumptions=_str_list(raw.get("assumptions")),
-        caveats=_str_list(raw.get("caveats")),
-        rows=rows,
-        columns=columns,
-    )
-    return _inject_metric_caveats(answer, selected)
+        return _inject_metric_caveats(answer, selected)
