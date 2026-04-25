@@ -1,5 +1,7 @@
 export default async function globalSetup(): Promise<void> {
-	const url = process.env.API_URL ?? "http://localhost:8000";
+	// Use 127.0.0.1 — Node 18 fetch resolves "localhost" to ::1 (IPv6) but
+	// uvicorn binds IPv4 only by default, causing ECONNREFUSED.
+	const url = process.env.API_URL ?? "http://127.0.0.1:8000";
 	try {
 		const res = await fetch(`${url}/health`);
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
