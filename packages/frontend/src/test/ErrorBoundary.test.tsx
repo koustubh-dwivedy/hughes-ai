@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import ErrorBoundary from "../components/ErrorBoundary";
 
-vi.mock("../lib/logger", () => ({ default: { warn: vi.fn(), error: vi.fn() } }));
+vi.mock("../lib/logger", () => ({
+	default: { warn: vi.fn(), error: vi.fn() },
+}));
 
 function Bomb({ shouldThrow }: { shouldThrow: boolean }) {
 	if (shouldThrow) throw new Error("test explosion");

@@ -20,7 +20,9 @@ const base: AskResponse = {
 describe("ResultPanel", () => {
 	it("renders clarification message when clarification is set", () => {
 		render(
-			<ResultPanel result={{ ...base, clarification: "Did you mean X or Y?" }} />,
+			<ResultPanel
+				result={{ ...base, clarification: "Did you mean X or Y?" }}
+			/>,
 		);
 		expect(screen.getByText("Did you mean X or Y?")).toBeInTheDocument();
 		expect(screen.queryByText("Counts all loan originations")).toBeNull();
@@ -35,7 +37,9 @@ describe("ResultPanel", () => {
 
 	it("renders data table with correct column header and row value", () => {
 		render(<ResultPanel result={base} />);
-		expect(screen.getByRole("columnheader", { name: "count" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("columnheader", { name: "count" }),
+		).toBeInTheDocument();
 		expect(screen.getByRole("cell", { name: "42" })).toBeInTheDocument();
 	});
 
@@ -55,6 +59,8 @@ describe("ResultPanel", () => {
 
 	it("renders empty table with zero rows without crashing", () => {
 		render(<ResultPanel result={{ ...base, rows: [], columns: ["count"] }} />);
-		expect(screen.getByText("Counts all loan originations")).toBeInTheDocument();
+		expect(
+			screen.getByText("Counts all loan originations"),
+		).toBeInTheDocument();
 	});
 });

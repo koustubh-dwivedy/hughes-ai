@@ -10,13 +10,25 @@ vi.mock("../lib/api", () => ({
 	postRerun: vi.fn(),
 }));
 
-vi.mock("../lib/logger", () => ({ default: { warn: vi.fn(), error: vi.fn() } }));
+vi.mock("../lib/logger", () => ({
+	default: { warn: vi.fn(), error: vi.fn() },
+}));
 
 import * as api from "../lib/api";
 
 const ITEMS = [
-	{ id: "id-1", question: "how many loans", sql: "SELECT 1", created_at: "2026-04-24T10:00:00Z" },
-	{ id: "id-2", question: "approval rate", sql: "SELECT 2", created_at: "2026-04-24T09:00:00Z" },
+	{
+		id: "id-1",
+		question: "how many loans",
+		sql: "SELECT 1",
+		created_at: "2026-04-24T10:00:00Z",
+	},
+	{
+		id: "id-2",
+		question: "approval rate",
+		sql: "SELECT 2",
+		created_at: "2026-04-24T09:00:00Z",
+	},
 ];
 
 afterEach(() => vi.clearAllMocks());
