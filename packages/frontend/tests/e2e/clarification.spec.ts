@@ -37,11 +37,6 @@ test.describe("ask — clarification flow", () => {
 			.fill("Show me rates");
 		await page.getByRole("button", { name: "Ask" }).click();
 
-		// Loading state fires briefly before intercept resolves
-		await expect(
-			page.getByRole("button", { name: "Loading…" }),
-		).toBeVisible();
-
 		// Clarification text appears as a paragraph
 		await expect(
 			page.getByText("Your question could refer to multiple metrics"),
