@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("ask — happy path", () => {
+	test.skip(!!process.env.CI, "requires live LLM and seeded dbt views — run locally");
 	test.setTimeout(90_000); // LLM call can take up to 30s; buffer for Vite start
 
 	test("submits a question and renders result + history", async ({ page }) => {
