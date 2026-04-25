@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { TrustResponse } from "../lib/api";
 import { getTrust } from "../lib/api";
+import log from "../lib/logger";
 
 export default function TrustPanel() {
 	const [trust, setTrust] = useState<TrustResponse | null>(null);
@@ -8,7 +9,12 @@ export default function TrustPanel() {
 	useEffect(() => {
 		getTrust()
 			.then(setTrust)
-			.catch(() => {});
+			.catch((err: unknown) => {
+				log.warn(
+					{ err: err instanceof Error ? err.message : String(err) },
+					"trust_fetch_failed",
+				);
+			});
 	}, []);
 
 	if (trust === null) return null;

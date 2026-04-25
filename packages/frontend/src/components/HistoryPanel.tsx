@@ -6,6 +6,7 @@ import {
 	historyDetailToAskResponse,
 	postRerun,
 } from "../lib/api";
+import log from "../lib/logger";
 
 interface Props {
 	onSelect: (result: AskResponse) => void;
@@ -19,7 +20,12 @@ export default function HistoryPanel({ onSelect, refreshKey }: Props) {
 	useEffect(() => {
 		getHistory()
 			.then(setHistory)
-			.catch(() => {});
+			.catch((err: unknown) => {
+				log.warn(
+					{ err: err instanceof Error ? err.message : String(err) },
+					"history_fetch_failed",
+				);
+			});
 	}, [refreshKey]);
 
 	async function handleView(id: string): Promise<void> {
@@ -32,7 +38,12 @@ export default function HistoryPanel({ onSelect, refreshKey }: Props) {
 		onSelect(result);
 		getHistory()
 			.then(setHistory)
-			.catch(() => {});
+			.catch((err: unknown) => {
+				log.warn(
+					{ err: err instanceof Error ? err.message : String(err) },
+					"history_fetch_failed",
+				);
+			});
 	}
 
 	if (history.length === 0) return null;
