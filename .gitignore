@@ -50,5 +50,8 @@ packages/dbt-models/packages/
 packages/nl-engine/benchmarks/.cache/
 
 # Linear / Claude
-.claude/settings.local.json
+.claude/
 packages/dbt-models/.user.yml
+
+# Playwright
+packages/frontend/test-results/
