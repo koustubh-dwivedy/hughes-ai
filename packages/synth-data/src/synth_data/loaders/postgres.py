@@ -5,8 +5,8 @@ import structlog
 
 from synth_data.generators.members import MemberRow
 from synth_data.generators.origence import OrigenceData
-from synth_data.generators.symitar import BranchRow, SymitarData
-from synth_data.generators.symitar_types import OfficerRow
+from synth_data.generators.symitar_types import BranchRow, OfficerRow, SymitarData
+from synth_data.generators.watchlist import WatchlistRow
 from synth_data.reconciliation import ReconciliationRow
 
 log = structlog.get_logger()
@@ -145,11 +145,8 @@ def _load_officers(
     branch_map: dict[str, int],
 ) -> None:
     rows = [
-        "\t".join([
-            o.officer_id, o.name,
-            str(branch_map[o.branch_name]),
-            o.hired_at.isoformat(), o.status,
-        ])
+        "\t".join([o.officer_id, o.name, str(branch_map[o.branch_name]),
+                   o.hired_at.isoformat(), o.status])
         for o in officers
     ]
     _copy_table(
@@ -176,6 +173,7 @@ def _load_booked_loans(
             str(r.balance), str(r.rate), str(r.term_months),
             r.maturity_at.isoformat(), r.status,
             r.officer_id if r.officer_id is not None else "\\N",
+            "t" if r.is_nonaccrual else "f",
         ])
         for r in symitar.booked_loans
     ]
@@ -183,7 +181,7 @@ def _load_booked_loans(
         cur,
         "COPY booked_loans (loan_id, application_id, branch_id, member_id,"
         " product_type_id, originated_at, original_balance, balance, rate,"
-        " term_months, maturity_at, status, officer_id) FROM STDIN",
+        " term_months, maturity_at, status, officer_id, is_nonaccrual) FROM STDIN",
         rows,
     )
     log.info("loaded booked loans", count=len(rows))
@@ -238,6 +236,21 @@ def _load_loan_details(cur: psycopg.Cursor, symitar: SymitarData) -> None:
     log.info("loaded delinquency snapshots", count=len(delinq_rows))
 
 
+def _load_watchlist(cur: psycopg.Cursor, rows: list[WatchlistRow]) -> None:
+    wl_rows = [
+        "\t".join([r.watchlist_id, r.loan_id, r.added_at.isoformat(),
+                   r.removed_at.isoformat() if r.removed_at else "\\N", r.reason])
+        for r in rows
+    ]
+    _copy_table(
+        cur,
+        "COPY watchlist (watchlist_id, loan_id, added_at, removed_at, reason)"
+        " FROM STDIN",
+        wl_rows,
+    )
+    log.info("loaded watchlist", count=len(wl_rows))
+
+
 def _load_reconciliation_bridge(
     cur: psycopg.Cursor, rows: list[ReconciliationRow]
 ) -> None:
@@ -255,6 +268,7 @@ def load_postgres(
     database_url: str,
     members: list[MemberRow] | None = None,
     recon_rows: list[ReconciliationRow] | None = None,
+    watchlist: list[WatchlistRow] | None = None,
 ) -> None:
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
@@ -278,5 +292,8 @@ def load_postgres(
             _load_loan_details(cur, symitar)
             if recon_rows is not None:
                 _load_reconciliation_bridge(cur, recon_rows)
+            if watchlist is not None:
+                cur.execute("TRUNCATE watchlist")
+                _load_watchlist(cur, watchlist)
         conn.commit()
         log.info("committed transaction")

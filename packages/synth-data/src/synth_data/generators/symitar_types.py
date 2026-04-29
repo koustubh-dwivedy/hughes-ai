@@ -33,6 +33,7 @@ class BookedLoanRow:
     maturity_at: datetime
     status: str
     officer_id: str | None = None
+    is_nonaccrual: bool = False
 
 
 @dataclass

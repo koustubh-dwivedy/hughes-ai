@@ -21,16 +21,9 @@ from synth_data.generators.symitar_types import (
     BranchRow,
     DelinquencySnapshotRow,
     LoanBalanceRow,
-    OfficerRow,
     PaymentRow,
     SymitarData,
 )
-
-__all__ = [
-    "BookedLoanRow", "BranchRow", "DelinquencySnapshotRow",
-    "LoanBalanceRow", "OfficerRow", "PaymentRow", "SymitarData",
-    "generate_symitar_data",
-]
 
 BRANCH_NAMES = [
     "Main Branch", "North Branch", "South Branch", "East Branch", "West Branch",
@@ -82,17 +75,17 @@ def _balance_after(
     return principal * (1 + r) ** months_paid - pmt * ((1 + r) ** months_paid - 1) / r
 
 
+_DPD_BUCKETS = [
+    (14, "1-14"), (29, "15-29"), (59, "30-59"), (89, "60-89"), (119, "90-119"),
+]
+
+
 def _dpd_bucket(dpd: int) -> str | None:
     if dpd <= 0:
         return None
-    if dpd < 30:
-        return "1-29"
-    if dpd < 60:
-        return "30-59"
-    if dpd < 90:
-        return "60-89"
-    if dpd < 120:
-        return "90-119"
+    for bound, label in _DPD_BUCKETS:
+        if dpd <= bound:
+            return label
     return "120+"
 
 
@@ -117,7 +110,7 @@ def _sample_loan_arrays(
         orig_offset=rng.integers(0, 4, m),
         status_r=rng.random(m),
         branch_idxs=rng.integers(0, branch_count, m),
-        delinq_starts=rng.integers(1, 4, m),
+        delinq_starts=rng.integers(1, 5, m),
         pm_idxs=rng.integers(0, len(PAYMENT_METHODS), m),
     )
 
@@ -172,8 +165,9 @@ def _build_delinquency(
     delinq_idx: int,
 ) -> tuple[list[DelinquencySnapshotRow], int]:
     rows: list[DelinquencySnapshotRow] = []
+    dpd_start = int(loan_id[0], 16) * 2 % 29 + 1
     for k in range(missed):
-        dpd = (k + 1) * 30
+        dpd = dpd_start + k * 30
         mo = months_active - missed + k + 1
         rows.append(DelinquencySnapshotRow(
             snapshot_id=delinq_pool[delinq_idx % len(delinq_pool)],
@@ -229,6 +223,8 @@ def _build_loan(
     cur_bal = 0.0 if status == "paid_off" else _balance_after(principal, rate, term, ma)
     is_bad = status in ("delinquent", "charged_off")
     missed = int(a.delinq_starts[i]) if is_bad else 0
+    _dpd = max(0, int(a.loan_uuids[i][0], 16)*2%29 + (missed-1)*30 + 1) * bool(missed)
+    nonaccrual = _dpd >= 90 or status == "charged_off"
     loan = BookedLoanRow(
         loan_id=a.loan_uuids[i], application_id=fe.application_id,
         branch_name=BRANCH_NAMES[int(a.branch_idxs[i])],
@@ -236,6 +232,7 @@ def _build_loan(
         originated_at=originated_at, original_balance=Decimal(str(round(principal, 2))),
         balance=Decimal(str(round(cur_bal, 2))), rate=Decimal(str(round(rate, 4))),
         term_months=term, maturity_at=maturity_at, status=status,
+        is_nonaccrual=nonaccrual,
     )
     pm = PAYMENT_METHODS[int(a.pm_idxs[i])]
     lb, p, bal_idx = _build_amortization(
