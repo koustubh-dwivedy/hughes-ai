@@ -9,11 +9,56 @@ import numpy as np
 from synth_data.config import SynthProfile
 
 PRODUCT_TYPES = [
-    "auto", "personal_loan", "mortgage", "home_equity", "credit_card", "rv",
+    "cre", "c_and_i", "residential", "auto",
+    "construction", "home_equity", "consumer", "ppp",
 ]
+_PRODUCT_MIX = [0.06, 0.07, 0.26, 0.28, 0.04, 0.10, 0.15, 0.04]
+
+PRODUCT_SPECS: dict[str, dict[str, Any]] = {
+    "cre": {
+        "rate": (0.060, 0.090),
+        "terms": [60, 84, 120, 180, 240, 300],
+        "amount": (500_000, 5_000_000),
+    },
+    "c_and_i": {
+        "rate": (0.050, 0.080),
+        "terms": [36, 48, 60, 84, 120],
+        "amount": (100_000, 2_000_000),
+    },
+    "residential": {
+        "rate": (0.030, 0.070),
+        "terms": [180, 240, 360],
+        "amount": (100_000, 700_000),
+    },
+    "auto": {
+        "rate": (0.040, 0.100),
+        "terms": [36, 48, 60, 72, 84],
+        "amount": (15_000, 60_000),
+    },
+    "construction": {
+        "rate": (0.060, 0.090),
+        "terms": [12, 18, 24],
+        "amount": (200_000, 3_000_000),
+    },
+    "home_equity": {
+        "rate": (0.040, 0.080),
+        "terms": [60, 84, 120, 180],
+        "amount": (20_000, 150_000),
+    },
+    "consumer": {
+        "rate": (0.080, 0.180),
+        "terms": [12, 24, 36, 48, 60],
+        "amount": (1_000, 25_000),
+    },
+    "ppp": {
+        "rate": (0.010, 0.010),
+        "terms": [24, 60],
+        "amount": (5_000, 150_000),
+    },
+}
+
 CHANNELS = ["branch", "online", "mobile", "indirect", "call_center"]
 DECLINE_REASONS = ["credit_score", "dti_ratio", "incomplete_docs", "policy"]
-TERM_MONTHS = [12, 24, 36, 48, 60, 72, 84]
 
 _REF_DATE = datetime(2026, 4, 1, tzinfo=UTC)
 
@@ -78,8 +123,8 @@ class _Arrays:
     stage_days: Any
     appr_days: Any
     appr_factors: Any
-    appr_rates: Any
-    term_idxs: Any
+    appr_rates: list[float]
+    term_idxs: list[int]
     decline_idxs: Any
     fund_days: Any
 
@@ -87,6 +132,22 @@ class _Arrays:
 def _gen_uuids(rng: np.random.Generator, n: int) -> list[str]:
     raw = rng.integers(0, 256, size=(n, 16), dtype=np.uint8)
     return [str(uuid.UUID(bytes=bytes(row))) for row in raw]
+
+
+def _sample_by_product(
+    rng: np.random.Generator, pt_idxs: Any
+) -> tuple[list[int], list[float], list[int]]:
+    amounts: list[int] = []
+    rates: list[float] = []
+    terms: list[int] = []
+    for idx in pt_idxs:
+        spec = PRODUCT_SPECS[PRODUCT_TYPES[int(idx)]]
+        lo, hi = spec["amount"]
+        amounts.append(int(rng.integers(lo // 500, hi // 500 + 1)) * 500)
+        r_lo, r_hi = spec["rate"]
+        rates.append(float(rng.uniform(r_lo, r_hi)) if r_lo < r_hi else r_lo)
+        terms.append(int(rng.choice(spec["terms"])))
+    return amounts, rates, terms
 
 
 def _assign_statuses(
@@ -107,20 +168,22 @@ def _assign_statuses(
 
 
 def _pre_generate(rng: np.random.Generator, n: int) -> _Arrays:
+    pt_idxs = rng.choice(len(PRODUCT_TYPES), n, p=_PRODUCT_MIX)
+    amounts, appr_rates, term_idxs = _sample_by_product(rng, pt_idxs)
     return _Arrays(
         app_uuids=_gen_uuids(rng, n),
         member_uuids=_gen_uuids(rng, n),
-        pt_idxs=rng.integers(0, len(PRODUCT_TYPES), n),
+        pt_idxs=pt_idxs,
         ch_idxs=rng.integers(0, len(CHANNELS), n),
-        amounts=(rng.integers(10, 151, n) * 500).tolist(),
+        amounts=amounts,
         days_ago=rng.integers(0, 730, n),
         status_r=rng.random(n),
         stage_hrs=rng.integers(1, 24, (n, 4)),
         stage_days=rng.integers(1, 8, (n, 4)),
         appr_days=rng.integers(3, 15, n),
         appr_factors=rng.uniform(0.8, 1.0, n),
-        appr_rates=rng.uniform(0.04, 0.18, n),
-        term_idxs=rng.integers(0, len(TERM_MONTHS), n),
+        appr_rates=appr_rates,
+        term_idxs=term_idxs,
         decline_idxs=rng.integers(0, len(DECLINE_REASONS), n),
         fund_days=rng.integers(1, 15, n),
     )
@@ -156,7 +219,7 @@ def _append_decision(
         decided_at=decided_at,
         approved_amount=approved_amount,
         rate=Decimal(str(round(float(arr.appr_rates[i]), 4))),
-        term_months=TERM_MONTHS[int(arr.term_idxs[i])],
+        term_months=int(arr.term_idxs[i]),
         decline_reason=None,
     ))
     if status == "funded":

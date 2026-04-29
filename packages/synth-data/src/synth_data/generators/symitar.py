@@ -9,6 +9,7 @@ import numpy as np
 from synth_data.config import SynthProfile
 from synth_data.generators.officers import assign_officer_id, generate_officers
 from synth_data.generators.origence import (
+    PRODUCT_SPECS,
     ApplicationRow,
     ApprovalRow,
     FundingEventRow,
@@ -213,8 +214,9 @@ def _build_loan(
     bal_idx: int,
     delinq_idx: int,
 ) -> _LoanResult:
-    term = int(appr.term_months) if appr.term_months else 60
-    rate = float(appr.rate) if appr.rate else 0.06
+    _spec = PRODUCT_SPECS[app.product_type_name]
+    term = int(appr.term_months) if appr.term_months else _spec["terms"][0]
+    rate = float(appr.rate) if appr.rate else _spec["rate"][0]
     principal = float(fe.funded_amount)
     pmt = _monthly_payment(principal, rate, term)
     originated_at = fe.funded_at + timedelta(days=int(a.orig_offset[i]))
