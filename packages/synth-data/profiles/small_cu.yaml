@@ -7,3 +7,4 @@ charge_off_rate: 0.02
 branch_count: 5
 standalone_loan_count: 10
 member_count: 3000
+officer_count: 20

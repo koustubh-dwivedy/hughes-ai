@@ -16,6 +16,7 @@ class SynthProfile(BaseModel):
     branch_count: int = Field(default=5, gt=0)
     standalone_loan_count: int = Field(default=10, gt=0)
     member_count: int = Field(default=3000, gt=0)
+    officer_count: int = Field(default=20, gt=0)
 
 
 def load_profile(name: str) -> SynthProfile:

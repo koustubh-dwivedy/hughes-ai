@@ -6,6 +6,7 @@ import structlog
 from synth_data.generators.members import MemberRow
 from synth_data.generators.origence import OrigenceData
 from synth_data.generators.symitar import BranchRow, SymitarData
+from synth_data.generators.symitar_types import OfficerRow
 from synth_data.reconciliation import ReconciliationRow
 
 log = structlog.get_logger()
@@ -138,6 +139,27 @@ def _load_members(
     log.info("loaded members", count=len(rows))
 
 
+def _load_officers(
+    cur: psycopg.Cursor,
+    officers: list[OfficerRow],
+    branch_map: dict[str, int],
+) -> None:
+    rows = [
+        "\t".join([
+            o.officer_id, o.name,
+            str(branch_map[o.branch_name]),
+            o.hired_at.isoformat(), o.status,
+        ])
+        for o in officers
+    ]
+    _copy_table(
+        cur,
+        "COPY officers (officer_id, name, branch_id, hired_at, status) FROM STDIN",
+        rows,
+    )
+    log.info("loaded officers", count=len(rows))
+
+
 def _load_booked_loans(
     cur: psycopg.Cursor,
     symitar: SymitarData,
@@ -153,6 +175,7 @@ def _load_booked_loans(
             r.originated_at.isoformat(), str(r.original_balance),
             str(r.balance), str(r.rate), str(r.term_months),
             r.maturity_at.isoformat(), r.status,
+            r.officer_id if r.officer_id is not None else "\\N",
         ])
         for r in symitar.booked_loans
     ]
@@ -160,7 +183,7 @@ def _load_booked_loans(
         cur,
         "COPY booked_loans (loan_id, application_id, branch_id, member_id,"
         " product_type_id, originated_at, original_balance, balance, rate,"
-        " term_months, maturity_at, status) FROM STDIN",
+        " term_months, maturity_at, status, officer_id) FROM STDIN",
         rows,
     )
     log.info("loaded booked loans", count=len(rows))
@@ -237,6 +260,8 @@ def load_postgres(
         with conn.cursor() as cur:
             cur.execute("TRUNCATE applications CASCADE")
             log.info("truncated applications cascade")
+            cur.execute("TRUNCATE officers")
+            log.info("truncated officers")
             pt_map = _upsert_lookup(cur, "product_types", origence.product_types)
             ch_map = _upsert_lookup(cur, "channels", origence.channels)
             log.info("upserted lookup tables", pt=len(pt_map), ch=len(ch_map))
@@ -248,6 +273,7 @@ def load_postgres(
                 cur.execute("TRUNCATE members CASCADE")
                 log.info("truncated members cascade")
                 _load_members(cur, members, branch_map)
+            _load_officers(cur, symitar.officers, branch_map)
             _load_booked_loans(cur, symitar, pt_map, branch_map)
             _load_loan_details(cur, symitar)
             if recon_rows is not None:

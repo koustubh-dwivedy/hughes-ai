@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -7,6 +7,15 @@ from decimal import Decimal
 class BranchRow:
     branch_name: str
     region: str
+
+
+@dataclass
+class OfficerRow:
+    officer_id: str
+    name: str
+    branch_name: str
+    hired_at: datetime
+    status: str
 
 
 @dataclass
@@ -23,6 +32,7 @@ class BookedLoanRow:
     term_months: int
     maturity_at: datetime
     status: str
+    officer_id: str | None = None
 
 
 @dataclass
@@ -60,3 +70,4 @@ class SymitarData:
     loan_balances: list[LoanBalanceRow]
     payments: list[PaymentRow]
     delinquency_snapshots: list[DelinquencySnapshotRow]
+    officers: list[OfficerRow] = field(default_factory=list)

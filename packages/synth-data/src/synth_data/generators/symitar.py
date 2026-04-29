@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 
 from synth_data.config import SynthProfile
+from synth_data.generators.officers import assign_officer_id, generate_officers
 from synth_data.generators.origence import (
     ApplicationRow,
     ApprovalRow,
@@ -19,13 +20,14 @@ from synth_data.generators.symitar_types import (
     BranchRow,
     DelinquencySnapshotRow,
     LoanBalanceRow,
+    OfficerRow,
     PaymentRow,
     SymitarData,
 )
 
 __all__ = [
     "BookedLoanRow", "BranchRow", "DelinquencySnapshotRow",
-    "LoanBalanceRow", "PaymentRow", "SymitarData",
+    "LoanBalanceRow", "OfficerRow", "PaymentRow", "SymitarData",
     "generate_symitar_data",
 ]
 
@@ -286,7 +288,11 @@ def generate_symitar_data(origence: OrigenceData, profile: SynthProfile) -> Symi
         rng, profile.standalone_loan_count,
         member_pool, origence.product_types, branches,
     )
+    officers = generate_officers(profile, [b.branch_name for b in branches])
+    all_loans = booked + standalone
+    for loan in all_loans:
+        loan.officer_id = assign_officer_id(loan.loan_id, loan.branch_name, officers)
     return SymitarData(
-        branches=branches, booked_loans=booked + standalone, loan_balances=bals,
-        payments=pmts, delinquency_snapshots=drows,
+        branches=branches, booked_loans=all_loans, loan_balances=bals,
+        payments=pmts, delinquency_snapshots=drows, officers=officers,
     )
