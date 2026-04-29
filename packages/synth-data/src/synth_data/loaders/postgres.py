@@ -3,6 +3,7 @@ from io import StringIO
 import psycopg
 import structlog
 
+from synth_data.generators.members import MemberRow
 from synth_data.generators.origence import OrigenceData
 from synth_data.generators.symitar import BranchRow, SymitarData
 from synth_data.reconciliation import ReconciliationRow
@@ -116,6 +117,27 @@ def _load_stages_approvals_funding(cur: psycopg.Cursor, origence: OrigenceData) 
     log.info("loaded funding events", count=len(fund_rows))
 
 
+def _load_members(
+    cur: psycopg.Cursor,
+    members: list[MemberRow],
+    branch_map: dict[str, int],
+) -> None:
+    rows = [
+        "\t".join([
+            m.member_id, m.first_name, m.last_name,
+            m.joined_at.isoformat(), str(branch_map[m.home_branch_name]),
+        ])
+        for m in members
+    ]
+    _copy_table(
+        cur,
+        "COPY members (member_id, first_name, last_name, joined_at, home_branch_id)"
+        " FROM STDIN",
+        rows,
+    )
+    log.info("loaded members", count=len(rows))
+
+
 def _load_booked_loans(
     cur: psycopg.Cursor,
     symitar: SymitarData,
@@ -205,7 +227,10 @@ def _load_reconciliation_bridge(
 
 
 def load_postgres(
-    origence: OrigenceData, symitar: SymitarData, database_url: str,
+    origence: OrigenceData,
+    symitar: SymitarData,
+    database_url: str,
+    members: list[MemberRow] | None = None,
     recon_rows: list[ReconciliationRow] | None = None,
 ) -> None:
     with psycopg.connect(database_url) as conn:
@@ -219,6 +244,10 @@ def load_postgres(
             _load_stages_approvals_funding(cur, origence)
             branch_map = _upsert_branches(cur, symitar.branches)
             log.info("upserted branches", count=len(branch_map))
+            if members is not None:
+                cur.execute("TRUNCATE members CASCADE")
+                log.info("truncated members cascade")
+                _load_members(cur, members, branch_map)
             _load_booked_loans(cur, symitar, pt_map, branch_map)
             _load_loan_details(cur, symitar)
             if recon_rows is not None:
