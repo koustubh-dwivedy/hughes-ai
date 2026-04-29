@@ -1,0 +1,110 @@
+import {
+	Bar,
+	BarChart,
+	CartesianGrid,
+	Legend,
+	Tooltip,
+	XAxis,
+	YAxis,
+} from "recharts";
+import { colors, typography } from "../theme/tokens";
+
+const PALETTE = [
+	colors.indigo[500],
+	colors.slate[400],
+	colors.indigo[700],
+	colors.slate[600],
+	colors.indigo[100],
+	colors.slate[300],
+];
+
+interface StackedBarDataPoint {
+	period: string;
+	[key: string]: number | string;
+}
+
+interface StackedBarSeries {
+	key: string;
+	color?: string;
+}
+
+interface StackedBarProps {
+	data: StackedBarDataPoint[];
+	series: StackedBarSeries[];
+	title?: string;
+	loading?: boolean;
+}
+
+/**
+ * @example
+ * <StackedBar
+ *   data={[
+ *     { period: "Jan-24", "1-14": 12, "15-29": 8, "30-59": 5 },
+ *     { period: "Feb-24", "1-14": 10, "15-29": 9, "30-59": 6 },
+ *   ]}
+ *   series={[{ key: "1-14" }, { key: "15-29" }, { key: "30-59" }]}
+ *   title="Delinquency Trend (13 months)"
+ * />
+ */
+export default function StackedBar({
+	data,
+	series,
+	title,
+	loading = false,
+}: StackedBarProps) {
+	if (loading) {
+		return (
+			<output
+				aria-label="loading chart"
+				style={{
+					width: 600,
+					height: 300,
+					backgroundColor: colors.slate[100],
+					borderRadius: "0.5rem",
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					color: colors.slate[400],
+					fontSize: typography.size.sm,
+				}}
+			>
+				Loading…
+			</output>
+		);
+	}
+
+	return (
+		<figure aria-label={title} style={{ margin: 0 }}>
+			{title && (
+				<figcaption
+					style={{
+						fontSize: typography.size.sm,
+						fontWeight: typography.weight.semibold,
+						color: colors.slate[700],
+						marginBottom: "0.5rem",
+					}}
+				>
+					{title}
+				</figcaption>
+			)}
+			<BarChart width={600} height={300} data={data}>
+				<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
+				<XAxis
+					dataKey="period"
+					tick={{ fontSize: 11, fill: colors.slate[500] }}
+				/>
+				<YAxis tick={{ fontSize: 11, fill: colors.slate[500] }} />
+				<Tooltip />
+				<Legend />
+				{series.map((s, i) => (
+					<Bar
+						key={s.key}
+						dataKey={s.key}
+						stackId="a"
+						fill={s.color ?? PALETTE[i % PALETTE.length]}
+					/>
+				))}
+			</BarChart>
+		</figure>
+	);
+}
