@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import ErrorBoundary from "./components/ErrorBoundary";
 import log from "./lib/logger";
+import GlobalStyles from "./theme/GlobalStyles";
 
 window.addEventListener("error", (event) => {
 	log.error(
@@ -22,6 +23,7 @@ if (rootEl === null) throw new Error("Root element not found");
 createRoot(rootEl).render(
 	<StrictMode>
 		<ErrorBoundary>
+			<GlobalStyles />
 			<App />
 		</ErrorBoundary>
 	</StrictMode>,
