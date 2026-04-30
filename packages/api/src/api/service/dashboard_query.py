@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from api.repo import dashboards as repo
+from api.repo import loans as repo_loans
 from api.types.deposit_portfolio import (
     AccountActivity,
     BranchBalance,
@@ -14,6 +15,14 @@ from api.types.deposit_portfolio import (
     ProductBalance,
     ProductDelta,
     TopDeposit,
+)
+from api.types.officer_branch import (
+    ComboBalanceRate,
+    LoanMixItem,
+    OfficerBranchData,
+    SingleLoanCount,
+    TopBorrower,
+    WaterfallStep,
 )
 from api.types.past_due import (
     DelinquencyTrendMonth,
@@ -190,4 +199,67 @@ def compose_past_due(as_of: date, db_url: str) -> PastDueData:
             PastDueRatioPoint(month=r["month"], ratio=float(r["ratio"]))
             for r in ratio_trend
         ],
+    )
+
+
+# ── Officer / branch composer ─────────────────────────────────────────────────
+
+
+def _build_combo_rate(rows: list[dict[str, Any]]) -> list[ComboBalanceRate]:
+    return [
+        ComboBalanceRate(
+            product=str(r["product"]),
+            balance=float(r["balance"]),
+            weighted_avg_rate=float(r["weighted_avg_rate"]),
+        )
+        for r in rows
+    ]
+
+
+def compose_officer_branch(
+    as_of: date,
+    db_url: str,
+    branch_id: int | None = None,
+    officer_id: str | None = None,
+) -> OfficerBranchData:
+    """Fetch and assemble all panels for the officer-branch dashboard."""
+    prior = _prior_month(as_of)
+    totals = repo_loans.fetch_loan_totals(as_of, db_url, branch_id, officer_id)
+    top25 = repo_loans.fetch_top_borrowers(25, db_url, branch_id, officer_id)
+    mix = repo_loans.fetch_loan_mix(as_of, db_url, branch_id, officer_id)
+    wfall = repo_loans.fetch_change_by_loan_type(
+        as_of, prior, db_url, branch_id, officer_id
+    )
+    slc = repo_loans.fetch_single_loan_counts(as_of, db_url, branch_id, officer_id)
+    combo = repo_loans.fetch_combo_balance_rate(as_of, db_url, branch_id, officer_id)
+    tb = float(totals.get("total_loans") or 0)
+    return OfficerBranchData(
+        total_loans=tb,
+        account_count=int(totals.get("account_count") or 0),
+        avg_loan_balance=float(totals.get("avg_loan_balance") or 0),
+        top_25_borrowers=[
+            TopBorrower(
+                member_name=str(r["member_name"]),
+                balance=float(r["balance"]),
+                share_pct=float(r["balance"]) / tb * 100 if tb else 0.0,
+            )
+            for r in top25
+        ],
+        loan_mix_donut=[
+            LoanMixItem(
+                product=str(r["product"]),
+                balance=float(r["balance"]),
+                share_pct=float(r["balance"]) / tb * 100 if tb else 0.0,
+            )
+            for r in mix
+        ],
+        change_by_type_waterfall=[
+            WaterfallStep(product=str(r["product"]), delta=float(r["delta"]))
+            for r in wfall
+        ],
+        single_loan_customers_by_type=[
+            SingleLoanCount(product=str(r["product"]), count=int(r["count"]))
+            for r in slc
+        ],
+        combo_balance_rate=_build_combo_rate(combo),
     )
