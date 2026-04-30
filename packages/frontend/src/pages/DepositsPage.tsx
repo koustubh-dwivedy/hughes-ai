@@ -1,3 +1,5 @@
+import DepositPortfolio from "../dashboards/DepositPortfolio";
+
 export default function DepositsPage() {
-	return <h1>Deposit Portfolio</h1>;
+	return <DepositPortfolio />;
 }
