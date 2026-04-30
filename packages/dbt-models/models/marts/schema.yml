@@ -26,3 +26,42 @@ models:
         data_tests: [not_null]
       - name: single_loan_customer_count
         data_tests: [not_null]
+
+  - name: fct_deposits_monthly
+    description: Monthly grain rollup of deposit portfolio by product and branch
+    columns:
+      - name: row_id
+        data_tests: [not_null, unique]
+      - name: as_of_month
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_calendar')
+              field: calendar_date
+      - name: deposit_product_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_deposit_product')
+              field: deposit_product_id
+      - name: branch_id
+        data_tests: [not_null]
+      - name: account_count
+        data_tests: [not_null]
+      - name: total_balance
+        data_tests: [not_null]
+      - name: avg_balance_per_customer
+        data_tests: [not_null]
+      - name: opened_count
+        data_tests: [not_null]
+      - name: closed_count
+        data_tests: [not_null]
+      - name: mtd_change
+        data_tests: [not_null]
+      - name: ytd_change
+        data_tests: [not_null]
+      - name: is_core_deposit
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
