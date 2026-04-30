@@ -2,6 +2,7 @@
 
 import time
 from datetime import date
+from typing import Any
 
 from api.repo import dashboards as repo
 from api.types.deposit_portfolio import (
@@ -68,6 +69,19 @@ def cache_clear() -> None:
 # ── Panel composers ───────────────────────────────────────────────────────────
 
 
+def _build_nvc(nvc: dict[str, Any]) -> NewVsClosed:
+    return NewVsClosed(
+        opened=AccountActivity(
+            count=int(nvc.get("opened_count") or 0),
+            amount=float(nvc.get("opened_amount") or 0),
+        ),
+        closed=AccountActivity(
+            count=int(nvc.get("closed_count") or 0),
+            amount=float(nvc.get("closed_amount") or 0),
+        ),
+    )
+
+
 def compose_deposit_portfolio(as_of: date, db_url: str) -> DepositPortfolioData:
     """Fetch and assemble all panels for the deposit-portfolio dashboard."""
     totals = repo.fetch_deposit_totals(as_of, db_url)
@@ -76,9 +90,7 @@ def compose_deposit_portfolio(as_of: date, db_url: str) -> DepositPortfolioData:
     mix = repo.fetch_deposit_mix(as_of, db_url)
     delta = repo.fetch_change_by_product(as_of, db_url)
     nvc = repo.fetch_new_vs_closed(as_of, db_url)
-
     total_bal = float(totals.get("total_deposits") or 0)
-
     return DepositPortfolioData(
         total_deposits=total_bal,
         mtd_change=float(totals.get("mtd_change") or 0),
@@ -111,14 +123,5 @@ def compose_deposit_portfolio(as_of: date, db_url: str) -> DepositPortfolioData:
             ProductDelta(product=str(r["product"]), delta=float(r["delta"]))
             for r in delta
         ],
-        new_vs_closed_accounts=NewVsClosed(
-            opened=AccountActivity(
-                count=int(nvc.get("opened_count") or 0),
-                amount=float(nvc.get("opened_amount") or 0),
-            ),
-            closed=AccountActivity(
-                count=int(nvc.get("closed_count") or 0),
-                amount=float(nvc.get("closed_amount") or 0),
-            ),
-        ),
+        new_vs_closed_accounts=_build_nvc(nvc),
     )
