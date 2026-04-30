@@ -6,6 +6,7 @@ import numpy as np
 import structlog
 
 from synth_data.config import load_profile
+from synth_data.generators.deposits import generate_deposits
 from synth_data.generators.members import assign_member_id, generate_members
 from synth_data.generators.origence import generate_origence_data
 from synth_data.generators.symitar import generate_symitar_data
@@ -48,6 +49,10 @@ def _cmd_generate(args: argparse.Namespace) -> None:
     )
     log.info("generated watchlist", count=len(watchlist))
 
+    deposits = generate_deposits(profile, members, branch_names)
+    log.info("generated deposits",
+             products=len(deposits.products), accounts=len(deposits.accounts))
+
     if args.load_postgres:
         database_url = os.environ.get("DATABASE_URL")
         if not database_url:
@@ -55,7 +60,8 @@ def _cmd_generate(args: argparse.Namespace) -> None:
             sys.exit(1)
         from synth_data.loaders.postgres import load_postgres
         load_postgres(
-            origence, symitar, database_url, members=members, watchlist=watchlist,
+            origence, symitar, database_url,
+            members=members, watchlist=watchlist, deposits=deposits,
         )
         log.info("postgres load complete")
 
