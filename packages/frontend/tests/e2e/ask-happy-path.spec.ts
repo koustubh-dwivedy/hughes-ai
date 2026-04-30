@@ -5,7 +5,7 @@ test.describe("ask — happy path", () => {
 	test.setTimeout(90_000); // LLM call can take up to 30s; buffer for Vite start
 
 	test("submits a question and renders result + history", async ({ page }) => {
-		await page.goto("/");
+		await page.goto("/chat");
 		await expect(page.getByRole("heading", { name: "Hughes AI" })).toBeVisible();
 
 		const input = page.getByPlaceholder("Ask a question about lending…");

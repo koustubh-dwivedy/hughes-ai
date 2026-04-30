@@ -27,7 +27,7 @@ test.describe("ask — clarification flow", () => {
 			});
 		});
 
-		await page.goto("/");
+		await page.goto("/chat");
 		await expect(
 			page.getByRole("heading", { name: "Hughes AI" }),
 		).toBeVisible();

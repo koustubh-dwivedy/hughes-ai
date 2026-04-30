@@ -72,7 +72,7 @@ async function interceptHistory(page: import("@playwright/test").Page) {
 test.describe("history panel", () => {
 	test("clicking a history item loads its result", async ({ page }) => {
 		await interceptHistory(page);
-		await page.goto("/");
+		await page.goto("/chat");
 
 		const historyPanel = page.locator("aside").filter({ hasText: "History" });
 		await expect(
@@ -93,7 +93,7 @@ test.describe("history panel", () => {
 
 	test("clicking Rerun re-executes and shows fresh result", async ({ page }) => {
 		await interceptHistory(page);
-		await page.goto("/");
+		await page.goto("/chat");
 
 		const historyPanel = page.locator("aside").filter({ hasText: "History" });
 		await expect(

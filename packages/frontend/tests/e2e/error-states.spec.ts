@@ -18,7 +18,7 @@ test.describe("ask — error states", () => {
 			});
 		});
 
-		await page.goto("/");
+		await page.goto("/chat");
 		await submitQuestion(page);
 
 		const alert = page.getByRole("alert");
@@ -31,7 +31,7 @@ test.describe("ask — error states", () => {
 			await route.abort();
 		});
 
-		await page.goto("/");
+		await page.goto("/chat");
 		await submitQuestion(page);
 
 		const alert = page.getByRole("alert");

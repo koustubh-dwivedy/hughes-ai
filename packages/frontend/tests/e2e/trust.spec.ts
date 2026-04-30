@@ -32,7 +32,7 @@ test.describe("trust panel", () => {
 			}
 		});
 
-		await page.goto("/");
+		await page.goto("/chat");
 
 		const trustPanel = page.locator("aside").filter({ hasText: "Data Freshness" });
 		await expect(trustPanel).toBeVisible();
