@@ -1,3 +1,5 @@
+import ExecutiveSummary from "../dashboards/ExecutiveSummary";
+
 export default function ExecutiveSummaryPage() {
-	return <h1>Executive Summary</h1>;
+	return <ExecutiveSummary />;
 }
