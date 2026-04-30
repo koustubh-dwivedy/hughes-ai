@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import ErrorBoundary from "../components/ErrorBoundary";
+import { useDashboardContext } from "../context/DashboardContext";
 import { colors, spacing, typography } from "../theme/tokens";
 
 interface DashboardShellProps {
@@ -25,6 +26,8 @@ export default function DashboardShell({
 	empty = false,
 	children,
 }: DashboardShellProps) {
+	const { asOfDate: contextDate } = useDashboardContext();
+	const displayDate = as_of_date ?? contextDate;
 	return (
 		<section aria-labelledby="shell-title">
 			<header
@@ -48,14 +51,14 @@ export default function DashboardShell({
 				>
 					{title}
 				</h2>
-				{as_of_date && (
+				{displayDate && (
 					<span
 						style={{
 							fontSize: typography.size.xs,
 							color: colors.slate[500],
 						}}
 					>
-						As of {as_of_date}
+						As of {displayDate}
 					</span>
 				)}
 			</header>

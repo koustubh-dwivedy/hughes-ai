@@ -1,4 +1,5 @@
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import { DashboardContextProvider } from "./context/DashboardContext";
 import AppLayout from "./layout/AppLayout";
 import ChatPage from "./pages/ChatPage";
 import DepositsPage from "./pages/DepositsPage";
@@ -8,7 +9,11 @@ import PastDuePage from "./pages/PastDuePage";
 
 const router = createBrowserRouter([
 	{
-		element: <AppLayout />,
+		element: (
+			<DashboardContextProvider>
+				<AppLayout />
+			</DashboardContextProvider>
+		),
 		children: [
 			{ path: "/", element: <ExecutiveSummaryPage /> },
 			{ path: "/deposits", element: <DepositsPage /> },
