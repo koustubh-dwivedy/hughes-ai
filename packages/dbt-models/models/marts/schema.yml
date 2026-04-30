@@ -100,3 +100,26 @@ models:
           - not_null
           - accepted_values:
               values: [true, false]
+
+  - name: fct_loan_lifecycle_events
+    description: Monthly loan lifecycle events (new / paid_off) by product type for Dashboard 3
+    columns:
+      - name: row_id
+        data_tests: [not_null, unique]
+      - name: as_of_month
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_calendar')
+              field: calendar_date
+      - name: product_type
+        data_tests: [not_null]
+      - name: event_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['new', 'renewed', 'paid_off']
+      - name: loan_count
+        data_tests: [not_null]
+      - name: total_amount
+        data_tests: [not_null]
