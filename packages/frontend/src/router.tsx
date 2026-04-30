@@ -1,4 +1,8 @@
-import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import {
+	Navigate,
+	RouterProvider,
+	createBrowserRouter,
+} from "react-router-dom";
 import { DashboardContextProvider } from "./context/DashboardContext";
 import AppLayout from "./layout/AppLayout";
 import ChatPage from "./pages/ChatPage";
@@ -15,10 +19,14 @@ const router = createBrowserRouter([
 			</DashboardContextProvider>
 		),
 		children: [
-			{ path: "/", element: <ExecutiveSummaryPage /> },
-			{ path: "/deposits", element: <DepositsPage /> },
-			{ path: "/past-due", element: <PastDuePage /> },
-			{ path: "/officers", element: <OfficersPage /> },
+			{
+				path: "/",
+				element: <Navigate to="/dashboards/executive" replace />,
+			},
+			{ path: "/dashboards/executive", element: <ExecutiveSummaryPage /> },
+			{ path: "/dashboards/deposits", element: <DepositsPage /> },
+			{ path: "/dashboards/past-due", element: <PastDuePage /> },
+			{ path: "/dashboards/officer-branch", element: <OfficersPage /> },
 			{ path: "/chat", element: <ChatPage /> },
 		],
 	},

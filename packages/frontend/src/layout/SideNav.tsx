@@ -1,16 +1,15 @@
-import { Link, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { colors, spacing, typography } from "../theme/tokens";
 
 const NAV_ITEMS = [
-	{ label: "Executive Summary", href: "/" },
-	{ label: "Deposit Portfolio", href: "/deposits" },
-	{ label: "Past Due", href: "/past-due" },
-	{ label: "Officer/Branch", href: "/officers" },
+	{ label: "Executive Summary", href: "/dashboards/executive" },
+	{ label: "Deposit Portfolio", href: "/dashboards/deposits" },
+	{ label: "Past Due", href: "/dashboards/past-due" },
+	{ label: "Officer/Branch", href: "/dashboards/officer-branch" },
 	{ label: "Chat", href: "/chat" },
 ] as const;
 
 export default function SideNav() {
-	const { pathname } = useLocation();
 	return (
 		<nav
 			aria-label="primary"
@@ -35,30 +34,25 @@ export default function SideNav() {
 			>
 				Hughes AI
 			</div>
-			{NAV_ITEMS.map(({ label, href }) => {
-				const active =
-					href === "/" ? pathname === "/" : pathname.startsWith(href);
-				return (
-					<Link
-						key={href}
-						to={href}
-						aria-current={active ? "page" : undefined}
-						style={{
-							display: "block",
-							padding: `${spacing[3]} ${spacing[4]}`,
-							color: active ? colors.white : colors.slate[300],
-							backgroundColor: active ? colors.slate[900] : "transparent",
-							textDecoration: "none",
-							fontSize: typography.size.sm,
-							fontWeight: active
-								? typography.weight.medium
-								: typography.weight.normal,
-						}}
-					>
-						{label}
-					</Link>
-				);
-			})}
+			{NAV_ITEMS.map(({ label, href }) => (
+				<NavLink
+					key={href}
+					to={href}
+					style={({ isActive }) => ({
+						display: "block",
+						padding: `${spacing[3]} ${spacing[4]}`,
+						color: isActive ? colors.white : colors.slate[300],
+						backgroundColor: isActive ? colors.slate[900] : "transparent",
+						textDecoration: "none",
+						fontSize: typography.size.sm,
+						fontWeight: isActive
+							? typography.weight.medium
+							: typography.weight.normal,
+					})}
+				>
+					{label}
+				</NavLink>
+			))}
 		</nav>
 	);
 }
