@@ -1,7 +1,7 @@
 WITH dates AS (
     SELECT generate_series(
         '2022-07-01'::DATE,
-        '2025-06-30'::DATE,
+        '2026-06-30'::DATE,
         '1 day'::INTERVAL
     )::DATE AS calendar_date
 )
