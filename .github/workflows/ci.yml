@@ -130,7 +130,7 @@ jobs:
       - name: Build and test marts
         run: |
           cd packages/dbt-models
-          uv run dbt build --select marts --profiles-dir .
+          uv run dbt build --select +marts --profiles-dir .
       - name: Run integration tests
         run: |
           set +e
