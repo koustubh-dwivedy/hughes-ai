@@ -133,6 +133,7 @@ async def officer_branch(
     as_of_date: date | None = Query(default=None),  # noqa: B008
     branch_id: int | None = Query(default=None),  # noqa: B008
     officer_id: str | None = Query(default=None),  # noqa: B008
+    tab: str | None = Query(default=None),  # noqa: B008
 ) -> Response:
     rid: str = request.state.request_id
     t0 = time.monotonic()
@@ -140,7 +141,7 @@ async def officer_branch(
     endpoint = "officer-branch"
 
     as_of = as_of_date or repo_loans.fetch_latest_loans_month(db_url)
-    as_of_str = f"{as_of}|b={branch_id}|o={officer_id}"
+    as_of_str = f"{as_of}|b={branch_id}|o={officer_id}|t={tab}"
 
     cached = dashboard_query.cache_get(endpoint, as_of_str)
     if cached is not None:
@@ -152,7 +153,9 @@ async def officer_branch(
         )
     dashboard_cache_total.labels(endpoint=endpoint, result="miss").inc()
 
-    data = dashboard_query.compose_officer_branch(as_of, db_url, branch_id, officer_id)
+    data = dashboard_query.compose_officer_branch(
+        as_of, db_url, branch_id, officer_id, tab
+    )
     envelope = build_envelope(data, as_of, uuid.UUID(rid))
     json_str = envelope.model_dump_json()
 

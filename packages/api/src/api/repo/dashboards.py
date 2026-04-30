@@ -225,6 +225,53 @@ def fetch_delinquency_trend(as_of: date, db_url: str) -> list[dict[str, Any]]:
     )
 
 
+def fetch_lifecycle_tab(tab: str, as_of: date, db_url: str) -> list[dict[str, Any]]:
+    """Return lifecycle event rows for the given tab type over the last 13 months."""
+    if tab not in {"new", "renewed", "paid_off"}:
+        return []
+    return fetch_mart_rows(
+        """
+        SELECT
+            as_of_month                AS period,
+            product_type,
+            SUM(loan_count)::int       AS count,
+            SUM(total_amount)          AS amount
+        FROM fct_loan_lifecycle_events
+        WHERE event_type = %s
+          AND as_of_month <= %s
+          AND as_of_month >= (%s::DATE - INTERVAL '12 months')::DATE
+        GROUP BY as_of_month, product_type
+        ORDER BY as_of_month DESC, product_type
+        """,
+        (tab, as_of, as_of),
+        db_url,
+    )
+
+
+def fetch_watchlist_trend(as_of: date, db_url: str) -> list[dict[str, Any]]:
+    """Return 13 monthly watchlist count + balance buckets ending at as_of."""
+    return fetch_mart_rows(
+        """
+        SELECT
+            TO_CHAR(months.month, 'YYYY-MM')    AS month,
+            COUNT(w.member_id)::int             AS count,
+            COALESCE(SUM(w.balance), 0)         AS balance
+        FROM generate_series(
+                (%s::DATE - INTERVAL '12 months')::DATE,
+                %s::DATE,
+                '1 month'::INTERVAL
+             ) AS months(month)
+        LEFT JOIN watchlist w
+               ON w.added_at::DATE < (months.month + INTERVAL '1 month')::DATE
+              AND (w.removed_at IS NULL OR w.removed_at::DATE > months.month::DATE)
+        GROUP BY months.month
+        ORDER BY months.month
+        """,
+        (as_of, as_of),
+        db_url,
+    )
+
+
 def fetch_past_due_ratio_trend(as_of: date, db_url: str) -> list[dict[str, Any]]:
     return fetch_mart_rows(
         """

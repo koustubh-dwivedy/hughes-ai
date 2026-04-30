@@ -18,10 +18,12 @@ from api.types.deposit_portfolio import (
 )
 from api.types.officer_branch import (
     ComboBalanceRate,
+    LifecycleTabRow,
     LoanMixItem,
     OfficerBranchData,
     SingleLoanCount,
     TopBorrower,
+    WatchlistTrendPoint,
     WaterfallStep,
 )
 from api.types.past_due import (
@@ -221,6 +223,7 @@ def compose_officer_branch(
     db_url: str,
     branch_id: int | None = None,
     officer_id: str | None = None,
+    tab: str | None = None,
 ) -> OfficerBranchData:
     """Fetch and assemble all panels for the officer-branch dashboard."""
     prior = _prior_month(as_of)
@@ -232,6 +235,8 @@ def compose_officer_branch(
     )
     slc = repo_loans.fetch_single_loan_counts(as_of, db_url, branch_id, officer_id)
     combo = repo_loans.fetch_combo_balance_rate(as_of, db_url, branch_id, officer_id)
+    wl_trend = repo.fetch_watchlist_trend(as_of, db_url)
+    tab_rows = repo.fetch_lifecycle_tab(tab, as_of, db_url) if tab is not None else None
     tb = float(totals.get("total_loans") or 0)
     return OfficerBranchData(
         total_loans=tb,
@@ -262,4 +267,23 @@ def compose_officer_branch(
             for r in slc
         ],
         combo_balance_rate=_build_combo_rate(combo),
+        watchlist_trend=[
+            WatchlistTrendPoint(
+                month=str(r["month"]),
+                count=int(r["count"]),
+                balance=float(r["balance"]),
+            )
+            for r in wl_trend
+        ],
+        tab_data=[
+            LifecycleTabRow(
+                period=str(r["period"]),
+                product_type=str(r["product_type"]),
+                count=int(r["count"]),
+                amount=float(r["amount"]),
+            )
+            for r in tab_rows
+        ]
+        if tab_rows is not None
+        else None,
     )

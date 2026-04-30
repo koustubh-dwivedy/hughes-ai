@@ -31,6 +31,19 @@ class ComboBalanceRate(BaseModel):
     weighted_avg_rate: float
 
 
+class LifecycleTabRow(BaseModel):
+    period: str
+    product_type: str
+    count: int
+    amount: float
+
+
+class WatchlistTrendPoint(BaseModel):
+    month: str
+    count: int
+    balance: float
+
+
 class OfficerBranchData(BaseModel):
     total_loans: float
     account_count: int
@@ -40,3 +53,5 @@ class OfficerBranchData(BaseModel):
     change_by_type_waterfall: list[WaterfallStep]
     single_loan_customers_by_type: list[SingleLoanCount]
     combo_balance_rate: list[ComboBalanceRate]
+    watchlist_trend: list[WatchlistTrendPoint] = []
+    tab_data: list[LifecycleTabRow] | None = None
