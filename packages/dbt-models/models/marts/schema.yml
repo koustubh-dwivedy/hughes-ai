@@ -65,3 +65,38 @@ models:
           - not_null
           - accepted_values:
               values: [true, false]
+
+  - name: fct_delinquency_monthly
+    description: Monthly delinquency rollup by officer, branch, and DPD bucket for Dashboard 2
+    columns:
+      - name: row_id
+        data_tests: [not_null, unique]
+      - name: as_of_month
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_calendar')
+              field: calendar_date
+      - name: officer_id
+        data_tests:
+          - relationships:
+              to: ref('dim_officer')
+              field: officer_id
+      - name: branch_id
+        data_tests: [not_null]
+      - name: bucket
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['15-29', '30-59', '60-89', '90+']
+      - name: loan_count
+        data_tests: [not_null]
+      - name: balance
+        data_tests: [not_null]
+      - name: past_due_loan_count
+        data_tests: [not_null]
+      - name: is_in_13_month_window
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
