@@ -17,6 +17,7 @@ from api.repo.history import save_dashboard_audit
 from api.service import dashboard_query
 from api.types.dashboard_envelope import DashboardEnvelope
 from api.types.deposit_portfolio import DepositPortfolioData
+from api.types.past_due import PastDueData
 
 router = APIRouter(prefix="/api/dashboards")
 
@@ -62,6 +63,48 @@ async def deposit_portfolio(
     dashboard_cache_total.labels(endpoint=endpoint, result="miss").inc()
 
     data = dashboard_query.compose_deposit_portfolio(as_of, db_url)
+    envelope = build_envelope(data, as_of, uuid.UUID(rid))
+    json_str = envelope.model_dump_json()
+
+    dashboard_query.cache_set(endpoint, as_of_str, json_str)
+    save_dashboard_audit(endpoint, {"as_of": as_of_str}, uuid.UUID(rid), db_url)
+    dashboard_request_total.labels(endpoint=endpoint, status="success").inc()
+    dashboard_duration_seconds.labels(endpoint=endpoint).observe(time.monotonic() - t0)
+
+    return Response(
+        content=json_str,
+        media_type="application/json",
+        headers={"Cache-Control": "max-age=300, public"},
+    )
+
+
+@router.get(
+    "/past-due",
+    response_model=DashboardEnvelope[PastDueData],
+)
+async def past_due(
+    request: Request,
+    as_of_date: date | None = Query(default=None),  # noqa: B008
+) -> Response:
+    rid: str = request.state.request_id
+    t0 = time.monotonic()
+    db_url: str = request.app.state.db_url
+    endpoint = "past-due"
+
+    as_of = as_of_date or repo_dash.fetch_latest_delinquency_month(db_url)
+    as_of_str = str(as_of)
+
+    cached = dashboard_query.cache_get(endpoint, as_of_str)
+    if cached is not None:
+        dashboard_cache_total.labels(endpoint=endpoint, result="hit").inc()
+        return Response(
+            content=str(cached),
+            media_type="application/json",
+            headers={"Cache-Control": "max-age=300, public"},
+        )
+    dashboard_cache_total.labels(endpoint=endpoint, result="miss").inc()
+
+    data = dashboard_query.compose_past_due(as_of, db_url)
     envelope = build_envelope(data, as_of, uuid.UUID(rid))
     json_str = envelope.model_dump_json()
 

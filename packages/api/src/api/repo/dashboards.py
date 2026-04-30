@@ -125,3 +125,130 @@ def fetch_new_vs_closed(as_of: date, db_url: str) -> dict[str, Any]:
         db_url,
     )
     return rows[0] if rows else {}
+
+
+# ── Past-due / delinquency ────────────────────────────────────────────────────
+
+
+def fetch_latest_delinquency_month(db_url: str) -> date:
+    """Return the most recent as_of_month in fct_delinquency_monthly."""
+    rows = fetch_mart_rows(
+        "SELECT MAX(as_of_month) AS m FROM fct_delinquency_monthly", (), db_url
+    )
+    result: date = rows[0]["m"]
+    return result
+
+
+def fetch_delinquency_kpis(as_of: date, db_url: str) -> dict[str, Any]:
+    rows = fetch_mart_rows(
+        """
+        SELECT
+            SUM(CASE WHEN bucket IN ('30-59','60-89','90+')
+                     THEN balance ELSE 0 END) AS past_due_total,
+            SUM(CASE WHEN bucket = '90+'
+                     THEN balance ELSE 0 END) AS nonperforming_balance
+        FROM fct_delinquency_monthly
+        WHERE as_of_month = %s
+        """,
+        (as_of,),
+        db_url,
+    )
+    return rows[0] if rows else {}
+
+
+def fetch_nonaccrual_total(last_day: date, db_url: str) -> float:
+    rows = fetch_mart_rows(
+        """
+        SELECT COALESCE(SUM(lb.balance), 0) AS nonaccrual_total
+        FROM booked_loans bl
+        JOIN loan_balances lb ON bl.loan_id = lb.loan_id
+        WHERE bl.is_nonaccrual = TRUE
+          AND lb.snapshot_date = (
+              SELECT MAX(snapshot_date) FROM loan_balances
+              WHERE snapshot_date <= %s
+          )
+        """,
+        (last_day,),
+        db_url,
+    )
+    return float(rows[0]["nonaccrual_total"]) if rows else 0.0
+
+
+def fetch_watchlist_count(last_day: date, db_url: str) -> int:
+    rows = fetch_mart_rows(
+        """
+        SELECT COUNT(*) AS cnt
+        FROM watchlist
+        WHERE added_at::DATE <= %s
+          AND (removed_at IS NULL OR removed_at::DATE > %s)
+        """,
+        (last_day, last_day),
+        db_url,
+    )
+    return int(rows[0]["cnt"]) if rows else 0
+
+
+def fetch_past_due_by_officer(as_of: date, db_url: str) -> list[dict[str, Any]]:
+    return fetch_mart_rows(
+        """
+        SELECT o.officer_name,
+               SUM(f.balance)             AS balance,
+               SUM(f.past_due_loan_count) AS count
+        FROM fct_delinquency_monthly f
+        JOIN dim_officer o USING (officer_id)
+        WHERE f.as_of_month = %s
+          AND f.bucket IN ('30-59', '60-89', '90+')
+        GROUP BY o.officer_id, o.officer_name
+        ORDER BY balance DESC
+        """,
+        (as_of,),
+        db_url,
+    )
+
+
+def fetch_delinquency_trend(as_of: date, db_url: str) -> list[dict[str, Any]]:
+    return fetch_mart_rows(
+        """
+        SELECT
+            as_of_month AS month,
+            SUM(CASE WHEN bucket = '30-59' THEN balance ELSE 0 END) AS bucket_30_59,
+            SUM(CASE WHEN bucket = '60-89' THEN balance ELSE 0 END) AS bucket_60_89,
+            SUM(CASE WHEN bucket = '90+'   THEN balance ELSE 0 END) AS bucket_90_plus
+        FROM fct_delinquency_monthly
+        WHERE as_of_month >= %s::DATE - INTERVAL '12 months'
+          AND as_of_month <= %s
+        GROUP BY as_of_month
+        ORDER BY as_of_month
+        """,
+        (as_of, as_of),
+        db_url,
+    )
+
+
+def fetch_past_due_ratio_trend(as_of: date, db_url: str) -> list[dict[str, Any]]:
+    return fetch_mart_rows(
+        """
+        WITH past_due AS (
+            SELECT as_of_month, SUM(balance) AS past_due_bal
+            FROM fct_delinquency_monthly
+            WHERE bucket IN ('30-59', '60-89', '90+')
+              AND as_of_month >= %s::DATE - INTERVAL '12 months'
+              AND as_of_month <= %s
+            GROUP BY as_of_month
+        ),
+        total AS (
+            SELECT as_of_month, SUM(total_balance) AS total_bal
+            FROM fct_loans_monthly
+            WHERE as_of_month >= %s::DATE - INTERVAL '12 months'
+              AND as_of_month <= %s
+            GROUP BY as_of_month
+        )
+        SELECT p.as_of_month AS month,
+               p.past_due_bal / NULLIF(t.total_bal, 0) AS ratio
+        FROM past_due p
+        JOIN total t USING (as_of_month)
+        ORDER BY month
+        """,
+        (as_of, as_of, as_of, as_of),
+        db_url,
+    )

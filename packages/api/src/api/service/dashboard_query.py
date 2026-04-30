@@ -1,7 +1,8 @@
 """Dashboard service: date helpers, TTL cache, and panel composers."""
 
+import calendar
 import time
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from api.repo import dashboards as repo
@@ -13,6 +14,12 @@ from api.types.deposit_portfolio import (
     ProductBalance,
     ProductDelta,
     TopDeposit,
+)
+from api.types.past_due import (
+    DelinquencyTrendMonth,
+    OfficerDelinquency,
+    PastDueData,
+    PastDueRatioPoint,
 )
 
 _TTL = 300.0
@@ -124,4 +131,63 @@ def compose_deposit_portfolio(as_of: date, db_url: str) -> DepositPortfolioData:
             for r in delta
         ],
         new_vs_closed_accounts=_build_nvc(nvc),
+    )
+
+
+def _prior_month(as_of: date) -> date:
+    return (date(as_of.year, as_of.month, 1) - timedelta(days=1)).replace(day=1)
+
+
+def _month_last_day(d: date) -> date:
+    return date(d.year, d.month, calendar.monthrange(d.year, d.month)[1])
+
+
+def compose_past_due(as_of: date, db_url: str) -> PastDueData:
+    """Fetch and assemble all panels for the past-due dashboard."""
+    prior = _prior_month(as_of)
+    last = _month_last_day(as_of)
+    prior_last = _month_last_day(prior)
+
+    kpis = repo.fetch_delinquency_kpis(as_of, db_url)
+    kpis_p = repo.fetch_delinquency_kpis(prior, db_url)
+    nac = repo.fetch_nonaccrual_total(last, db_url)
+    wl = repo.fetch_watchlist_count(last, db_url)
+    wl_p = repo.fetch_watchlist_count(prior_last, db_url)
+    by_officer = repo.fetch_past_due_by_officer(as_of, db_url)
+    trend = repo.fetch_delinquency_trend(as_of, db_url)
+    ratio_trend = repo.fetch_past_due_ratio_trend(as_of, db_url)
+    pdt = float(kpis.get("past_due_total") or 0)
+    pdt_p = float(kpis_p.get("past_due_total") or 0)
+    npb = float(kpis.get("nonperforming_balance") or 0)
+    npb_p = float(kpis_p.get("nonperforming_balance") or 0)
+    return PastDueData(
+        past_due_total=pdt,
+        past_due_total_delta=pdt - pdt_p,
+        nonaccrual_total=nac,
+        nonaccrual_total_delta=0.0,
+        watchlist_count=wl,
+        watchlist_count_delta=wl - wl_p,
+        nonperforming_balance=npb,
+        nonperforming_balance_delta=npb - npb_p,
+        past_due_by_officer=[
+            OfficerDelinquency(
+                officer_name=str(r["officer_name"]),
+                balance=float(r["balance"]),
+                count=int(r["count"]),
+            )
+            for r in by_officer
+        ],
+        delinquency_trend_13_months=[
+            DelinquencyTrendMonth(
+                month=r["month"],
+                bucket_30_59=float(r["bucket_30_59"]),
+                bucket_60_89=float(r["bucket_60_89"]),
+                bucket_90_plus=float(r["bucket_90_plus"]),
+            )
+            for r in trend
+        ],
+        past_due_ratio_trend=[
+            PastDueRatioPoint(month=r["month"], ratio=float(r["ratio"]))
+            for r in ratio_trend
+        ],
     )
