@@ -19,6 +19,7 @@ class SynthProfile(BaseModel):
     officer_count: int = Field(default=20, gt=0)
     deposit_account_count: int = Field(default=8000, gt=0)
     history_months: int = Field(default=26, gt=0)
+    watchlist_share: float = Field(default=0.04, ge=0.0, le=1.0)
 
 
 def load_profile(name: str) -> SynthProfile:

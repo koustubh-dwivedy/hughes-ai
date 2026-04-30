@@ -48,12 +48,23 @@ Crossing layers is a CI failure, not a convention.
 
 ```bash
 make dev        # docker-compose up (Postgres, Redis, Vector + Victoria observability)
-make seed       # generate + load synthetic data (deterministic, cached by YAML hash)
+make seed       # generate + load synthetic data (deterministic; cache invalidates when profile
+                #   YAML or any generator source file changes — see scripts/seed.py _SRC_FILES)
 make lint       # ruff + mypy + biome + semgrep
 make test       # pytest unit + integration
 make eval       # NL accuracy benchmark (20-question subset by default)
 make eval-full  # full 50+ question benchmark
 ```
+
+## Synth data profile (small_cu)
+
+| Dimension | Value |
+|---|---|
+| Members | 3,000 |
+| Deposit accounts | 8,000 |
+| History span | 26 months |
+| Watchlist share | 4% of active loans |
+| Deterministic seed | 42 |
 
 ## CI gates (all blocking)
 

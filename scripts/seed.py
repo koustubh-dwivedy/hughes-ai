@@ -21,7 +21,9 @@ _SRC_FILES = [
     "packages/synth-data/src/synth_data/generators/origence.py",
     "packages/synth-data/src/synth_data/generators/symitar.py",
     "packages/synth-data/src/synth_data/generators/symitar_standalone.py",
+    "packages/synth-data/src/synth_data/generators/lifecycle.py",
     "packages/synth-data/src/synth_data/generators/members.py",
+    "packages/synth-data/src/synth_data/generators/officers.py",
     "packages/synth-data/src/synth_data/generators/watchlist.py",
     "packages/synth-data/src/synth_data/generators/deposits.py",
     "packages/synth-data/src/synth_data/reconciliation.py",
@@ -84,6 +86,7 @@ def _run(profile_name: str, force: bool) -> None:
 
     watchlist = generate_watchlist(
         np.random.default_rng(profile.seed + 30), symitar.booked_loans,
+        watchlist_share=profile.watchlist_share,
     )
     log.info("generated watchlist", count=len(watchlist))
 

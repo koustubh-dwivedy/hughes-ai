@@ -25,12 +25,13 @@ class WatchlistRow:
 def generate_watchlist(
     rng: np.random.Generator,
     booked_loans: list[BookedLoanRow],
+    watchlist_share: float = 0.04,
 ) -> list[WatchlistRow]:
     active = [
         loan for loan in booked_loans
         if loan.status in ("current", "delinquent")
     ]
-    n = max(1, round(len(active) * 0.04))
+    n = max(1, round(len(active) * watchlist_share))
     raw = rng.integers(0, 256, size=(n, 16), dtype=np.uint8)
     ids = [str(uuid.UUID(bytes=bytes(raw[k]))) for k in range(n)]
     choices = rng.choice(len(active), size=n, replace=False)
