@@ -123,3 +123,35 @@ models:
         data_tests: [not_null]
       - name: total_amount
         data_tests: [not_null]
+
+  - name: fct_executive_kpis
+    description: Monthly executive KPI rollup aggregated from loans, deposits, and delinquency marts
+    columns:
+      - name: row_id
+        data_tests: [not_null, unique]
+      - name: as_of_month
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_calendar')
+              field: calendar_date
+      - name: total_loans_balance
+        data_tests: [not_null]
+      - name: total_deposits_balance
+        data_tests: [not_null]
+      - name: loan_to_deposit_ratio
+        data_tests: [not_null]
+      - name: core_deposit_ratio
+        data_tests: [not_null]
+      - name: blended_past_due_ratio
+        data_tests: [not_null]
+      - name: monthly_loan_growth
+        data_tests: [not_null]
+      - name: monthly_deposit_growth
+        data_tests: [not_null]
+      - name: weighted_avg_loan_rate
+        data_tests: [not_null]
+      - name: weighted_avg_deposit_rate
+        data_tests: [not_null]
+      - name: rate_spread
+        data_tests: [not_null]
