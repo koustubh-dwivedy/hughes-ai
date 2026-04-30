@@ -39,6 +39,22 @@ A critical capability is linking and reconciling LOS applications/fundings to bo
 
 No mobile app, no alerts, no scheduled reporting, no customer onboarding flows, no compliance workflows in v1.
 
+## Dashboards
+
+Pre-built dashboard views for structured lending analytics, separate from the open-ended NL chat. Each dashboard fetches from a dedicated mart-backed API endpoint (see `docs/dashboards.md` and `docs/decisions/0001-dashboards-fetch-strategy.md`).
+
+### Executive Summary
+KPIs: total loans balance, total deposits balance, MTD/YTD loan and deposit growth, past due ratio, loan-to-deposit ratio, core deposit ratio. Charts: loans & rate spread trend (13 mo.), MTD growth comparison, past-due aging buckets, past-due ratio trend (13 mo.).
+
+### Deposit Portfolio
+KPIs: total deposits, MTD change, YTD change, account count, average balance per customer. Charts: deposit mix (donut), deposits by branch, change by product (waterfall), new vs. closed accounts. Table: top-25 depositors.
+
+### Past Due
+KPIs: past due total, nonaccrual balance, watchlist count, NPL balance (with MTD deltas). Charts: past due by officer (bar), delinquency trend (13 mo. stacked), past due ratio trend. Note: KPI deltas are negated — an increase in past-due displays as a downward (red) movement.
+
+### Officer / Branch Loans
+KPIs: total loans, account count, average loan balance. Charts: loan mix (donut), single-loan customers by type, MTD change by type (waterfall), balance vs. rate (combo). Table: top-25 borrowers with balance and portfolio share. Note: borrower names are synthetic — a persistent "Demo data only" banner is always visible.
+
 ## Analysis core
 
 Answers grounded in layered business context:

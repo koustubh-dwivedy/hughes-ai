@@ -73,6 +73,55 @@ All metrics used in the NL engine are defined here. This file is the source of t
 
 ---
 
+## Dashboard KPI Metrics
+
+These metrics power the pre-built dashboard views. Source tables are dbt marts in
+`packages/dbt-models/models/marts/`.
+
+### Total Deposits Balance
+- **Definition:** Sum of current outstanding balance across all active deposit accounts
+- **Formula:** `SUM(current_balance) FROM fct_deposits_monthly WHERE snapshot_date = :date AND status = 'active'`
+- **Source:** `fct_deposits_monthly`
+- **Caveats:** Point-in-time snapshot — always pair with `as_of_date`. Excludes closed accounts.
+
+### Loan-to-Deposit Ratio
+- **Definition:** Total loans balance divided by total deposits balance
+- **Formula:** `total_loans_balance / total_deposits_balance`
+- **Source:** `fct_executive_kpis`
+- **Caveats:** Values above 1.0 indicate the CU is lending more than it holds in deposits. Regulatory guidance typically targets ≤ 0.80–0.90 for community CUs.
+
+### Core Deposit Ratio
+- **Definition:** Core deposits (checking + savings + money market) as a share of total deposits
+- **Formula:** `SUM(balance WHERE product_type IN ('checking','savings','money_market')) / SUM(balance)`
+- **Source:** `fct_deposits_monthly` JOIN `dim_deposit_product`
+- **Caveats:** Higher ratios indicate more stable, lower-cost funding. CDs and brokered deposits are excluded from the numerator.
+
+### Blended Past Due Ratio
+- **Definition:** Dollar-weighted percentage of the total loan portfolio that is 30+ days past due, across all product types
+- **Formula:** `SUM(balance WHERE days_past_due >= 30) / SUM(total_portfolio_balance)`
+- **Source:** `fct_delinquency_monthly`
+- **Caveats:** Cross-product blend — product-specific rates may differ significantly. Use delinquency drill-down for per-product analysis.
+
+### Rate Spread
+- **Definition:** Weighted average loan yield minus weighted average deposit cost
+- **Formula:** `weighted_avg_loan_rate - weighted_avg_deposit_rate`
+- **Source:** `fct_executive_kpis`
+- **Caveats:** Simplified net interest margin proxy. Does not account for operating expenses, credit losses, or non-interest income.
+
+### Nonaccrual Balance
+- **Definition:** Outstanding principal balance on loans where interest accrual has been suspended due to credit deterioration
+- **Formula:** `SUM(current_balance) FROM fct_loan_performance WHERE accrual_status = 'nonaccrual'`
+- **Source:** `fct_loan_performance`
+- **Caveats:** Typically triggered at 90+ DPD per NCUA guidance, but policy varies. Nonaccrual loans are a subset of — and often overlap with — NPL balance.
+
+### Nonperforming Loan (NPL) Balance
+- **Definition:** Outstanding balance of loans that are 90+ days past due or on nonaccrual status
+- **Formula:** `SUM(current_balance) FROM fct_loan_performance WHERE days_past_due >= 90 OR accrual_status = 'nonaccrual'`
+- **Source:** `fct_loan_performance`
+- **Caveats:** NPL balance is the broadest risk indicator on the Past Due dashboard. An increasing NPL balance is adverse — the frontend negates the delta so an increase renders as a downward (red) movement.
+
+---
+
 ## Date Conventions
 
 | Use case | Field to use |
@@ -82,3 +131,6 @@ All metrics used in the NL engine are defined here. This file is the source of t
 | Balance as-of | `snapshot_date` from `loan_balances` |
 | Delinquency as-of | `snapshot_date` from `delinquency_snapshots` |
 | Payment date | `payment_date` from `payments` |
+| Dashboard as-of date | `?as_of_date` query param (defaults to latest snapshot) |
+| Deposit balance as-of | `snapshot_date` from `fct_deposits_monthly` |
+| Delinquency trend month | `month` from `fct_delinquency_monthly` |
