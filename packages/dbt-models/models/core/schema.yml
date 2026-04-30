@@ -64,3 +64,59 @@ models:
           - not_null
           - accepted_values:
               values: [current, delinquent, charged_off, paid_off]
+
+  - name: dim_calendar
+    description: Daily calendar covering 2022-07-01 to 2025-06-30 with fiscal year and month-end flags
+    columns:
+      - name: calendar_date
+        data_tests: [not_null, unique]
+      - name: month_start_date
+        data_tests: [not_null]
+      - name: month_end_date
+        data_tests: [not_null]
+      - name: year
+        data_tests: [not_null]
+      - name: month_num
+        data_tests: [not_null]
+      - name: quarter
+        data_tests: [not_null]
+      - name: fiscal_year
+        data_tests: [not_null]
+      - name: is_month_end
+        data_tests: [not_null]
+
+  - name: dim_member
+    description: Member dimension with branch name and region
+    columns:
+      - name: member_id
+        data_tests: [not_null, unique]
+      - name: full_name
+        data_tests: [not_null]
+      - name: home_branch_name
+        data_tests: [not_null]
+
+  - name: dim_officer
+    description: Officer dimension with branch context and employment status
+    columns:
+      - name: officer_id
+        data_tests: [not_null, unique]
+      - name: officer_name
+        data_tests: [not_null]
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [active, departed]
+
+  - name: dim_deposit_product
+    description: Deposit product dimension — 5 products with core/non-core category
+    columns:
+      - name: deposit_product_id
+        data_tests: [not_null, unique]
+      - name: product_name
+        data_tests: [not_null]
+      - name: deposit_category
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [Core, Non-Core]

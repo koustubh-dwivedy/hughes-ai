@@ -270,8 +270,8 @@ def load_postgres(
         with conn.cursor() as cur:
             cur.execute("TRUNCATE applications CASCADE")
             log.info("truncated applications cascade")
-            cur.execute("TRUNCATE officers")
-            log.info("truncated officers")
+            cur.execute("TRUNCATE officers CASCADE")
+            log.info("truncated officers cascade")
             pt_map = _upsert_lookup(cur, "product_types", origence.product_types)
             ch_map = _upsert_lookup(cur, "channels", origence.channels)
             log.info("upserted lookup tables", pt=len(pt_map), ch=len(ch_map))
