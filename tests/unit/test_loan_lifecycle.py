@@ -24,7 +24,7 @@ def test_oldest_balance_row_within_26_months() -> None:
 def test_each_loan_has_lifecycle_events() -> None:
     origence = generate_origence_data(_PROFILE)
     symitar = generate_symitar_data(origence, _PROFILE)
-    loan_ids = {l.loan_id for l in symitar.booked_loans}
+    loan_ids = {ln.loan_id for ln in symitar.booked_loans}
     event_loan_ids = {e.loan_id for e in symitar.loan_lifecycle_events}
     missing = loan_ids - event_loan_ids
     assert not missing, f"{len(missing)} loans have no lifecycle events"
@@ -33,7 +33,7 @@ def test_each_loan_has_lifecycle_events() -> None:
 def test_paid_off_loans_have_paid_off_event() -> None:
     origence = generate_origence_data(_PROFILE)
     symitar = generate_symitar_data(origence, _PROFILE)
-    paid_off = {l.loan_id for l in symitar.booked_loans if l.status == "paid_off"}
+    paid_off = {ln.loan_id for ln in symitar.booked_loans if ln.status == "paid_off"}
     events_by_loan: dict[str, set[str]] = {}
     for e in symitar.loan_lifecycle_events:
         events_by_loan.setdefault(e.loan_id, set()).add(e.event_type)

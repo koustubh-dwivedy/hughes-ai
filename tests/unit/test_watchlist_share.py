@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import numpy as np
-
 from synth_data.generators.symitar_types import BookedLoanRow
 from synth_data.generators.watchlist import generate_watchlist
 

@@ -43,7 +43,8 @@ def test_closed_accounts_no_post_close_snapshots() -> None:
         close_month = acc.closed_at.date().replace(day=1)
         for snap in snap_by_acct.get(acc.account_id, []):
             assert snap <= close_month, (
-                f"account {acc.account_id} has snapshot {snap} after close {close_month}"
+                f"account {acc.account_id} has snapshot {snap}"
+                f" after close {close_month}"
             )
 
 
