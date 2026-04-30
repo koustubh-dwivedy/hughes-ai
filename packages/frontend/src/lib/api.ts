@@ -1,3 +1,12 @@
+import type {
+	DashboardEnvelope,
+	DashboardParams,
+	DepositPortfolioData,
+	ExecutiveSummaryData,
+	OfficerBranchData,
+	PastDueData,
+} from "./dashboardApi";
+
 const BASE = "/api";
 
 export interface AskResponse {
@@ -78,6 +87,42 @@ export function postRerun(id: string): Promise<AskResponse> {
 	return fetchJson<AskResponse>(`${BASE}/history/${id}/rerun`, {
 		method: "POST",
 	});
+}
+
+// ── Dashboard fetchers ────────────────────────────────────────────────────────
+
+export function getDepositPortfolio(
+	params?: DashboardParams,
+): Promise<DashboardEnvelope<DepositPortfolioData>> {
+	const qs = params?.asOfDate ? `?as_of_date=${params.asOfDate}` : "";
+	return fetchJson(`${BASE}/dashboards/deposit-portfolio${qs}`);
+}
+
+export function getPastDue(
+	params?: DashboardParams,
+): Promise<DashboardEnvelope<PastDueData>> {
+	const qs = params?.asOfDate ? `?as_of_date=${params.asOfDate}` : "";
+	return fetchJson(`${BASE}/dashboards/past-due${qs}`);
+}
+
+export function getOfficerBranch(
+	params?: DashboardParams,
+): Promise<DashboardEnvelope<OfficerBranchData>> {
+	const p = new URLSearchParams();
+	if (params?.asOfDate) p.set("as_of_date", params.asOfDate);
+	if (params?.branchId !== undefined)
+		p.set("branch_id", String(params.branchId));
+	if (params?.officerId) p.set("officer_id", params.officerId);
+	if (params?.tab) p.set("tab", params.tab);
+	const qs = p.size > 0 ? `?${p.toString()}` : "";
+	return fetchJson(`${BASE}/dashboards/officer-branch${qs}`);
+}
+
+export function getExecutiveSummary(
+	params?: DashboardParams,
+): Promise<DashboardEnvelope<ExecutiveSummaryData>> {
+	const qs = params?.asOfDate ? `?as_of_date=${params.asOfDate}` : "";
+	return fetchJson(`${BASE}/dashboards/executive-summary${qs}`);
 }
 
 export function historyDetailToAskResponse(d: HistoryDetail): AskResponse {
