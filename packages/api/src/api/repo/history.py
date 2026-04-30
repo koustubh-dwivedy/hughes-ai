@@ -57,6 +57,35 @@ def get_history_by_id(
         return dict(zip(cols, row, strict=False))
 
 
+def save_dashboard_audit(
+    endpoint: str,
+    params: dict[str, str],
+    audit_id: uuid.UUID,
+    db_url: str,
+) -> None:
+    """Audit-log a dashboard request in query_history."""
+    canonical = "dashboard:" + endpoint + ":" + ":".join(
+        f"{k}={v}" for k, v in sorted(params.items())
+    )
+    with psycopg.connect(db_url) as conn:
+        conn.execute(
+            "INSERT INTO query_history "
+            "(id, question, sql, answer_json, assumptions, caveats,"
+            " lineage_json, token_usage) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+            (
+                audit_id,
+                canonical,
+                "",
+                json.dumps({}),
+                json.dumps([]),
+                json.dumps([]),
+                json.dumps({}),
+                json.dumps({}),
+            ),
+        )
+
+
 def get_history(limit: int, db_url: str) -> list[dict[str, object]]:
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(

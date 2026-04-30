@@ -24,3 +24,24 @@ llm_tokens_total = Counter(
     ["model"],
     registry=REGISTRY,
 )
+
+dashboard_request_total = Counter(
+    "dashboard_request_total",
+    "Total dashboard requests by endpoint and status",
+    ["endpoint", "status"],
+    registry=REGISTRY,
+)
+
+dashboard_duration_seconds = Histogram(
+    "dashboard_duration_seconds",
+    "Dashboard request duration in seconds by endpoint",
+    ["endpoint"],
+    registry=REGISTRY,
+)
+
+dashboard_cache_total = Counter(
+    "dashboard_cache_total",
+    "Dashboard cache hits and misses by endpoint",
+    ["endpoint", "result"],
+    registry=REGISTRY,
+)
