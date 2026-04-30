@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 
 from synth_data.config import SynthProfile
+from synth_data.generators.lifecycle import generate_lifecycle_events
 from synth_data.generators.officers import assign_officer_id, generate_officers
 from synth_data.generators.origence import (
     PRODUCT_SPECS,
@@ -291,7 +292,9 @@ def generate_symitar_data(origence: OrigenceData, profile: SynthProfile) -> Symi
     all_loans = booked + standalone
     for loan in all_loans:
         loan.officer_id = assign_officer_id(loan.loan_id, loan.branch_name, officers)
+    lifecycle_events = generate_lifecycle_events(all_loans, profile.seed)
     return SymitarData(
         branches=branches, booked_loans=all_loans, loan_balances=bals,
         payments=pmts, delinquency_snapshots=drows, officers=officers,
+        loan_lifecycle_events=lifecycle_events,
     )

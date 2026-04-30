@@ -9,3 +9,4 @@ standalone_loan_count: 10
 member_count: 3000
 officer_count: 20
 deposit_account_count: 8000
+history_months: 26

@@ -65,6 +65,14 @@ class DelinquencySnapshotRow:
 
 
 @dataclass
+class LoanLifecycleEventRow:
+    event_id: str
+    loan_id: str
+    event_month: date
+    event_type: str
+
+
+@dataclass
 class SymitarData:
     branches: list[BranchRow]
     booked_loans: list[BookedLoanRow]
@@ -72,3 +80,4 @@ class SymitarData:
     payments: list[PaymentRow]
     delinquency_snapshots: list[DelinquencySnapshotRow]
     officers: list[OfficerRow] = field(default_factory=list)
+    loan_lifecycle_events: list[LoanLifecycleEventRow] = field(default_factory=list)

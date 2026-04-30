@@ -167,7 +167,7 @@ def _assign_statuses(
     return list(np.select(conditions, choices, default="funded"))
 
 
-def _pre_generate(rng: np.random.Generator, n: int) -> _Arrays:
+def _pre_generate(rng: np.random.Generator, n: int, max_days_ago: int = 730) -> _Arrays:
     pt_idxs = rng.choice(len(PRODUCT_TYPES), n, p=_PRODUCT_MIX)
     amounts, appr_rates, term_idxs = _sample_by_product(rng, pt_idxs)
     return _Arrays(
@@ -176,7 +176,7 @@ def _pre_generate(rng: np.random.Generator, n: int) -> _Arrays:
         pt_idxs=pt_idxs,
         ch_idxs=rng.integers(0, len(CHANNELS), n),
         amounts=amounts,
-        days_ago=rng.integers(0, 730, n),
+        days_ago=rng.integers(0, max_days_ago, n),
         status_r=rng.random(n),
         stage_hrs=rng.integers(1, 24, (n, 4)),
         stage_days=rng.integers(1, 8, (n, 4)),
@@ -236,7 +236,7 @@ def _append_decision(
 def generate_origence_data(profile: SynthProfile) -> OrigenceData:
     rng = np.random.default_rng(profile.seed)
     n = profile.applications
-    arr = _pre_generate(rng, n)
+    arr = _pre_generate(rng, n, max_days_ago=profile.history_months * 31)
     statuses = _assign_statuses(
         arr.status_r, profile.approval_rate, profile.funding_rate,
     )

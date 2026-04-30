@@ -10,7 +10,12 @@ from synth_data.generators.deposits import (
 )
 from synth_data.generators.members import MemberRow
 from synth_data.generators.origence import OrigenceData
-from synth_data.generators.symitar_types import BranchRow, OfficerRow, SymitarData
+from synth_data.generators.symitar_types import (
+    BranchRow,
+    LoanLifecycleEventRow,
+    OfficerRow,
+    SymitarData,
+)
 from synth_data.generators.watchlist import WatchlistRow
 from synth_data.reconciliation import ReconciliationRow
 
@@ -26,12 +31,10 @@ _SELECT_SQL = {
     "channels": "SELECT channel_id, name FROM channels",
 }
 
-
 def _upsert_lookup(cur: psycopg.Cursor, table: str, names: list[str]) -> dict[str, int]:
     cur.executemany(_INSERT_SQL[table], [(n,) for n in names])
     cur.execute(_SELECT_SQL[table])
     return {name: id_ for id_, name in cur.fetchall()}
-
 
 def _upsert_branches(cur: psycopg.Cursor, branches: list[BranchRow]) -> dict[str, int]:
     cur.executemany(
@@ -42,12 +45,10 @@ def _upsert_branches(cur: psycopg.Cursor, branches: list[BranchRow]) -> dict[str
     cur.execute("SELECT branch_id, name FROM branches")
     return {name: id_ for id_, name in cur.fetchall()}
 
-
 def _copy_table(cur: psycopg.Cursor, sql: str, rows: list[str]) -> None:
     buf = StringIO("\n".join(rows))
     with cur.copy(sql) as copy:
         copy.write(buf.read())
-
 
 def _load_applications(
     cur: psycopg.Cursor,
@@ -68,7 +69,6 @@ def _load_applications(
         rows,
     )
     log.info("loaded applications", count=len(rows))
-
 
 def _load_stages_approvals_funding(cur: psycopg.Cursor, origence: OrigenceData) -> None:
     stage_rows = ["\t".join([r.application_id, r.stage_name,
@@ -100,13 +100,10 @@ def _load_stages_approvals_funding(cur: psycopg.Cursor, origence: OrigenceData) 
     log.info("loaded approvals", count=len(appr_rows))
     fund_rows = ["\t".join([r.application_id, r.funded_at.isoformat(),
                              str(r.funded_amount)]) for r in origence.funding_events]
-    _copy_table(
-        cur,
+    _copy_table(cur,
         "COPY funding_events (application_id, funded_at, funded_amount) FROM STDIN",
-        fund_rows,
-    )
+        fund_rows)
     log.info("loaded funding events", count=len(fund_rows))
-
 
 def _load_members(
     cur: psycopg.Cursor, members: list[MemberRow], branch_map: dict[str, int],
@@ -122,7 +119,6 @@ def _load_members(
     )
     log.info("loaded members", count=len(rows))
 
-
 def _load_officers(
     cur: psycopg.Cursor, officers: list[OfficerRow], branch_map: dict[str, int],
 ) -> None:
@@ -136,7 +132,6 @@ def _load_officers(
         rows,
     )
     log.info("loaded officers", count=len(rows))
-
 
 def _load_booked_loans(
     cur: psycopg.Cursor,
@@ -165,7 +160,6 @@ def _load_booked_loans(
         rows,
     )
     log.info("loaded booked loans", count=len(rows))
-
 
 def _load_loan_details(cur: psycopg.Cursor, symitar: SymitarData) -> None:
     bal_rows = ["\t".join([r.balance_id, r.loan_id, r.snapshot_date.isoformat(),
@@ -200,6 +194,15 @@ def _load_loan_details(cur: psycopg.Cursor, symitar: SymitarData) -> None:
     )
     log.info("loaded delinquency snapshots", count=len(delinq_rows))
 
+def _load_loan_lifecycle_events(
+    cur: psycopg.Cursor, rows: list[LoanLifecycleEventRow]
+) -> None:
+    data = ["\t".join([r.event_id, r.loan_id,
+                       r.event_month.isoformat(), r.event_type])
+            for r in rows]
+    _copy_table(cur, "COPY loan_lifecycle_events"
+                " (event_id, loan_id, event_month, event_type) FROM STDIN", data)
+    log.info("loaded lifecycle events", count=len(data))
 
 def _load_watchlist(cur: psycopg.Cursor, rows: list[WatchlistRow]) -> None:
     wl_rows = [
@@ -215,7 +218,6 @@ def _load_watchlist(cur: psycopg.Cursor, rows: list[WatchlistRow]) -> None:
     )
     log.info("loaded watchlist", count=len(wl_rows))
 
-
 def _load_reconciliation_bridge(
     cur: psycopg.Cursor, rows: list[ReconciliationRow]) -> None:
     cur.executemany(
@@ -224,7 +226,6 @@ def _load_reconciliation_bridge(
         [(r.application_id, r.loan_id, r.match_type) for r in rows],
     )
     log.info("loaded reconciliation bridge", count=len(rows))
-
 
 def _load_deposit_products(
     cur: psycopg.Cursor, products: list[DepositProductRow]
@@ -235,7 +236,6 @@ def _load_deposit_products(
         "COPY deposit_products (deposit_product_id, name, is_core_deposit) FROM STDIN",
         rows)
     log.info("loaded deposit products", count=len(rows))
-
 
 def _load_deposit_accounts(
     cur: psycopg.Cursor, accounts: list[DepositAccountRow], branch_map: dict[str, int],
@@ -255,7 +255,6 @@ def _load_deposit_accounts(
         rows,
     )
     log.info("loaded deposit accounts", count=len(accounts))
-
 
 def load_postgres(
     origence: OrigenceData,
@@ -286,6 +285,8 @@ def load_postgres(
             _load_officers(cur, symitar.officers, branch_map)
             _load_booked_loans(cur, symitar, pt_map, branch_map)
             _load_loan_details(cur, symitar)
+            cur.execute("TRUNCATE loan_lifecycle_events")
+            _load_loan_lifecycle_events(cur, symitar.loan_lifecycle_events)
             if recon_rows is not None:
                 _load_reconciliation_bridge(cur, recon_rows)
             if watchlist is not None:
