@@ -13,10 +13,10 @@ seed:
 	uv run python scripts/seed.py --profile small_cu
 
 dbt-build:
-	cd packages/dbt-models && uv run dbt build --select staging --profiles-dir .
+	cd packages/dbt-models && uv run dbt build --select staging marts --profiles-dir .
 
 dbt-test:
-	cd packages/dbt-models && uv run dbt test --select staging --profiles-dir .
+	cd packages/dbt-models && uv run dbt test --select staging marts --profiles-dir .
 
 lint:
 	uv run ruff check .

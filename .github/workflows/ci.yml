@@ -118,6 +118,19 @@ jobs:
         with:
           enable-caching: true
       - run: uv sync
+      - name: Apply schema migrations
+        run: |
+          psql $DATABASE_URL -f migrations/001_lending_schema.sql
+          psql $DATABASE_URL -f migrations/002_query_history.sql
+          psql $DATABASE_URL -f migrations/003_members.sql
+          psql $DATABASE_URL -f migrations/004_officers.sql
+          psql $DATABASE_URL -f migrations/005_watchlist_nonaccrual.sql
+          psql $DATABASE_URL -f migrations/006_deposits.sql
+          psql $DATABASE_URL -f migrations/007_readonly_role.sql
+      - name: Build and test marts
+        run: |
+          cd packages/dbt-models
+          uv run dbt build --select marts --profiles-dir .
       - name: Run integration tests
         run: |
           set +e

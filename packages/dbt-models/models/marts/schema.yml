@@ -2,6 +2,10 @@ version: 2
 
 models:
   - name: fct_loans_monthly
+    config:
+      indexes:
+        - columns: ['as_of_month']
+        - columns: ['branch_id', 'as_of_month']
     description: Monthly grain rollup of loan portfolio by product, branch, and officer
     columns:
       - name: row_id
@@ -28,6 +32,11 @@ models:
         data_tests: [not_null]
 
   - name: fct_deposits_monthly
+    config:
+      indexes:
+        - columns: ['as_of_month']
+        - columns: ['branch_id', 'as_of_month']
+        - columns: ['deposit_product_id', 'as_of_month']
     description: Monthly grain rollup of deposit portfolio by product and branch
     columns:
       - name: row_id
@@ -67,6 +76,11 @@ models:
               values: [true, false]
 
   - name: fct_delinquency_monthly
+    config:
+      indexes:
+        - columns: ['as_of_month']
+        - columns: ['officer_id', 'as_of_month']
+        - columns: ['branch_id', 'as_of_month']
     description: Monthly delinquency rollup by officer, branch, and DPD bucket for Dashboard 2
     columns:
       - name: row_id
@@ -102,6 +116,9 @@ models:
               values: [true, false]
 
   - name: fct_loan_lifecycle_events
+    config:
+      indexes:
+        - columns: ['as_of_month']
     description: Monthly loan lifecycle events (new / paid_off) by product type for Dashboard 3
     columns:
       - name: row_id
@@ -125,6 +142,9 @@ models:
         data_tests: [not_null]
 
   - name: fct_executive_kpis
+    config:
+      indexes:
+        - columns: ['as_of_month']
     description: Monthly executive KPI rollup aggregated from loans, deposits, and delinquency marts
     columns:
       - name: row_id

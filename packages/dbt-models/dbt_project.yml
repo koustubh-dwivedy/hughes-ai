@@ -20,3 +20,5 @@ models:
       +materialized: table
     marts:
       +materialized: table
+      +grants:
+        select: ['readonly']
