@@ -1,12 +1,11 @@
-import pytest
+from datetime import UTC, datetime
 
+import pytest
 from synth_data.config import SynthProfile
 from synth_data.generators.deposits import DepositData, generate_deposits
 from synth_data.generators.members import MemberRow
-from datetime import datetime, timezone
 
-
-_REF_DATE = datetime(2025, 1, 1, tzinfo=timezone.utc)
+_REF_DATE = datetime(2025, 1, 1, tzinfo=UTC)
 
 _PROFILE = SynthProfile(
     seed=42,
