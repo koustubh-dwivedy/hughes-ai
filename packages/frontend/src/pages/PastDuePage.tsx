@@ -1,3 +1,5 @@
+import PastDue from "../dashboards/PastDue";
+
 export default function PastDuePage() {
-	return <h1>Past Due</h1>;
+	return <PastDue />;
 }
