@@ -127,6 +127,8 @@ jobs:
           psql $DATABASE_URL -f migrations/005_watchlist_nonaccrual.sql
           psql $DATABASE_URL -f migrations/006_deposits.sql
           psql $DATABASE_URL -f migrations/007_readonly_role.sql
+      - name: Seed synthetic data
+        run: uv run python scripts/seed.py --profile small_cu
       - name: Build and test marts
         run: |
           cd packages/dbt-models
