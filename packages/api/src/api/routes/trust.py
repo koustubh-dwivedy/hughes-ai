@@ -8,6 +8,11 @@ from api.repo.trust import get_trust_stats
 
 router = APIRouter()
 
+_DEPOSIT_CAVEAT = (
+    "Deposits are sourced from Symitar core only and have no Origence LOS"
+    " counterpart — they are excluded from the reconciliation match rate."
+)
+
 
 class TrustResponse(BaseModel):
     origence_row_count: int
@@ -20,7 +25,7 @@ class TrustResponse(BaseModel):
 async def trust(request: Request) -> TrustResponse:
     stats = get_trust_stats(request.app.state.db_url)
     ctx: AllContext = request.app.state.ctx
-    caveats = [m.caveats for m in ctx.metrics if m.caveats]
+    caveats = [_DEPOSIT_CAVEAT] + [m.caveats for m in ctx.metrics if m.caveats]
     return TrustResponse(
         origence_row_count=stats.origence_row_count,
         symitar_row_count=stats.symitar_row_count,

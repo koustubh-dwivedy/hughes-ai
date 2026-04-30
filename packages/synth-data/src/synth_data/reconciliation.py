@@ -17,6 +17,9 @@ def reconcile(origence: OrigenceData, symitar: SymitarData) -> list[Reconciliati
     matched   — booked_loan.application_id links directly to a funding event
     ambiguous — standalone loan whose member_id appears in a funded application
     unmatched — standalone loan with no plausible Origence counterpart
+
+    Deposits are single-source (Symitar core only) and are excluded from
+    reconciliation by design — they have no Origence LOS counterpart.
     """
     funded_ids = {fe.application_id for fe in origence.funding_events}
     funded_by_member: dict[str, str] = {
