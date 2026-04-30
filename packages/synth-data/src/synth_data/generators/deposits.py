@@ -1,6 +1,6 @@
 import uuid
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass, field
+from datetime import UTC, date, datetime, timedelta
 
 import numpy as np
 
@@ -45,9 +45,28 @@ class DepositAccountRow:
 
 
 @dataclass
+class DepositBalanceRow:
+    balance_id: str
+    account_id: str
+    snapshot_date: date
+    balance: float
+
+
+@dataclass
+class DepositEventRow:
+    event_id: str
+    account_id: str
+    event_type: str
+    event_at: datetime
+    amount: float
+
+
+@dataclass
 class DepositData:
     products: list[DepositProductRow]
     accounts: list[DepositAccountRow]
+    balances: list[DepositBalanceRow] = field(default_factory=list)
+    events: list[DepositEventRow] = field(default_factory=list)
 
 
 def _gen_products(seed: int) -> list[DepositProductRow]:
@@ -61,6 +80,55 @@ def _gen_products(seed: int) -> list[DepositProductRow]:
             is_core_deposit=is_core,
         ))
     return products
+
+
+def _generate_balance_history(
+    accounts: list[DepositAccountRow],
+    seed: int,
+) -> tuple[list[DepositBalanceRow], list[DepositEventRow]]:
+    rng = np.random.default_rng(seed + 50)
+    bals: list[DepositBalanceRow] = []
+    evts: list[DepositEventRow] = []
+    for acc in accounts:
+        o = acc.opened_at.date().replace(day=1)
+        end_dt = acc.closed_at.date() if acc.closed_at else _REF_DATE.date()
+        e = end_dt.replace(day=1)
+        n = (e.year - o.year) * 12 + (e.month - o.month) + 1
+        if n < 1:
+            continue
+        fin = float(acc.current_balance)
+        ini = fin if n == 1 else max(
+            1.0, round(float(rng.uniform(0.7 * fin, 1.3 * fin)), 2))
+        walk = np.linspace(ini, fin, n) + rng.normal(0, max(1.0, fin * 0.05), n)
+        walk[0], walk[-1] = ini, fin
+        walk = np.round(np.maximum(0.01, walk), 2).astype(np.float64)
+        ids = [str(uuid.UUID(bytes=bytes(r)))
+               for r in rng.integers(0, 256, (2 * n + 2, 16), dtype=np.uint8)]
+        k = 0
+        evts.append(DepositEventRow(event_id=ids[k], account_id=acc.account_id,
+            event_type="opened", event_at=acc.opened_at, amount=round(ini, 2)))
+        k += 1
+        prev_sum = 0.0
+        for i in range(n):
+            mo = o.month - 1 + i
+            snap = date(o.year + mo // 12, mo % 12 + 1, 1)
+            bals.append(DepositBalanceRow(balance_id=ids[k], account_id=acc.account_id,
+                snapshot_date=snap, balance=float(walk[i])))
+            k += 1
+            if i > 0:
+                raw_d = float(walk[i]) - float(walk[i - 1])
+                d_last = round(fin - ini - prev_sum, 2)
+                delta = d_last if i == n - 1 else round(raw_d, 2)
+                prev_sum += delta
+                evts.append(DepositEventRow(event_id=ids[k], account_id=acc.account_id,
+                    event_type="balance_change",
+                    event_at=acc.opened_at + timedelta(days=i * 30),
+                    amount=delta))
+                k += 1
+        if acc.closed_at:
+            evts.append(DepositEventRow(event_id=ids[k], account_id=acc.account_id,
+                event_type="closed", event_at=acc.closed_at, amount=round(fin, 2)))
+    return bals, evts
 
 
 def generate_deposits(
@@ -109,4 +177,5 @@ def generate_deposits(
             current_balance=balance,
         ))
 
-    return DepositData(products=products, accounts=accounts)
+    bals, evts = _generate_balance_history(accounts, profile.seed)
+    return DepositData(products=products, accounts=accounts, balances=bals, events=evts)
