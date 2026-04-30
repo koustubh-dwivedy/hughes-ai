@@ -1,8 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import OfficerBranch, {
 	buildBorrowerRows,
 	buildLoanMix,
+	buildTabRows,
 } from "../dashboards/OfficerBranch";
 import type { UseDashboardResult } from "../hooks/useDashboard";
 import type { OfficerBranchData } from "../lib/dashboardApi";
@@ -48,6 +50,12 @@ const fixture: OfficerBranchData = {
 		balance: 1_000_000 - i * 30_000,
 		share_pct: 2.4 - i * 0.09,
 	})),
+	watchlist_trend: Array.from({ length: 13 }, (_, i) => ({
+		month: `2025-${String(i + 1).padStart(2, "0")}`,
+		count: 3 + i,
+		balance: 100_000 + i * 10_000,
+	})),
+	tab_data: null,
 };
 
 function mockHook(overrides: Partial<UseDashboardResult<OfficerBranchData>>) {
@@ -60,10 +68,20 @@ function mockHook(overrides: Partial<UseDashboardResult<OfficerBranchData>>) {
 	});
 }
 
+function renderInRouter(initialEntries: string[] = ["/"]) {
+	return render(
+		<MemoryRouter initialEntries={initialEntries}>
+			<Routes>
+				<Route path="*" element={<OfficerBranch />} />
+			</Routes>
+		</MemoryRouter>,
+	);
+}
+
 describe("OfficerBranch", () => {
 	it("renders Demo data only banner and KPI tiles", () => {
 		mockHook({ data: fixture });
-		render(<OfficerBranch />);
+		renderInRouter();
 		expect(screen.getByRole("note")).toBeInTheDocument();
 		expect(screen.getByText(/Demo data only/i)).toBeInTheDocument();
 		expect(screen.getByText("Total Loans")).toBeInTheDocument();
@@ -83,5 +101,55 @@ describe("OfficerBranch", () => {
 		const result = buildBorrowerRows(fixture);
 		expect(result).toHaveLength(25);
 		expect(result[0]).toMatchObject({ Member: "Member 1" });
+	});
+
+	it("tab switching changes URL and refetches", () => {
+		mockHook({ data: fixture });
+		renderInRouter();
+
+		const newTab = screen.getByRole("tab", { name: "New" });
+		fireEvent.click(newTab);
+
+		expect(newTab).toHaveAttribute("aria-selected", "true");
+		const calls = vi.mocked(useDashboard).mock.calls;
+		expect(calls[calls.length - 1]?.[1]).toMatchObject({ tab: "new" });
+	});
+
+	it("deep-link ?tab=paid_off activates Paid Off tab", () => {
+		mockHook({ data: fixture });
+		renderInRouter(["/?tab=paid_off"]);
+
+		expect(screen.getByRole("tab", { name: "Paid Off" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(screen.getByRole("tab", { name: "New" })).toHaveAttribute(
+			"aria-selected",
+			"false",
+		);
+	});
+
+	it("watchlist trend renders 13-month figure", () => {
+		mockHook({ data: fixture });
+		renderInRouter();
+		expect(
+			screen.getByRole("figure", { name: "Watchlist Trend (13 mo.)" }),
+		).toBeInTheDocument();
+	});
+
+	it("buildTabRows maps tab_data rows", () => {
+		const withTab: OfficerBranchData = {
+			...fixture,
+			tab_data: [
+				{ period: "2025-01", product_type: "Auto", count: 5, amount: 250_000 },
+			],
+		};
+		const rows = buildTabRows(withTab);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			Period: "2025-01",
+			"Product Type": "Auto",
+			Count: "5",
+		});
 	});
 });

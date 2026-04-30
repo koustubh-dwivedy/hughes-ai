@@ -90,6 +90,19 @@ export interface PastDueData {
 
 // ── Officer / Branch ──────────────────────────────────────────────────────────
 
+export interface WatchlistTrendPoint {
+	month: string;
+	count: number;
+	balance: number;
+}
+
+export interface LifecycleTabRow {
+	period: string;
+	product_type: string;
+	count: number;
+	amount: number;
+}
+
 export interface TopBorrower {
 	member_name: string;
 	balance: number;
@@ -123,6 +136,8 @@ export interface OfficerBranchData {
 	change_by_type_waterfall: WaterfallStep[];
 	single_loan_customers_by_type: SingleLoanCount[];
 	combo_balance_rate: ComboBalanceRate[];
+	watchlist_trend: WatchlistTrendPoint[];
+	tab_data: LifecycleTabRow[] | null;
 }
 
 // ── Executive Summary ─────────────────────────────────────────────────────────

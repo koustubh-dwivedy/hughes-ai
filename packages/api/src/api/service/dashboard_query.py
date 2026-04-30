@@ -218,6 +218,35 @@ def _build_combo_rate(rows: list[dict[str, Any]]) -> list[ComboBalanceRate]:
     ]
 
 
+def _build_watchlist_trend(
+    rows: list[dict[str, Any]],
+) -> list[WatchlistTrendPoint]:
+    return [
+        WatchlistTrendPoint(
+            month=str(r["month"]),
+            count=int(r["count"]),
+            balance=float(r["balance"]),
+        )
+        for r in rows
+    ]
+
+
+def _build_tab_data(
+    rows: list[dict[str, Any]] | None,
+) -> list[LifecycleTabRow] | None:
+    if rows is None:
+        return None
+    return [
+        LifecycleTabRow(
+            period=str(r["period"]),
+            product_type=str(r["product_type"]),
+            count=int(r["count"]),
+            amount=float(r["amount"]),
+        )
+        for r in rows
+    ]
+
+
 def compose_officer_branch(
     as_of: date,
     db_url: str,
@@ -225,13 +254,11 @@ def compose_officer_branch(
     officer_id: str | None = None,
     tab: str | None = None,
 ) -> OfficerBranchData:
-    """Fetch and assemble all panels for the officer-branch dashboard."""
-    prior = _prior_month(as_of)
     totals = repo_loans.fetch_loan_totals(as_of, db_url, branch_id, officer_id)
     top25 = repo_loans.fetch_top_borrowers(25, db_url, branch_id, officer_id)
     mix = repo_loans.fetch_loan_mix(as_of, db_url, branch_id, officer_id)
     wfall = repo_loans.fetch_change_by_loan_type(
-        as_of, prior, db_url, branch_id, officer_id
+        as_of, _prior_month(as_of), db_url, branch_id, officer_id
     )
     slc = repo_loans.fetch_single_loan_counts(as_of, db_url, branch_id, officer_id)
     combo = repo_loans.fetch_combo_balance_rate(as_of, db_url, branch_id, officer_id)
@@ -267,23 +294,6 @@ def compose_officer_branch(
             for r in slc
         ],
         combo_balance_rate=_build_combo_rate(combo),
-        watchlist_trend=[
-            WatchlistTrendPoint(
-                month=str(r["month"]),
-                count=int(r["count"]),
-                balance=float(r["balance"]),
-            )
-            for r in wl_trend
-        ],
-        tab_data=[
-            LifecycleTabRow(
-                period=str(r["period"]),
-                product_type=str(r["product_type"]),
-                count=int(r["count"]),
-                amount=float(r["amount"]),
-            )
-            for r in tab_rows
-        ]
-        if tab_rows is not None
-        else None,
+        watchlist_trend=_build_watchlist_trend(wl_trend),
+        tab_data=_build_tab_data(tab_rows),
     )

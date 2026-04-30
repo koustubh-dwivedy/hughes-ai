@@ -226,7 +226,6 @@ def fetch_delinquency_trend(as_of: date, db_url: str) -> list[dict[str, Any]]:
 
 
 def fetch_lifecycle_tab(tab: str, as_of: date, db_url: str) -> list[dict[str, Any]]:
-    """Return lifecycle event rows for the given tab type over the last 13 months."""
     if tab not in {"new", "renewed", "paid_off"}:
         return []
     return fetch_mart_rows(
@@ -249,7 +248,6 @@ def fetch_lifecycle_tab(tab: str, as_of: date, db_url: str) -> list[dict[str, An
 
 
 def fetch_watchlist_trend(as_of: date, db_url: str) -> list[dict[str, Any]]:
-    """Return 13 monthly watchlist count + balance buckets ending at as_of."""
     return fetch_mart_rows(
         """
         SELECT

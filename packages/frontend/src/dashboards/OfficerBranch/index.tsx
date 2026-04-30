@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import Combo from "../../charts/Combo";
 import DataTable from "../../charts/DataTable";
 import Donut from "../../charts/Donut";
@@ -11,6 +12,8 @@ import DashboardShell from "../../layout/DashboardShell";
 import { getOfficerBranch } from "../../lib/api";
 import type { OfficerBranchData } from "../../lib/dashboardApi";
 import { spacing } from "../../theme/tokens";
+import Tabs from "./Tabs";
+import WatchlistTrend from "./WatchlistTrend";
 
 function fmt(n: number): string {
 	return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -75,9 +78,34 @@ export function buildBorrowerRows(
 	}));
 }
 
+export function buildTabRows(
+	data: OfficerBranchData | null,
+): Record<string, unknown>[] {
+	if (!data?.tab_data) return [];
+	return data.tab_data.map((r) => ({
+		Period: r.period,
+		"Product Type": r.product_type,
+		Count: r.count.toLocaleString(),
+		Amount: fmt(r.amount),
+	}));
+}
+
 export default function OfficerBranch() {
 	const { asOfDate } = useDashboardContext();
-	const { data, loading, error } = useDashboard(getOfficerBranch, { asOfDate });
+	const [searchParams, setSearchParams] = useSearchParams();
+	const tab = searchParams.get("tab");
+
+	const { data, loading, error } = useDashboard(getOfficerBranch, {
+		asOfDate,
+		tab: tab ?? undefined,
+	});
+
+	function onSelectTab(key: string) {
+		setSearchParams((prev) => {
+			prev.set("tab", key);
+			return prev;
+		});
+	}
 
 	const kpiTiles = buildKpiTiles(data);
 	const loanMix = buildLoanMix(data);
@@ -108,6 +136,8 @@ export default function OfficerBranch() {
 				))}
 			</div>
 
+			<Tabs active={tab} onSelect={onSelectTab} />
+
 			<div
 				style={{
 					display: "grid",
@@ -135,7 +165,16 @@ export default function OfficerBranch() {
 					title="Balance vs. Rate"
 					loading={loading}
 				/>
+				{data?.tab_data && (
+					<DataTable
+						columns={["Period", "Product Type", "Count", "Amount"]}
+						rows={buildTabRows(data)}
+						loading={loading}
+					/>
+				)}
 			</div>
+
+			<WatchlistTrend data={data?.watchlist_trend ?? []} />
 
 			<DataTable
 				columns={["Member", "Balance", "Share %"]}
