@@ -252,8 +252,8 @@ def fetch_watchlist_trend(as_of: date, db_url: str) -> list[dict[str, Any]]:
         """
         SELECT
             TO_CHAR(months.month, 'YYYY-MM')    AS month,
-            COUNT(w.member_id)::int             AS count,
-            COALESCE(SUM(w.balance), 0)         AS balance
+            COUNT(w.watchlist_id)::int          AS count,
+            COALESCE(SUM(bl.balance), 0)        AS balance
         FROM generate_series(
                 (%s::DATE - INTERVAL '12 months')::DATE,
                 %s::DATE,
@@ -262,6 +262,7 @@ def fetch_watchlist_trend(as_of: date, db_url: str) -> list[dict[str, Any]]:
         LEFT JOIN watchlist w
                ON w.added_at::DATE < (months.month + INTERVAL '1 month')::DATE
               AND (w.removed_at IS NULL OR w.removed_at::DATE > months.month::DATE)
+        LEFT JOIN booked_loans bl ON bl.loan_id = w.loan_id
         GROUP BY months.month
         ORDER BY months.month
         """,
