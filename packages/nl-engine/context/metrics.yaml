@@ -280,3 +280,194 @@ metrics:
       - "What percentage of borrowers have only one loan product?"
       - "Show single-loan customer count by product type"
       - "How has the count of single-loan members changed this year?"
+
+  - name: past_due_ratio
+    label: Blended Past Due Ratio
+    description: >
+      Dollar-weighted percentage of the total loan portfolio that is 30 or
+      more days past due, blended across all product types.
+    formula_plain_english: >
+      Divide the sum of balance for buckets '30-59', '60-89', and '90+' in
+      fct_delinquency_monthly by the sum of total_balance in fct_loans_monthly,
+      both filtered to the same as_of_month.
+    caveats: >
+      Cross-product blend — per-product rates can differ significantly from
+      the portfolio average. Use delinquency_aging_distribution for bucket
+      breakdown. Sourced from fct_delinquency_monthly joined to fct_loans_monthly.
+    related_questions:
+      - "What is our current past due ratio?"
+      - "What percentage of the portfolio is past due?"
+      - "Show past due ratio trend over the last 12 months"
+      - "How does our blended past due ratio compare month over month?"
+
+  - name: nonaccrual_balance
+    label: Nonaccrual Balance
+    description: >
+      Outstanding principal balance on loans where interest accrual has been
+      suspended due to credit deterioration.
+    formula_plain_english: >
+      Join booked_loans to loan_balances on loan_id, sum balance where
+      booked_loans.is_nonaccrual = TRUE and loan_balances.snapshot_date is
+      the most recent date on or before the requested as_of date.
+    caveats: >
+      Typically triggered at 90+ DPD per NCUA guidance, but policy varies.
+      Nonaccrual loans are a subset of NPL balance and overlap with 90+ bucket.
+      Use is_nonaccrual flag on booked_loans — not derivable from
+      fct_delinquency_monthly.
+    related_questions:
+      - "What is our current nonaccrual balance?"
+      - "How much in loans is on nonaccrual status?"
+      - "Show nonaccrual balance trend over the last year"
+      - "Which product type has the most nonaccrual exposure?"
+
+  - name: watchlist_count
+    label: Watchlist Count
+    description: >
+      Number of loans currently on the credit watchlist as of a given date,
+      indicating heightened credit monitoring.
+    formula_plain_english: >
+      Count rows in the watchlist table where added_at date is on or before
+      the requested date AND removed_at is NULL or after the requested date.
+    caveats: >
+      Point-in-time count — loans enter and exit the watchlist over time.
+      A loan on the watchlist is not necessarily delinquent — watchlist is
+      a forward-looking risk indicator, not a lagging delinquency measure.
+    related_questions:
+      - "How many loans are currently on the watchlist?"
+      - "Show watchlist count trend over the last 12 months"
+      - "How many loans were added to the watchlist this month?"
+      - "What is the total balance of watchlisted loans?"
+
+  - name: nonperforming_loan_balance
+    label: Nonperforming Loan (NPL) Balance
+    description: >
+      Outstanding principal balance of loans that are 90 or more days past
+      due or on nonaccrual status — the broadest risk indicator.
+    formula_plain_english: >
+      Sum balance from fct_delinquency_monthly where bucket = '90+' for the
+      requested as_of_month, then add nonaccrual balance for any loans not
+      already captured in the 90+ bucket.
+    caveats: >
+      NPL balance is the broadest risk indicator on the Past Due dashboard.
+      An increasing NPL balance is adverse — the frontend negates the delta
+      so an increase renders as a downward (red) movement. Overlaps with
+      nonaccrual_balance — do not double-count.
+    related_questions:
+      - "What is our nonperforming loan balance?"
+      - "How much of the portfolio is in NPL status?"
+      - "Show NPL balance trend over the last year"
+      - "What percentage of the portfolio is nonperforming?"
+
+  - name: loan_to_deposit_ratio
+    label: Loan-to-Deposit Ratio
+    description: >
+      Total outstanding loan balance divided by total deposit balance as of
+      a given month-end.
+    formula_plain_english: >
+      Divide total_loans_balance by total_deposits_balance from
+      fct_executive_kpis for the requested as_of_month.
+    caveats: >
+      Values above 1.0 indicate the CU is lending more than it holds in
+      deposits. Regulatory guidance for community CUs typically targets
+      0.80–0.90. Use fct_executive_kpis for this metric — it pre-computes
+      the ratio with matched monthly grain.
+    related_questions:
+      - "What is our loan-to-deposit ratio?"
+      - "How does our LTD ratio compare to the 80% target?"
+      - "Show loan-to-deposit ratio trend over the last 12 months"
+      - "Is our loan-to-deposit ratio increasing or decreasing?"
+
+  - name: core_deposit_ratio
+    label: Core Deposit Ratio
+    description: >
+      Core deposits (checking, savings, money market) as a share of total
+      deposit balance, indicating funding stability.
+    formula_plain_english: >
+      Divide the sum of total_balance where is_core_deposit = TRUE by the
+      total sum of total_balance from fct_deposits_monthly for the requested
+      as_of_month. Or use core_deposit_ratio directly from fct_executive_kpis.
+    caveats: >
+      Higher ratios indicate more stable, lower-cost funding. CDs and
+      brokered deposits are excluded from the numerator. Core products are
+      flagged via dim_deposit_product.is_core_deposit.
+    related_questions:
+      - "What is our core deposit ratio?"
+      - "What percentage of deposits are core deposits?"
+      - "Show core deposit ratio trend over the past year"
+      - "How much of our funding comes from core vs non-core deposits?"
+
+  - name: monthly_growth_loans
+    label: Monthly Loan Growth
+    description: >
+      Dollar change in total outstanding loan balance from the prior month
+      to the current month.
+    formula_plain_english: >
+      Use monthly_loan_growth from fct_executive_kpis for the requested
+      as_of_month. Positive values indicate portfolio growth; negative values
+      indicate net run-off.
+    caveats: >
+      Pre-computed in the mart as current month total_loans_balance minus
+      prior month total_loans_balance. Not available for the earliest month
+      in the data set. For percentage growth, divide by prior month balance.
+    related_questions:
+      - "How much did the loan portfolio grow this month?"
+      - "What is the month-over-month loan growth?"
+      - "Show monthly loan growth trend for the last 12 months"
+      - "Is the loan portfolio growing or shrinking?"
+
+  - name: monthly_growth_deposits
+    label: Monthly Deposit Growth
+    description: >
+      Dollar change in total deposit balance from the prior month to the
+      current month.
+    formula_plain_english: >
+      Use monthly_deposit_growth from fct_executive_kpis for the requested
+      as_of_month. Positive values indicate deposit inflow; negative values
+      indicate net outflow.
+    caveats: >
+      Pre-computed in the mart as current month total_deposits_balance minus
+      prior month. Not available for the earliest month in the data set.
+      For product or branch breakdown, use mtd_deposit_change from
+      fct_deposits_monthly instead.
+    related_questions:
+      - "How much did deposits grow this month?"
+      - "What is the month-over-month deposit growth?"
+      - "Show monthly deposit growth for the last 12 months"
+      - "Are deposits growing faster than loans?"
+
+  - name: rate_spread
+    label: Rate Spread
+    description: >
+      Weighted average loan yield minus weighted average deposit cost —
+      a simplified proxy for net interest margin.
+    formula_plain_english: >
+      Use rate_spread from fct_executive_kpis for the requested as_of_month.
+      Equals weighted_avg_loan_rate minus weighted_avg_deposit_rate.
+    caveats: >
+      Simplified NIM proxy — does not account for operating expenses, credit
+      losses, or non-interest income. Both rates are balance-weighted averages.
+      A declining spread indicates margin compression.
+    related_questions:
+      - "What is our current rate spread?"
+      - "How has our rate spread changed over the last year?"
+      - "Show rate spread trend for the last 12 months"
+      - "Is our net interest margin expanding or compressing?"
+
+  - name: delinquency_aging_distribution
+    label: Delinquency Aging Distribution
+    description: >
+      Breakdown of past-due loan balances by aging bucket: 30-59, 60-89,
+      and 90+ days past due, for a given month-end.
+    formula_plain_english: >
+      Group fct_delinquency_monthly by bucket for the requested as_of_month,
+      summing balance per bucket. Buckets are '30-59', '60-89', and '90+'.
+      Use CASE WHEN to pivot into columns if side-by-side comparison needed.
+    caveats: >
+      90-119 DPD and 120+ DPD are merged into the '90+' bucket in the mart.
+      Only loans that are actually past due appear — current loans have no
+      row in fct_delinquency_monthly.
+    related_questions:
+      - "What is the breakdown of past due loans by aging bucket?"
+      - "How much is in the 90+ day bucket vs 30-59?"
+      - "Show delinquency aging distribution this month"
+      - "What percentage of past-due balance is in the 90+ bucket?"

@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).parents[3] / "packages" / "nl-engine" / "s
 from nl_engine.context_loader import load_all
 
 _NEW_METRIC_NAMES = {
+    # HUG-72: deposit + balance + count
     "total_deposits",
     "mtd_deposit_change",
     "ytd_deposit_change",
@@ -19,6 +20,17 @@ _NEW_METRIC_NAMES = {
     "total_loans",
     "top_n_borrowers",
     "single_loan_customers",
+    # HUG-73: ratio + growth + risk
+    "past_due_ratio",
+    "nonaccrual_balance",
+    "watchlist_count",
+    "nonperforming_loan_balance",
+    "loan_to_deposit_ratio",
+    "core_deposit_ratio",
+    "monthly_growth_loans",
+    "monthly_growth_deposits",
+    "rate_spread",
+    "delinquency_aging_distribution",
 }
 
 
