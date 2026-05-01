@@ -1,10 +1,10 @@
-import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import AppLayout from "../app/AppLayout";
+import { renderWithProviders, screen } from "./test-utils";
 
 function renderLayout(path = "/") {
-	return render(
+	return renderWithProviders(
 		<MemoryRouter initialEntries={[path]}>
 			<Routes>
 				<Route element={<AppLayout />}>
@@ -40,7 +40,7 @@ describe("AppLayout", () => {
 	});
 
 	it("deep-links to /dashboards/deposits", () => {
-		render(
+		renderWithProviders(
 			<MemoryRouter initialEntries={["/dashboards/deposits"]}>
 				<Routes>
 					<Route element={<AppLayout />}>
@@ -54,7 +54,7 @@ describe("AppLayout", () => {
 	});
 
 	it("/ redirects to executive summary route", () => {
-		render(
+		renderWithProviders(
 			<MemoryRouter initialEntries={["/"]}>
 				<Routes>
 					<Route element={<AppLayout />}>

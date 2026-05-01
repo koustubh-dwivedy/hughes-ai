@@ -20,6 +20,9 @@ importers:
       '@mantine/hooks':
         specifier: ^8.3.18
         version: 8.3.18(react@18.3.1)
+      dayjs:
+        specifier: ^1.11.20
+        version: 1.11.20
       lucide-react:
         specifier: ^1.14.0
         version: 1.14.0(react@18.3.1)
