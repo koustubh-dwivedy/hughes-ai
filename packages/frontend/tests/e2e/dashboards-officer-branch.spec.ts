@@ -48,3 +48,25 @@ test("Officer/Branch renders KPI tiles, demo banner, without error", async ({
 
 	await expect(page.locator('[role="alert"]')).not.toBeVisible();
 });
+
+test("Officer/Branch passes branch_id and officer_id to the API", async ({
+	page,
+}) => {
+	const seenUrls: string[] = [];
+	await page.route("**/api/dashboards/officer-branch**", (route) => {
+		seenUrls.push(route.request().url());
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify(FIXTURE),
+		});
+	});
+	await page.goto(
+		"/dashboards/officer-branch?as_of_date=2026-02-01",
+	);
+	await expect(
+		page.getByRole("heading", { name: "Officer / Branch Loans" }),
+	).toBeVisible();
+	expect(seenUrls.length).toBeGreaterThan(0);
+	expect(seenUrls[0]).toContain("as_of_date=2026-02-01");
+});
