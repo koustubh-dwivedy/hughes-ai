@@ -1,4 +1,4 @@
-"""Unit tests for GET /api/dashboards/deposit-portfolio."""
+"""Unit tests for GET /dashboards/deposit-portfolio."""
 
 from datetime import date
 
@@ -63,7 +63,7 @@ def test_deposit_portfolio_200(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/deposit-portfolio")
+    resp = client.get("/dashboards/deposit-portfolio")
     assert resp.status_code == 200
     body = resp.json()
     assert body["as_of_date"] == "2026-04-01"
@@ -88,7 +88,7 @@ def test_deposit_portfolio_cache_control(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/deposit-portfolio")
+    resp = client.get("/dashboards/deposit-portfolio")
     assert resp.headers["cache-control"] == "max-age=300, public"
 
 
@@ -114,8 +114,8 @@ def test_deposit_portfolio_cache_hit(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    client.get("/api/dashboards/deposit-portfolio?as_of_date=2026-03-01")
-    client.get("/api/dashboards/deposit-portfolio?as_of_date=2026-03-01")
+    client.get("/dashboards/deposit-portfolio?as_of_date=2026-03-01")
+    client.get("/dashboards/deposit-portfolio?as_of_date=2026-03-01")
     assert call_count == 1  # second request served from cache
 
 
@@ -130,6 +130,6 @@ def test_deposit_portfolio_explicit_date(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/deposit-portfolio?as_of_date=2026-02-01")
+    resp = client.get("/dashboards/deposit-portfolio?as_of_date=2026-02-01")
     assert resp.status_code == 200
     assert resp.json()["as_of_date"] == "2026-02-01"

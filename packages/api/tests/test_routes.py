@@ -221,4 +221,5 @@ def test_get_trust_returns_stats(
     assert data["origence_row_count"] == 10
     assert data["symitar_row_count"] == 8
     assert data["reconciliation_match_rate"] == 0.9
-    assert data["known_caveats"] == ["Exclude pending."]
+    assert "Exclude pending." in data["known_caveats"]
+    assert any("Deposits are sourced" in c for c in data["known_caveats"])

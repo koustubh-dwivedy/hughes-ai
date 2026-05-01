@@ -1,4 +1,4 @@
-"""Unit tests for GET /api/dashboards/executive-summary."""
+"""Unit tests for GET /dashboards/executive-summary."""
 
 from datetime import date
 
@@ -66,7 +66,7 @@ def test_executive_summary_200(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/executive-summary")
+    resp = client.get("/dashboards/executive-summary")
     assert resp.status_code == 200
     body = resp.json()
     assert body["as_of_date"] == "2026-04-01"
@@ -91,7 +91,7 @@ def test_executive_summary_cache_control(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/executive-summary")
+    resp = client.get("/dashboards/executive-summary")
     assert resp.headers["cache-control"] == "max-age=300, public"
 
 
@@ -113,8 +113,8 @@ def test_executive_summary_cache_hit(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    client.get("/api/dashboards/executive-summary?as_of_date=2026-03-01")
-    client.get("/api/dashboards/executive-summary?as_of_date=2026-03-01")
+    client.get("/dashboards/executive-summary?as_of_date=2026-03-01")
+    client.get("/dashboards/executive-summary?as_of_date=2026-03-01")
     assert call_count == 1
 
 
@@ -135,7 +135,7 @@ def test_executive_summary_explicit_as_of(
     )
 
     resp = client.get(
-        "/api/dashboards/executive-summary?as_of_date=2026-02-01"
+        "/dashboards/executive-summary?as_of_date=2026-02-01"
     )
     assert resp.status_code == 200
     assert received["as_of"] == date(2026, 2, 1)

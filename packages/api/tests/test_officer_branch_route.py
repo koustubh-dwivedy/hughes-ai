@@ -1,4 +1,4 @@
-"""Unit tests for GET /api/dashboards/officer-branch."""
+"""Unit tests for GET /dashboards/officer-branch."""
 
 from datetime import date
 
@@ -79,7 +79,7 @@ def test_officer_branch_200(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/officer-branch")
+    resp = client.get("/dashboards/officer-branch")
     assert resp.status_code == 200
     body = resp.json()
     assert body["as_of_date"] == "2026-04-01"
@@ -104,7 +104,7 @@ def test_officer_branch_cache_control(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/officer-branch")
+    resp = client.get("/dashboards/officer-branch")
     assert resp.headers["cache-control"] == "max-age=300, public"
 
 
@@ -130,8 +130,8 @@ def test_officer_branch_cache_hit(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    client.get("/api/dashboards/officer-branch?as_of_date=2026-03-01")
-    client.get("/api/dashboards/officer-branch?as_of_date=2026-03-01")
+    client.get("/dashboards/officer-branch?as_of_date=2026-03-01")
+    client.get("/dashboards/officer-branch?as_of_date=2026-03-01")
     assert call_count == 1
 
 
@@ -157,7 +157,7 @@ def test_officer_branch_with_filters(
     )
 
     resp = client.get(
-        "/api/dashboards/officer-branch?as_of_date=2026-02-01&branch_id=3&officer_id=abc"
+        "/dashboards/officer-branch?as_of_date=2026-02-01&branch_id=3&officer_id=abc"
     )
     assert resp.status_code == 200
     assert received["branch_id"] == 3
@@ -186,7 +186,7 @@ def test_tab_new_returns_tab_data(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/officer-branch?tab=new")
+    resp = client.get("/dashboards/officer-branch?tab=new")
     assert resp.status_code == 200
     body = resp.json()
     assert isinstance(body["data"]["tab_data"], list)
@@ -215,7 +215,7 @@ def test_tab_paid_off_returns_tab_data(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/officer-branch?tab=paid_off")
+    resp = client.get("/dashboards/officer-branch?tab=paid_off")
     assert resp.status_code == 200
     body = resp.json()
     assert isinstance(body["data"]["tab_data"], list)
@@ -237,7 +237,7 @@ def test_no_tab_omits_tab_data(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/officer-branch")
+    resp = client.get("/dashboards/officer-branch")
     assert resp.status_code == 200
     assert resp.json()["data"]["tab_data"] is None
 
@@ -257,7 +257,7 @@ def test_watchlist_trend_always_present(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/officer-branch")
+    resp = client.get("/dashboards/officer-branch")
     assert resp.status_code == 200
     body = resp.json()
     assert isinstance(body["data"]["watchlist_trend"], list)

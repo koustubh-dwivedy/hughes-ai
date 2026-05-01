@@ -23,7 +23,7 @@ from api.types.executive_summary import ExecutiveSummaryData
 from api.types.officer_branch import OfficerBranchData
 from api.types.past_due import PastDueData
 
-router = APIRouter(prefix="/api/dashboards")
+router = APIRouter(prefix="/dashboards")
 
 
 def build_envelope(

@@ -1,4 +1,4 @@
-"""Unit tests for GET /api/dashboards/past-due."""
+"""Unit tests for GET /dashboards/past-due."""
 
 from datetime import date
 
@@ -63,7 +63,7 @@ def test_past_due_200(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> No
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/past-due")
+    resp = client.get("/dashboards/past-due")
     assert resp.status_code == 200
     body = resp.json()
     assert body["as_of_date"] == "2026-04-01"
@@ -88,7 +88,7 @@ def test_past_due_cache_control(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/past-due")
+    resp = client.get("/dashboards/past-due")
     assert resp.headers["cache-control"] == "max-age=300, public"
 
 
@@ -112,8 +112,8 @@ def test_past_due_cache_hit(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    client.get("/api/dashboards/past-due?as_of_date=2026-03-01")
-    client.get("/api/dashboards/past-due?as_of_date=2026-03-01")
+    client.get("/dashboards/past-due?as_of_date=2026-03-01")
+    client.get("/dashboards/past-due?as_of_date=2026-03-01")
     assert call_count == 1
 
 
@@ -128,6 +128,6 @@ def test_past_due_explicit_date(
         "api.routes.dashboards.save_dashboard_audit", lambda *a, **k: None
     )
 
-    resp = client.get("/api/dashboards/past-due?as_of_date=2026-02-01")
+    resp = client.get("/dashboards/past-due?as_of_date=2026-02-01")
     assert resp.status_code == 200
     assert resp.json()["as_of_date"] == "2026-02-01"
