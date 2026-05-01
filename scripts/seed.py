@@ -43,6 +43,20 @@ def _cache_marker(key: str) -> Path:
     return _CACHE_DIR / f"{key}.marker"
 
 
+def _apply_grants(database_url: str) -> None:
+    import psycopg as _psycopg
+    stmts = [
+        "GRANT USAGE ON SCHEMA public TO readonly",
+        "GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly",
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public"
+        " GRANT SELECT ON TABLES TO readonly",
+    ]
+    with _psycopg.connect(database_url) as conn:
+        for stmt in stmts:
+            conn.execute(stmt)
+    log.info("applied readonly grants")
+
+
 def _run(profile_name: str, force: bool) -> None:
     from synth_data.config import load_profile
     from synth_data.generators.deposits import generate_deposits
@@ -112,6 +126,7 @@ def _run(profile_name: str, force: bool) -> None:
         members=members, recon_rows=recon_rows,
         watchlist=watchlist, deposits=deposits,
     )
+    _apply_grants(database_url)
 
     marker.write_text(key)
     log.info("seed complete", profile=profile_name)

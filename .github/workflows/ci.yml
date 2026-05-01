@@ -129,6 +129,7 @@ jobs:
           psql $DATABASE_URL -f migrations/007_readonly_role.sql
           psql $DATABASE_URL -f migrations/008_loan_lifecycle_events.sql
           psql $DATABASE_URL -f migrations/009_deposit_history.sql
+          psql $DATABASE_URL -f migrations/010_readonly_grants.sql
       - name: Seed synthetic data
         run: uv run python scripts/seed.py --profile small_cu
       - name: Build and test marts
