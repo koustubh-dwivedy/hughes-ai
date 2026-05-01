@@ -98,3 +98,185 @@ metrics:
       - "What is the delinquency rate by branch?"
       - "Show delinquency trend over the last 12 months"
       - "How many loans are 90+ days past due?"
+
+  - name: total_deposits
+    label: Total Deposits Balance
+    description: >
+      Sum of current outstanding balance across all active deposit accounts
+      as of a given month-end date.
+    formula_plain_english: >
+      Sum total_balance from fct_deposits_monthly where as_of_month equals
+      the requested month. Group by as_of_month to get the portfolio-level total.
+    caveats: >
+      Point-in-time snapshot — always pair with an as_of_date.
+      Excludes closed accounts. Deposits are single-source (Symitar only)
+      and have no Origence LOS counterpart — excluded from reconciliation metrics.
+    related_questions:
+      - "What is our total deposit balance this month?"
+      - "How have total deposits grown over the past year?"
+      - "What is the deposit balance as of March 2024?"
+      - "Show total deposits by month for the last 12 months"
+
+  - name: mtd_deposit_change
+    label: MTD Deposit Change
+    description: >
+      Month-to-date change in total deposit balance compared to the prior
+      month-end for each grain (product + branch).
+    formula_plain_english: >
+      Sum mtd_change from fct_deposits_monthly for the requested as_of_month.
+      Positive values indicate deposit growth; negative values indicate outflows.
+    caveats: >
+      MTD change is pre-computed in the mart as current month total_balance
+      minus prior month total_balance. Not available for the earliest month
+      in the data set (no prior month to compare).
+    related_questions:
+      - "How much have deposits grown this month?"
+      - "What is the month-over-month deposit change?"
+      - "Which product had the largest deposit inflow this month?"
+      - "Show MTD deposit change by branch"
+
+  - name: ytd_deposit_change
+    label: YTD Deposit Change
+    description: >
+      Year-to-date change in total deposit balance from the start of the
+      fiscal year (July 1) to the requested month-end.
+    formula_plain_english: >
+      Sum ytd_change from fct_deposits_monthly for the requested as_of_month.
+      Fiscal year resets each July 1 — ytd_change is zero at the start of
+      each fiscal year and accumulates through June.
+    caveats: >
+      Fiscal year runs July through June. ytd_change resets to zero at the
+      start of each new fiscal year. Use mtd_deposit_change for single-month
+      movement; ytd_deposit_change for cumulative annual trend.
+    related_questions:
+      - "How much have deposits grown this fiscal year?"
+      - "What is the year-to-date deposit change by product?"
+      - "Show YTD deposit growth compared to last fiscal year"
+      - "Which branch has the highest YTD deposit inflow?"
+
+  - name: avg_balance_per_customer
+    label: Average Deposit Balance per Customer
+    description: >
+      Average deposit balance per account holder as of a given month-end,
+      calculated at the (product, branch) grain.
+    formula_plain_english: >
+      Divide total_balance by account_count from fct_deposits_monthly for
+      the requested as_of_month. This equals avg_balance_per_customer directly.
+    caveats: >
+      Account-level average — a member with multiple accounts is counted once
+      per account per grain. For member-level average, aggregate across products
+      and branches before dividing.
+    related_questions:
+      - "What is the average deposit balance per customer?"
+      - "How does average balance compare across product types?"
+      - "What is the average savings account balance?"
+      - "Show average deposit balance by branch"
+
+  - name: top_n_deposits
+    label: Top N Depositors
+    description: >
+      The members with the highest total deposit balances as of the most
+      recent snapshot, ranked in descending order.
+    formula_plain_english: >
+      Join deposit_accounts to members, sum current_balance per member,
+      then order descending and take the top N rows. N defaults to 25
+      unless the user specifies otherwise.
+    caveats: >
+      Uses live deposit_accounts.current_balance, not the monthly mart.
+      Includes all open accounts per member. N defaults to 25 if unspecified.
+      Do not expose member PII beyond first name + last name.
+    related_questions:
+      - "Who are our top 10 depositors?"
+      - "Show me the top 25 members by deposit balance"
+      - "Which members have the largest total deposits?"
+      - "List the biggest depositors at the Downtown branch"
+
+  - name: deposits_by_product
+    label: Deposits by Product
+    description: >
+      Total deposit balance broken down by deposit product type (e.g.
+      checking, savings, money market, CD) as of a given month-end.
+    formula_plain_english: >
+      Join fct_deposits_monthly to dim_deposit_product on deposit_product_id,
+      sum total_balance grouped by product_name for the requested as_of_month.
+    caveats: >
+      Product taxonomy is defined in dim_deposit_product — use product_name
+      for display and is_core_deposit to separate core from non-core products.
+    related_questions:
+      - "What is the deposit breakdown by product type?"
+      - "How much is held in CDs vs savings accounts?"
+      - "Show deposit mix by product this month"
+      - "What percentage of deposits are in checking accounts?"
+
+  - name: deposits_by_branch
+    label: Deposits by Branch
+    description: >
+      Total deposit balance grouped by branch as of a given month-end date.
+    formula_plain_english: >
+      Join fct_deposits_monthly to branches on branch_id, sum total_balance
+      grouped by branch name for the requested as_of_month.
+    caveats: >
+      Branch attribution is based on the account's home branch at open time —
+      it does not change if the member later transfers to another branch.
+    related_questions:
+      - "Which branch holds the most deposits?"
+      - "Show deposit balance by branch this month"
+      - "How do deposit balances compare across branches?"
+      - "What is the deposit total for the Westside branch?"
+
+  - name: total_loans
+    label: Total Loans Balance
+    description: >
+      Total outstanding principal balance across all active booked loans as
+      of a given month-end. Equivalent to portfolio_balance but sourced from
+      the fct_loans_monthly mart for dashboard consistency.
+    formula_plain_english: >
+      Sum total_balance from fct_loans_monthly for the requested as_of_month,
+      summing across all product_type, branch_id, and officer_id combinations.
+    caveats: >
+      Use fct_loans_monthly (not fct_loan_performance) when querying alongside
+      deposit metrics so both sides share the same monthly grain.
+      Excludes paid-off and charged-off loans.
+    related_questions:
+      - "What is our total loan portfolio balance?"
+      - "How have total loans grown this year?"
+      - "What is the total outstanding loan balance by product?"
+      - "Show total loans balance trend over the last 12 months"
+
+  - name: top_n_borrowers
+    label: Top N Borrowers
+    description: >
+      The members with the highest total outstanding loan balances as of the
+      most recent snapshot, ranked in descending order.
+    formula_plain_english: >
+      Join booked_loans to loan_balances for the most recent snapshot_date,
+      sum balance per member_id, join to members for names, order descending
+      and take the top N rows. N defaults to 25 unless specified.
+    caveats: >
+      Sums all active loans per member — a member with multiple loans appears
+      once with their total exposure. N defaults to 25 if unspecified.
+      Only active/current loans; excludes paid-off and charged-off.
+    related_questions:
+      - "Who are our top 10 borrowers by outstanding balance?"
+      - "Show the members with the highest total loan exposure"
+      - "Which members have the largest outstanding loan balances?"
+      - "List the top 25 borrowers at the Eastside branch"
+
+  - name: single_loan_customers
+    label: Single-Loan Customers
+    description: >
+      Count of members who have exactly one active loan, used as a proxy for
+      cross-sell opportunity and member engagement depth.
+    formula_plain_english: >
+      Sum single_loan_customer_count from fct_loans_monthly for the requested
+      as_of_month, summing across all grains to get the portfolio-level count.
+    caveats: >
+      A member counted as single-loan in one grain (product+branch+officer)
+      may have loans in another grain — sum across all grains carefully or
+      use the pre-aggregated value from fct_executive_kpis to avoid
+      double-counting.
+    related_questions:
+      - "How many members have exactly one loan?"
+      - "What percentage of borrowers have only one loan product?"
+      - "Show single-loan customer count by product type"
+      - "How has the count of single-loan members changed this year?"
