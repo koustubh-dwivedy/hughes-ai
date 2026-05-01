@@ -1,5 +1,4 @@
 import Combo from "../../charts/Combo";
-import DataTable from "../../charts/DataTable";
 import Donut from "../../charts/Donut";
 import KpiTile from "../../charts/KpiTile";
 import StackedBar from "../../charts/StackedBar";
@@ -10,6 +9,7 @@ import type { DepositPortfolioData } from "../../shared/api/dashboardApi";
 import { useDashboardContext } from "../../shared/context/DashboardContext";
 import { useDashboard } from "../../shared/hooks/useDashboard";
 import { spacing } from "../../theme/tokens";
+import DataTable from "../../ui/primitives/DataTable";
 
 function fmt(n: number): string {
 	return `$${(n / 1_000_000).toFixed(1)}M`;

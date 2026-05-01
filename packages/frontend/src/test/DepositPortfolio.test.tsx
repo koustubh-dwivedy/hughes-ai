@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import DepositPortfolio from "../features/deposits";
 import type { DepositPortfolioData } from "../shared/api/dashboardApi";
 import type { UseDashboardResult } from "../shared/hooks/useDashboard";
+import { renderWithProviders } from "./test-utils";
 
 vi.mock("../shared/hooks/useDashboard");
 import { useDashboard } from "../shared/hooks/useDashboard";
@@ -49,7 +50,7 @@ function mockHook(
 describe("DepositPortfolio", () => {
 	it("renders KPI tiles from fixture data", () => {
 		mockHook({ data: fixture });
-		render(<DepositPortfolio />);
+		renderWithProviders(<DepositPortfolio />);
 		expect(screen.getByText("Total Deposits")).toBeInTheDocument();
 		expect(screen.getByText("$150.0M")).toBeInTheDocument();
 		expect(screen.getByText("12,000")).toBeInTheDocument();
@@ -57,13 +58,13 @@ describe("DepositPortfolio", () => {
 
 	it("shows loading state via DashboardShell", () => {
 		mockHook({ loading: true });
-		render(<DepositPortfolio />);
+		renderWithProviders(<DepositPortfolio />);
 		expect(screen.getByLabelText("loading dashboard")).toBeInTheDocument();
 	});
 
 	it("shows error state via DashboardShell", () => {
 		mockHook({ error: "HTTP 500" });
-		render(<DepositPortfolio />);
+		renderWithProviders(<DepositPortfolio />);
 		expect(screen.getByRole("alert")).toHaveTextContent("HTTP 500");
 	});
 });

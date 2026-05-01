@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import OfficerBranch, {
@@ -8,6 +8,7 @@ import OfficerBranch, {
 } from "../features/officer-branch";
 import type { OfficerBranchData } from "../shared/api/dashboardApi";
 import type { UseDashboardResult } from "../shared/hooks/useDashboard";
+import { renderWithProviders } from "./test-utils";
 
 vi.mock("../shared/hooks/useDashboard");
 import { useDashboard } from "../shared/hooks/useDashboard";
@@ -69,7 +70,7 @@ function mockHook(overrides: Partial<UseDashboardResult<OfficerBranchData>>) {
 }
 
 function renderInRouter(initialEntries: string[] = ["/"]) {
-	return render(
+	return renderWithProviders(
 		<MemoryRouter initialEntries={initialEntries}>
 			<Routes>
 				<Route path="*" element={<OfficerBranch />} />

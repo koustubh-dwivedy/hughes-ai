@@ -3,7 +3,7 @@ import "@mantine/core/styles.css";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import DataTable from "../ui/primitives/DataTable";
+import DataTable from "./DataTable";
 
 function withMantine(ui: React.ReactElement) {
 	return render(<MantineProvider>{ui}</MantineProvider>);
@@ -71,5 +71,30 @@ describe("DataTable", () => {
 		withMantine(<DataTable columns={["n"]} rows={manyRows} />);
 		const cells = screen.getAllByRole("cell");
 		expect(cells).toHaveLength(25);
+	});
+
+	it("density toggle button is present", () => {
+		withMantine(<DataTable columns={["name", "score"]} rows={rows} />);
+		expect(
+			screen.getByRole("button", { name: /density toggle/i }),
+		).toBeInTheDocument();
+	});
+
+	it("density toggle switches between compact and default", async () => {
+		const user = userEvent.setup();
+		withMantine(<DataTable columns={["name", "score"]} rows={rows} />);
+		const btn = screen.getByRole("button", { name: /density toggle/i });
+		expect(btn).toHaveAttribute("aria-pressed", "false");
+		await user.click(btn);
+		expect(btn).toHaveAttribute("aria-pressed", "true");
+		await user.click(btn);
+		expect(btn).toHaveAttribute("aria-pressed", "false");
+	});
+
+	it("thead is rendered (sticky header)", () => {
+		withMantine(<DataTable columns={["name", "score"]} rows={rows} />);
+		expect(screen.getByRole("table")).toBeInTheDocument();
+		const thead = document.querySelector("thead");
+		expect(thead).toBeInTheDocument();
 	});
 });

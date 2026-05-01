@@ -1,6 +1,5 @@
 import { useSearchParams } from "react-router-dom";
 import Combo from "../../charts/Combo";
-import DataTable from "../../charts/DataTable";
 import Donut from "../../charts/Donut";
 import KpiTile from "../../charts/KpiTile";
 import StackedBar from "../../charts/StackedBar";
@@ -12,6 +11,7 @@ import { useDashboardContext } from "../../shared/context/DashboardContext";
 import { useDashboard } from "../../shared/hooks/useDashboard";
 import { spacing } from "../../theme/tokens";
 import Banner from "../../ui/primitives/Banner";
+import DataTable from "../../ui/primitives/DataTable";
 import Tabs from "./Tabs";
 import WatchlistTrend from "./WatchlistTrend";
 

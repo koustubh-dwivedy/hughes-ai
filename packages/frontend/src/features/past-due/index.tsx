@@ -1,4 +1,3 @@
-import DataTable from "../../charts/DataTable";
 import KpiTile from "../../charts/KpiTile";
 import LineTrend from "../../charts/LineTrend";
 import StackedBar from "../../charts/StackedBar";
@@ -8,6 +7,7 @@ import type { PastDueData } from "../../shared/api/dashboardApi";
 import { useDashboardContext } from "../../shared/context/DashboardContext";
 import { useDashboard } from "../../shared/hooks/useDashboard";
 import { spacing } from "../../theme/tokens";
+import DataTable from "../../ui/primitives/DataTable";
 
 function fmt(n: number): string {
 	return `$${(n / 1_000_000).toFixed(1)}M`;

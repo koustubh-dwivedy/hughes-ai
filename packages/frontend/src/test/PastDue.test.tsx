@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import PastDue, { buildDelinquencyTrend } from "../features/past-due";
 import type { PastDueData } from "../shared/api/dashboardApi";
 import type { UseDashboardResult } from "../shared/hooks/useDashboard";
+import { renderWithProviders } from "./test-utils";
 
 vi.mock("../shared/hooks/useDashboard");
 import { useDashboard } from "../shared/hooks/useDashboard";
@@ -39,7 +40,7 @@ function mockHook(overrides: Partial<UseDashboardResult<PastDueData>>) {
 describe("PastDue", () => {
 	it("renders KPI tiles from fixture data", () => {
 		mockHook({ data: fixture });
-		render(<PastDue />);
+		renderWithProviders(<PastDue />);
 		expect(screen.getByText("Past Due Total")).toBeInTheDocument();
 		expect(screen.getByText("$2.5M")).toBeInTheDocument();
 		expect(screen.getByText("Watchlist")).toBeInTheDocument();
@@ -47,7 +48,7 @@ describe("PastDue", () => {
 
 	it("positive past_due_total_delta renders delta indicator in red", () => {
 		mockHook({ data: fixture }); // past_due_total_delta=100_000 → negated → -100_000 → red ↓
-		render(<PastDue />);
+		renderWithProviders(<PastDue />);
 		// KpiTile renders: "↓ " + String(Math.abs(-100_000)) = "↓ 100000"
 		const deltaEl = screen.getByText("↓ 100000");
 		expect(deltaEl).toHaveStyle({ color: "#dc2626" });
