@@ -7,6 +7,9 @@ module.exports = {
 	// Allow 0.2% per-pixel colour difference to absorb minor antialiasing variation
 	// between the loki:update and loki:test Chrome runs (pixelmatch threshold = 0.002).
 	chromeTolerance: 0.2,
+	// Button/Loading renders Mantine's animated spinner — rotation angle varies between
+	// Chrome runs even with animation: none, so it cannot be regression-tested.
+	skipStories: "^Primitives\\/Button Loading$",
 	configurations: {
 		"chrome.laptop": {
 			target: "chrome.app",
