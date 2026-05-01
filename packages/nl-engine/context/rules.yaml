@@ -87,3 +87,112 @@ rules:
       The reconciliation process may leave 5-10% of loans unmatched when they
       originate outside the LOS (e.g. branch direct entry). Origination metrics
       from fct_loan_originations deliberately exclude these.
+
+  - id: deposit_balance_as_of
+    rule: >
+      Deposit balance queries must always specify an as_of_month using
+      fct_deposits_monthly. Never return a deposit balance without a date
+      context — use the latest available as_of_month when no date is given.
+    rationale: >
+      Deposit balances are monthly snapshots. Without an as_of_month filter,
+      queries return all historical rows and sum balances across all periods,
+      producing a wildly overstated figure.
+
+  - id: deposit_product_taxonomy
+    rule: >
+      There are 5 deposit product types at this credit union: Checking,
+      Savings, Money Market, Certificate of Deposit (CD), and IRA.
+      Checking, Savings, and Money Market are core deposits
+      (dim_deposit_product.is_core_deposit = TRUE). CD and IRA are
+      non-core. Use dim_deposit_product.product_name for display;
+      use is_core_deposit for core/non-core filtering.
+    rationale: >
+      The core/non-core split drives the Core Deposit Ratio and funding
+      stability analysis. Using raw product names without the taxonomy
+      produces inconsistent core deposit counts.
+
+  - id: officer_attribution
+    rule: >
+      Loans are attributed to the officer recorded in booked_loans.officer_id
+      at the time of origination. This attribution does not change if the
+      officer later leaves or transfers branches. Use dim_officer for officer
+      name and branch lookups — do not filter to status = 'active' when
+      attributing historical loan performance.
+    rationale: >
+      Delinquency and portfolio metrics must reflect the originating officer's
+      book regardless of current employment status. Filtering to active officers
+      only would silently drop loans from departed officers' portfolios.
+
+  - id: watchlist_definition
+    rule: >
+      A loan is currently on the watchlist when a row exists in the watchlist
+      table with added_at <= :as_of_date AND (removed_at IS NULL OR
+      removed_at > :as_of_date). Do not use removed_at IS NULL alone — it
+      excludes loans that were later removed. Use the watchlist table directly
+      for point-in-time counts; fct_executive_kpis does not include watchlist.
+    rationale: >
+      The watchlist is a forward-looking risk flag, not a delinquency measure.
+      A watchlisted loan may be current on payments. The point-in-time filter
+      is critical — removed loans must be excluded from the active count.
+
+  - id: nonperforming_definition
+    rule: >
+      A nonperforming loan (NPL) is a loan that is 90 or more days past due
+      (delinquency_bucket = '90+' in fct_delinquency_monthly) OR has
+      is_nonaccrual = TRUE in booked_loans. Do not use loan_status =
+      'charged_off' as the NPL definition — charged-off loans are removed
+      from the active portfolio.
+    rationale: >
+      NPL is the broadest adverse risk indicator. The 90+ DPD threshold
+      follows NCUA guidance. Nonaccrual loans are included regardless of DPD
+      bucket because accrual suspension can precede formal delinquency
+      classification.
+
+  - id: mtd_definition
+    rule: >
+      Month-to-date (MTD) deposit change is the change in total deposit
+      balance from the prior month-end to the current month-end. Use the
+      pre-computed mtd_change column in fct_deposits_monthly — do not
+      recompute it by subtracting raw account balances. MTD change is NULL
+      for the earliest month in the dataset (no prior month available).
+    rationale: >
+      mtd_change is already window-computed in the mart using LAG over the
+      (product, branch) partition. Recomputing it from raw balances produces
+      different results due to account open/close timing within the month.
+
+  - id: ytd_definition
+    rule: >
+      Year-to-date (YTD) deposit change resets each July 1 (start of the
+      credit union's fiscal year). Use the pre-computed ytd_change column in
+      fct_deposits_monthly — it is zero at the first month of each fiscal
+      year and accumulates through June. For calendar-year YTD loan
+      origination metrics, filter funded_at >= DATE_TRUNC('year', :as_of_date).
+    rationale: >
+      This credit union operates on a July–June fiscal year (reflected in
+      dim_calendar.fiscal_year). Deposit YTD uses fiscal year; loan
+      origination YTD uses calendar year. Mixing the two produces incorrect
+      trend comparisons.
+
+  - id: top_n_default_25
+    rule: >
+      When a user asks for "top N" borrowers, depositors, or officers without
+      specifying N, default to 25. Apply LIMIT 25 in the query. If the user
+      specifies a number (e.g. "top 10"), use that value instead.
+    rationale: >
+      A default of 25 keeps result sets manageable for dashboard display
+      while covering the most material exposures. Always make the LIMIT
+      explicit in the SQL — never return an unbounded result set for ranking
+      queries.
+
+  - id: aging_buckets
+    rule: >
+      Delinquency aging buckets in fct_delinquency_monthly are: '30-59',
+      '60-89', and '90+' (90-119 DPD and 120+ DPD are merged into '90+').
+      For executive-level summaries, group into: early warning (30-59),
+      serious (60-89), and critical (90+). The 15-29 DPD range is not
+      tracked in the mart — do not reference it in SQL against
+      fct_delinquency_monthly.
+    rationale: >
+      The mart consolidates 90-119 and 120+ into a single '90+' bucket to
+      align with NCUA reporting standards. Querying for '90-119' or '120+'
+      by name returns no rows and silently understates the 90+ exposure.
