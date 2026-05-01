@@ -623,3 +623,365 @@ questions:
   - product_type
   - funded_at
   question_type: edge_case
+# ---- Dashboard: Deposit Portfolio ----
+- question: What is our total deposit balance this month?
+  ground_truth_sql: |
+    SELECT
+        TO_CHAR(as_of_month, 'YYYY-MM') AS as_of_month,
+        ROUND(SUM(total_balance), 2)     AS total_deposits
+    FROM fct_deposits_monthly
+    WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_deposits_monthly)
+    GROUP BY as_of_month
+  expected_tables:
+  - fct_deposits_monthly
+  expected_keywords:
+  - SUM
+  - as_of_month
+  question_type: deposit_balance
+- question: What is the deposit breakdown by product type?
+  ground_truth_sql: |
+    SELECT
+        dp.product_name,
+        dp.deposit_category,
+        ROUND(SUM(f.total_balance), 2) AS total_balance,
+        SUM(f.account_count)           AS account_count
+    FROM fct_deposits_monthly f
+    JOIN dim_deposit_product dp USING (deposit_product_id)
+    WHERE f.as_of_month = (SELECT MAX(as_of_month) FROM fct_deposits_monthly)
+    GROUP BY dp.product_name, dp.deposit_category
+    ORDER BY total_balance DESC
+  expected_tables:
+  - fct_deposits_monthly
+  expected_keywords:
+  - SUM
+  - GROUP BY
+  - as_of_month
+  question_type: deposit_portfolio
+- question: Which branch holds the most deposits?
+  ground_truth_sql: |
+    SELECT
+        b.name                         AS branch_name,
+        ROUND(SUM(f.total_balance), 2) AS total_balance,
+        SUM(f.account_count)           AS account_count
+    FROM fct_deposits_monthly f
+    JOIN branches b ON f.branch_id = b.branch_id
+    WHERE f.as_of_month = (SELECT MAX(as_of_month) FROM fct_deposits_monthly)
+    GROUP BY b.name
+    ORDER BY total_balance DESC
+  expected_tables:
+  - fct_deposits_monthly
+  expected_keywords:
+  - SUM
+  - GROUP BY
+  - ORDER BY
+  - as_of_month
+  question_type: deposit_portfolio
+- question: Who are our top 25 depositors?
+  ground_truth_sql: |
+    SELECT
+        m.first_name || ' ' || m.last_name AS member_name,
+        ROUND(SUM(da.current_balance), 2)  AS total_balance
+    FROM deposit_accounts da
+    JOIN members m ON da.member_id = m.member_id
+    WHERE da.closed_at IS NULL
+    GROUP BY m.member_id, m.first_name, m.last_name
+    ORDER BY total_balance DESC
+    LIMIT 25
+  expected_tables:
+  - deposit_accounts
+  expected_keywords:
+  - SUM
+  - ORDER BY
+  - LIMIT
+  - current_balance
+  question_type: deposit_balance
+- question: What is the year-to-date deposit growth?
+  ground_truth_sql: |
+    SELECT
+        as_of_month,
+        ROUND(SUM(ytd_change), 2) AS ytd_deposit_change
+    FROM fct_deposits_monthly
+    WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_deposits_monthly)
+    GROUP BY as_of_month
+  expected_tables:
+  - fct_deposits_monthly
+  expected_keywords:
+  - SUM
+  - as_of_month
+  - ytd_change
+  question_type: deposit_balance
+# ---- Dashboard: Past-Due ----
+- question: What is our current blended past due ratio?
+  ground_truth_sql: |
+    WITH past_due AS (
+        SELECT SUM(balance) AS past_due_bal
+        FROM fct_delinquency_monthly
+        WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_delinquency_monthly)
+          AND bucket IN ('30-59', '60-89', '90+')
+    ),
+    total AS (
+        SELECT SUM(total_balance) AS total_bal
+        FROM fct_loans_monthly
+        WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_loans_monthly)
+    )
+    SELECT
+        ROUND(p.past_due_bal / NULLIF(t.total_bal, 0) * 100, 2) AS past_due_ratio_pct
+    FROM past_due p, total t
+  expected_tables:
+  - fct_delinquency_monthly
+  expected_keywords:
+  - SUM
+  - as_of_month
+  - bucket
+  question_type: past_due
+- question: Which officers have the most past-due exposure?
+  ground_truth_sql: |
+    SELECT
+        o.officer_name,
+        ROUND(SUM(f.balance), 2)   AS past_due_balance,
+        SUM(f.past_due_loan_count) AS past_due_loan_count
+    FROM fct_delinquency_monthly f
+    JOIN dim_officer o ON f.officer_id = o.officer_id
+    WHERE f.as_of_month = (SELECT MAX(as_of_month) FROM fct_delinquency_monthly)
+      AND f.bucket IN ('30-59', '60-89', '90+')
+    GROUP BY o.officer_id, o.officer_name
+    ORDER BY past_due_balance DESC
+  expected_tables:
+  - fct_delinquency_monthly
+  expected_keywords:
+  - SUM
+  - GROUP BY
+  - ORDER BY
+  - officer_name
+  question_type: past_due
+- question: Show the delinquency trend by aging bucket over the last 13 months
+  ground_truth_sql: |
+    SELECT
+        as_of_month                                                         AS month,
+        ROUND(SUM(CASE WHEN bucket = '30-59' THEN balance ELSE 0 END), 2)  AS bucket_30_59,
+        ROUND(SUM(CASE WHEN bucket = '60-89' THEN balance ELSE 0 END), 2)  AS bucket_60_89,
+        ROUND(SUM(CASE WHEN bucket = '90+'   THEN balance ELSE 0 END), 2)  AS bucket_90_plus
+    FROM fct_delinquency_monthly
+    WHERE as_of_month >= (SELECT MAX(as_of_month) FROM fct_delinquency_monthly)
+                          - INTERVAL '12 months'
+    GROUP BY as_of_month
+    ORDER BY as_of_month
+  expected_tables:
+  - fct_delinquency_monthly
+  expected_keywords:
+  - SUM
+  - CASE WHEN
+  - bucket
+  - GROUP BY
+  question_type: past_due
+- question: How many loans are currently on the watchlist?
+  ground_truth_sql: |
+    SELECT
+        COUNT(*)                              AS watchlist_count,
+        COALESCE(SUM(bl.original_balance), 0) AS watchlist_balance
+    FROM watchlist w
+    LEFT JOIN booked_loans bl ON w.loan_id = bl.loan_id
+    WHERE w.added_at::DATE <= CURRENT_DATE
+      AND (w.removed_at IS NULL OR w.removed_at::DATE > CURRENT_DATE)
+  expected_tables:
+  - watchlist
+  expected_keywords:
+  - COUNT
+  - added_at
+  - removed_at
+  question_type: watchlist
+- question: What is the total 90+ DPD balance this month?
+  ground_truth_sql: |
+    SELECT
+        ROUND(SUM(balance), 2) AS total_90_plus_balance
+    FROM fct_delinquency_monthly
+    WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_delinquency_monthly)
+      AND bucket = '90+'
+  expected_tables:
+  - fct_delinquency_monthly
+  expected_keywords:
+  - SUM
+  - bucket
+  - as_of_month
+  question_type: past_due
+# ---- Dashboard: Loan Portfolio / Officer-Branch ----
+- question: What is the loan mix by product type this month?
+  ground_truth_sql: |
+    SELECT
+        product_type,
+        SUM(loan_count)                                               AS loan_count,
+        ROUND(SUM(total_balance), 2)                                  AS total_balance,
+        ROUND(
+            SUM(total_balance * weighted_avg_rate)
+            / NULLIF(SUM(total_balance), 0),
+            4
+        )                                                             AS weighted_avg_rate
+    FROM fct_loans_monthly
+    WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_loans_monthly)
+    GROUP BY product_type
+    ORDER BY total_balance DESC
+  expected_tables:
+  - fct_loans_monthly
+  expected_keywords:
+  - SUM
+  - GROUP BY
+  - product_type
+  - as_of_month
+  question_type: loan_portfolio
+- question: Who are our top 25 borrowers by outstanding balance?
+  ground_truth_sql: |
+    SELECT
+        m.first_name || ' ' || m.last_name AS member_name,
+        ROUND(SUM(lb.balance), 2)          AS total_balance
+    FROM booked_loans bl
+    JOIN loan_balances lb ON bl.loan_id = lb.loan_id
+    JOIN members m        ON bl.member_id = m.member_id
+    WHERE lb.snapshot_date = (SELECT MAX(snapshot_date) FROM loan_balances)
+      AND bl.status NOT IN ('paid_off', 'charged_off')
+    GROUP BY m.member_id, m.first_name, m.last_name
+    ORDER BY total_balance DESC
+    LIMIT 25
+  expected_tables:
+  - booked_loans
+  expected_keywords:
+  - SUM
+  - ORDER BY
+  - LIMIT
+  - balance
+  question_type: loan_portfolio
+- question: How many single-loan customers do we have by product type?
+  ground_truth_sql: |
+    SELECT
+        product_type,
+        SUM(single_loan_customer_count) AS single_loan_customers
+    FROM fct_loans_monthly
+    WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_loans_monthly)
+    GROUP BY product_type
+    ORDER BY single_loan_customers DESC
+  expected_tables:
+  - fct_loans_monthly
+  expected_keywords:
+  - SUM
+  - GROUP BY
+  - product_type
+  - single_loan_customer_count
+  question_type: loan_portfolio
+- question: Show new and paid-off loan events for the most recent month
+  ground_truth_sql: |
+    SELECT
+        product_type,
+        event_type,
+        loan_count,
+        ROUND(total_amount, 2) AS total_amount
+    FROM fct_loan_lifecycle_events
+    WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_loan_lifecycle_events)
+    ORDER BY product_type, event_type
+  expected_tables:
+  - fct_loan_lifecycle_events
+  expected_keywords:
+  - event_type
+  - as_of_month
+  - loan_count
+  question_type: lifecycle_events
+- question: Show deposit balance trend over the last 12 months
+  ground_truth_sql: |
+    SELECT
+        as_of_month,
+        ROUND(SUM(total_balance), 2) AS total_deposits
+    FROM fct_deposits_monthly
+    WHERE as_of_month >= (SELECT MAX(as_of_month) FROM fct_deposits_monthly)
+                          - INTERVAL '11 months'
+    GROUP BY as_of_month
+    ORDER BY as_of_month
+  expected_tables:
+  - fct_deposits_monthly
+  expected_keywords:
+  - SUM
+  - GROUP BY
+  - ORDER BY
+  - as_of_month
+  question_type: deposit_portfolio
+# ---- Dashboard: Executive KPIs ----
+- question: Show loan-to-deposit ratio trend over the last 13 months
+  ground_truth_sql: |
+    SELECT
+        as_of_month,
+        ROUND(loan_to_deposit_ratio, 4)  AS loan_to_deposit_ratio,
+        ROUND(total_loans_balance, 2)    AS total_loans,
+        ROUND(total_deposits_balance, 2) AS total_deposits
+    FROM fct_executive_kpis
+    WHERE as_of_month >= (SELECT MAX(as_of_month) FROM fct_executive_kpis)
+                          - INTERVAL '12 months'
+    ORDER BY as_of_month
+  expected_tables:
+  - fct_executive_kpis
+  expected_keywords:
+  - loan_to_deposit_ratio
+  - as_of_month
+  - ORDER BY
+  question_type: executive_kpi
+- question: What is our core deposit ratio trend over the past year?
+  ground_truth_sql: |
+    SELECT
+        as_of_month,
+        ROUND(core_deposit_ratio * 100, 2) AS core_deposit_ratio_pct,
+        ROUND(total_deposits_balance, 2)   AS total_deposits
+    FROM fct_executive_kpis
+    WHERE as_of_month >= (SELECT MAX(as_of_month) FROM fct_executive_kpis)
+                          - INTERVAL '12 months'
+    ORDER BY as_of_month
+  expected_tables:
+  - fct_executive_kpis
+  expected_keywords:
+  - core_deposit_ratio
+  - as_of_month
+  question_type: executive_kpi
+- question: Show monthly loan and deposit growth for the last 12 months
+  ground_truth_sql: |
+    SELECT
+        as_of_month,
+        ROUND(monthly_loan_growth, 2)    AS loan_growth,
+        ROUND(monthly_deposit_growth, 2) AS deposit_growth,
+        ROUND(rate_spread * 100, 4)      AS rate_spread_pct
+    FROM fct_executive_kpis
+    WHERE as_of_month >= (SELECT MAX(as_of_month) FROM fct_executive_kpis)
+                          - INTERVAL '12 months'
+    ORDER BY as_of_month
+  expected_tables:
+  - fct_executive_kpis
+  expected_keywords:
+  - monthly_loan_growth
+  - monthly_deposit_growth
+  - as_of_month
+  question_type: executive_kpi
+- question: What is the current loan-to-deposit ratio?
+  ground_truth_sql: |
+    SELECT
+        TO_CHAR(as_of_month, 'YYYY-MM')  AS as_of_month,
+        ROUND(loan_to_deposit_ratio, 4)  AS loan_to_deposit_ratio,
+        ROUND(total_loans_balance, 2)    AS total_loans,
+        ROUND(total_deposits_balance, 2) AS total_deposits
+    FROM fct_executive_kpis
+    WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_executive_kpis)
+  expected_tables:
+  - fct_executive_kpis
+  expected_keywords:
+  - loan_to_deposit_ratio
+  - as_of_month
+  question_type: executive_kpi
+- question: How has our rate spread changed over the last 12 months?
+  ground_truth_sql: |
+    SELECT
+        as_of_month,
+        ROUND(rate_spread * 100, 4) AS rate_spread_pct
+    FROM fct_executive_kpis
+    WHERE as_of_month >= (SELECT MAX(as_of_month) FROM fct_executive_kpis)
+                          - INTERVAL '12 months'
+    ORDER BY as_of_month
+  expected_tables:
+  - fct_executive_kpis
+  expected_keywords:
+  - rate_spread
+  - as_of_month
+  - ORDER BY
+  question_type: executive_kpi

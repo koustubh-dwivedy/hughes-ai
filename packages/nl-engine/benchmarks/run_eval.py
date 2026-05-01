@@ -17,6 +17,12 @@ QUESTIONS_FILE = Path(__file__).parent / "questions.yaml"
 CACHE_FILE = Path(__file__).parent / ".cache" / "responses.json"
 PASS_THRESHOLD = 0.5
 
+_LEGACY_TYPES = frozenset({
+    "origination_volume", "approval_rate", "funding_rate",
+    "delinquency_rate", "portfolio_balance", "product_mix",
+    "channel_mix", "edge_case", "ambiguous",
+})
+
 
 def _cache_key(question: str, db_url: str) -> str:
     return hashlib.sha256(f"{question}|{db_url}".encode()).hexdigest()
@@ -125,11 +131,14 @@ def _score(
     }
 
 
-def run(fail_under: float) -> int:
+def run(fail_under: float, full: bool = False) -> int:
     db_url = os.environ["DATABASE_URL"]
     ctx = load_all()
     raw = yaml.safe_load(QUESTIONS_FILE.read_text())
     questions: list[dict[str, object]] = raw["questions"]
+    if not full:
+        questions = [q for q in questions
+                     if str(q.get("question_type", "")) not in _LEGACY_TYPES]
     cache = _load_cache()
 
     results: list[dict[str, object]] = []
@@ -154,6 +163,20 @@ def run(fail_under: float) -> int:
     from report import print_report  # noqa: PLC0415
 
     accuracy = print_report(results, fail_under)
+
+    if full:
+        legacy = [r for r in results if r["question_type"] in _LEGACY_TYPES]
+        if legacy:
+            leg_correct = sum(1 for r in legacy if r["correct"])
+            leg_acc = leg_correct / len(legacy) * 100
+            leg_status = "PASS" if leg_acc >= fail_under else "FAIL"
+            print(  # noqa: T201
+                f"Legacy (50q): {leg_correct}/{len(legacy)}"
+                f" ({leg_acc:.1f}%) — {leg_status}"
+            )
+            if leg_acc < fail_under:
+                return 1
+
     return 0 if accuracy >= fail_under else 1
 
 
@@ -166,8 +189,13 @@ def main() -> None:
         metavar="N",
         help="Exit 1 if accuracy is below N%% (default: 85)",
     )
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Run all 70 questions; default runs only the 20 new dashboard questions",
+    )
     args = parser.parse_args()
-    sys.exit(run(args.fail_under))
+    sys.exit(run(args.fail_under, args.full))
 
 
 if __name__ == "__main__":

@@ -43,4 +43,4 @@ jobs:
       - name: Build dbt models
         run: cd packages/dbt-models && uv run dbt build --profiles-dir .
       - name: Run NL eval
-        run: uv run python scripts/eval.py --fail-under 85
+        run: uv run python scripts/eval.py --full --fail-under 85
