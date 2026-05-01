@@ -16,7 +16,7 @@ export const AsOfOnly: Story = {
 export const WithRefresh: Story = {
 	args: {
 		asOfDate: "2026-04-30",
-		refreshedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+		refreshedAt: "2026-04-30T08:00:00.000Z",
 	},
 };
 
@@ -30,7 +30,7 @@ export const WithTooltip: Story = {
 export const LiveExample: Story = {
 	args: {
 		asOfDate: "2026-04-30",
-		refreshedAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+		refreshedAt: "2026-04-30T10:00:00.000Z",
 		tooltip: "Data refreshes every 24 hours",
 	},
 };
