@@ -107,8 +107,12 @@ jobs:
   frontend-storybook:
     name: Frontend Storybook / Loki
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -118,12 +122,29 @@ jobs:
       - name: Build Storybook
         run: pnpm build-storybook
         working-directory: packages/frontend
-      - name: Serve Storybook + run Loki
+      - name: Serve Storybook
         working-directory: packages/frontend
         run: |
           npx http-server storybook-static --port 6006 --silent &
           until curl -sf http://127.0.0.1:6006 > /dev/null; do sleep 1; done
-          pnpm loki:test --requireReference
+          echo "SERVER_PID=$!" >> $GITHUB_ENV
+      - name: Update Loki references if missing
+        working-directory: packages/frontend
+        run: |
+          REFS=$(ls .loki/reference/*.png 2>/dev/null | wc -l)
+          if [ "$REFS" -lt 10 ]; then
+            echo "Fewer than 10 references found — regenerating baselines on Linux"
+            pnpm loki:update
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git config user.name "github-actions[bot]"
+            cd ../..
+            git add packages/frontend/.loki/reference/
+            git diff --staged --quiet || git commit -m "chore(loki): regenerate visual regression baselines on Linux [skip ci]"
+            git push
+          fi
+      - name: Run Loki visual regression
+        working-directory: packages/frontend
+        run: pnpm loki:test --requireReference
 
   integration-test:
     name: Integration Tests
