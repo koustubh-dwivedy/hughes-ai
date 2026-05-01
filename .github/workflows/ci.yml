@@ -121,9 +121,9 @@ jobs:
       - name: Serve Storybook + run Loki
         working-directory: packages/frontend
         run: |
-          npx serve storybook-static -l 6006 &
-          sleep 5
-          pnpm loki:test --requireReference --storybookUrl http://localhost:6006
+          npx http-server storybook-static --port 6006 --silent &
+          until curl -sf http://127.0.0.1:6006 > /dev/null; do sleep 1; done
+          pnpm loki:test --requireReference
 
   integration-test:
     name: Integration Tests
