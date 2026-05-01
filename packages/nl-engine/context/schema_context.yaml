@@ -211,3 +211,366 @@ tables:
         type: TIMESTAMPTZ
         description: Timestamp when the reconciliation record was created
         example: "2024-04-01T00:00:00+00:00"
+
+  - name: dim_member
+    description: >
+      Credit union member dimension. One row per member. Use for slicing
+      loan or deposit metrics by member, branch, or join cohort.
+    columns:
+      - name: member_id
+        type: TEXT
+        description: Unique member identifier (primary key)
+        example: "m-00142"
+      - name: first_name
+        type: TEXT
+        description: Member's first name
+        example: "James"
+      - name: last_name
+        type: TEXT
+        description: Member's last name
+        example: "Thornton"
+      - name: full_name
+        type: TEXT
+        description: Derived concatenation of first_name and last_name
+        example: "James Thornton"
+      - name: joined_at
+        type: TIMESTAMPTZ
+        description: Timestamp when the member joined the credit union
+        example: "2019-04-12T00:00:00+00:00"
+      - name: home_branch_name
+        type: TEXT
+        description: Name of the member's home branch
+        example: "Downtown Branch"
+      - name: home_branch_region
+        type: TEXT
+        description: Geographic region of the home branch (north/south/east/west/central)
+        example: "north"
+
+  - name: dim_officer
+    description: >
+      Loan officer dimension. One row per officer. Use for attribution of
+      delinquency, origination volume, or portfolio balance to a specific officer.
+    columns:
+      - name: officer_id
+        type: TEXT
+        description: Unique officer identifier (primary key)
+        example: "off-007"
+      - name: officer_name
+        type: TEXT
+        description: Officer's full name
+        example: "Sarah Chen"
+      - name: hired_at
+        type: TIMESTAMPTZ
+        description: Timestamp when the officer was hired
+        example: "2021-06-01T00:00:00+00:00"
+      - name: status
+        type: TEXT
+        description: "Officer employment status: active or inactive"
+        example: "active"
+      - name: branch_name
+        type: TEXT
+        description: Name of the officer's assigned branch
+        example: "Eastside Branch"
+      - name: branch_region
+        type: TEXT
+        description: Geographic region of the officer's branch
+        example: "east"
+
+  - name: dim_deposit_product
+    description: >
+      Deposit product catalog. One row per product type. Use for slicing
+      fct_deposits_monthly by product and filtering to core vs non-core deposits.
+    columns:
+      - name: deposit_product_id
+        type: TEXT
+        description: Unique deposit product identifier (primary key)
+        example: "dp-checking-01"
+      - name: product_name
+        type: TEXT
+        description: Human-readable deposit product name
+        example: "High-Yield Savings"
+      - name: is_core_deposit
+        type: BOOLEAN
+        description: >
+          True for core deposits (checking, savings, money market).
+          False for non-core (CDs, brokered deposits).
+        example: "true"
+      - name: deposit_category
+        type: TEXT
+        description: "Derived label: 'Core' or 'Non-Core'"
+        example: "Core"
+
+  - name: dim_calendar
+    description: >
+      Date spine covering 2022-07-01 through 2026-06-30. One row per calendar
+      day. Use for date arithmetic, fiscal year filtering, and month-end joins.
+      Fiscal year runs July–June (fiscal_year 2025 = Jul 2024–Jun 2025).
+    columns:
+      - name: calendar_date
+        type: DATE
+        description: The calendar date (primary key)
+        example: "2024-03-31"
+      - name: month_start_date
+        type: DATE
+        description: First day of the month containing calendar_date
+        example: "2024-03-01"
+      - name: month_end_date
+        type: DATE
+        description: Last day of the month containing calendar_date
+        example: "2024-03-31"
+      - name: year
+        type: INT
+        description: Calendar year (e.g. 2024)
+        example: "2024"
+      - name: month_num
+        type: INT
+        description: Calendar month number (1–12)
+        example: "3"
+      - name: quarter
+        type: INT
+        description: Calendar quarter (1–4)
+        example: "1"
+      - name: fiscal_year
+        type: INT
+        description: "Fiscal year (July–June). Jul 2024 through Jun 2025 = fiscal_year 2025."
+        example: "2025"
+      - name: is_month_end
+        type: BOOLEAN
+        description: True when calendar_date is the last day of its month
+        example: "true"
+
+  - name: fct_loans_monthly
+    description: >
+      Monthly loan portfolio rollup at (as_of_month, product_type, branch_id,
+      officer_id) grain. Use for total balance, count, rate, and single-loan
+      customer metrics. One row per grain combination per month.
+    columns:
+      - name: as_of_month
+        type: DATE
+        description: First day of the reporting month (always the 1st)
+        example: "2024-03-01"
+      - name: product_type
+        type: TEXT
+        description: Loan product category (auto, personal, mortgage, etc.)
+        example: "auto"
+      - name: branch_id
+        type: INT
+        description: Branch identifier — joins to branches table
+        example: "3"
+      - name: officer_id
+        type: TEXT
+        description: Loan officer identifier — joins to dim_officer
+        example: "off-007"
+      - name: loan_count
+        type: INT
+        description: Number of distinct loans active in this grain at month-end
+        example: "42"
+      - name: total_balance
+        type: NUMERIC
+        description: Sum of outstanding principal balances for loans in this grain
+        example: "1820500.00"
+      - name: avg_balance
+        type: NUMERIC
+        description: Average outstanding principal balance per loan in this grain
+        example: "43345.24"
+      - name: weighted_avg_rate
+        type: NUMERIC
+        description: Balance-weighted average annual interest rate as a decimal
+        example: "0.0612"
+      - name: single_loan_customer_count
+        type: INT
+        description: Members who have exactly one loan in this grain (used for LTD ratio)
+        example: "38"
+      - name: row_id
+        type: TEXT
+        description: Surrogate key — concatenation of as_of_month, product_type, branch_id, officer_id
+        example: "2024-03-01|auto|3|off-007"
+
+  - name: fct_deposits_monthly
+    description: >
+      Monthly deposit portfolio rollup at (as_of_month, deposit_product_id,
+      branch_id) grain. Use for total balance, MTD/YTD change, account counts,
+      and opened/closed flow. Deposits are single-source (Symitar only) and are
+      excluded from loan reconciliation metrics.
+    columns:
+      - name: as_of_month
+        type: DATE
+        description: First day of the reporting month
+        example: "2024-03-01"
+      - name: deposit_product_id
+        type: TEXT
+        description: Deposit product identifier — joins to dim_deposit_product
+        example: "dp-savings-01"
+      - name: branch_id
+        type: INT
+        description: Branch identifier — joins to branches table
+        example: "2"
+      - name: account_count
+        type: INT
+        description: Number of active accounts in this grain at month-end
+        example: "215"
+      - name: total_balance
+        type: NUMERIC
+        description: Sum of current balances for accounts active in this grain
+        example: "4320000.00"
+      - name: avg_balance_per_customer
+        type: NUMERIC
+        description: total_balance divided by account_count
+        example: "20093.02"
+      - name: opened_count
+        type: INT
+        description: Accounts opened during this month in this grain
+        example: "8"
+      - name: closed_count
+        type: INT
+        description: Accounts closed during this month in this grain
+        example: "3"
+      - name: mtd_change
+        type: NUMERIC
+        description: Change in total_balance vs prior month for this grain
+        example: "85000.00"
+      - name: ytd_change
+        type: NUMERIC
+        description: Change in total_balance since the start of the fiscal year for this grain
+        example: "310000.00"
+      - name: is_core_deposit
+        type: BOOLEAN
+        description: Denormalized flag from dim_deposit_product — true for core products
+        example: "true"
+      - name: row_id
+        type: TEXT
+        description: Surrogate key — concatenation of as_of_month, deposit_product_id, branch_id
+        example: "2024-03-01|dp-savings-01|2"
+
+  - name: fct_delinquency_monthly
+    description: >
+      Monthly delinquency rollup at (as_of_month, officer_id, branch_id, bucket)
+      grain. Only contains loans that are past due (30+ DPD). Use for past-due
+      balance, loan count by aging bucket, and officer/branch attribution.
+      Buckets are consolidated: '30-59', '60-89', '90+'.
+    columns:
+      - name: as_of_month
+        type: DATE
+        description: First day of the reporting month
+        example: "2024-03-01"
+      - name: officer_id
+        type: TEXT
+        description: Loan officer identifier — joins to dim_officer
+        example: "off-004"
+      - name: branch_id
+        type: INT
+        description: Branch identifier — joins to branches table
+        example: "1"
+      - name: bucket
+        type: TEXT
+        description: "Aging bucket: '30-59', '60-89', or '90+' (90-119 and 120+ are merged into 90+)"
+        example: "30-59"
+      - name: loan_count
+        type: INT
+        description: Number of distinct delinquent loans in this grain
+        example: "7"
+      - name: balance
+        type: NUMERIC
+        description: Sum of outstanding balances for delinquent loans in this grain
+        example: "185000.00"
+      - name: past_due_loan_count
+        type: INT
+        description: Count of loans in 30-59, 60-89, or 90+ buckets (always equals loan_count here)
+        example: "7"
+      - name: is_in_13_month_window
+        type: BOOLEAN
+        description: True when as_of_month is within the trailing 13-month window from today
+        example: "true"
+      - name: row_id
+        type: TEXT
+        description: Surrogate key — concatenation of as_of_month, officer_id, bucket
+        example: "2024-03-01|off-004|30-59"
+
+  - name: fct_loan_lifecycle_events
+    description: >
+      Monthly loan lifecycle event counts at (as_of_month, product_type,
+      event_type) grain. event_type is either 'new' (newly funded) or
+      'paid_off'. Use for origination vs payoff trend analysis.
+    columns:
+      - name: as_of_month
+        type: DATE
+        description: First day of the month when the event occurred
+        example: "2024-03-01"
+      - name: product_type
+        type: TEXT
+        description: Loan product category (auto, personal, mortgage, etc.)
+        example: "personal"
+      - name: event_type
+        type: TEXT
+        description: "Lifecycle event type: 'new' (funded) or 'paid_off'"
+        example: "new"
+      - name: loan_count
+        type: INT
+        description: Number of distinct loans with this event type in this grain
+        example: "14"
+      - name: total_amount
+        type: NUMERIC
+        description: >
+          Sum of funded_amount (new) or original_balance (paid_off)
+          for loans in this grain
+        example: "320000.00"
+      - name: row_id
+        type: TEXT
+        description: Surrogate key — concatenation of as_of_month, product_type, event_type
+        example: "2024-03-01|personal|new"
+
+  - name: fct_executive_kpis
+    description: >
+      Monthly executive KPI rollup at as_of_month grain. One row per month.
+      Aggregates across all products and branches. Use for top-line metrics:
+      loan-to-deposit ratio, core deposit ratio, blended past-due ratio,
+      rate spread, and month-over-month growth.
+    columns:
+      - name: as_of_month
+        type: DATE
+        description: First day of the reporting month (primary key — one row per month)
+        example: "2024-03-01"
+      - name: total_loans_balance
+        type: NUMERIC
+        description: Total outstanding principal balance across all loans
+        example: "48500000.00"
+      - name: total_deposits_balance
+        type: NUMERIC
+        description: Total deposit balance across all products and branches
+        example: "62300000.00"
+      - name: loan_to_deposit_ratio
+        type: NUMERIC
+        description: "total_loans_balance / total_deposits_balance (decimal, e.g. 0.778)"
+        example: "0.778"
+      - name: core_deposit_ratio
+        type: NUMERIC
+        description: Core deposit balance / total deposit balance (decimal)
+        example: "0.821"
+      - name: blended_past_due_ratio
+        type: NUMERIC
+        description: Past-due (30+ DPD) balance / total loans balance (decimal)
+        example: "0.032"
+      - name: monthly_loan_growth
+        type: NUMERIC
+        description: Change in total_loans_balance vs prior month (dollar amount)
+        example: "425000.00"
+      - name: monthly_deposit_growth
+        type: NUMERIC
+        description: Change in total_deposits_balance vs prior month (dollar amount)
+        example: "610000.00"
+      - name: weighted_avg_loan_rate
+        type: NUMERIC
+        description: Balance-weighted average loan rate across all products (decimal)
+        example: "0.0598"
+      - name: weighted_avg_deposit_rate
+        type: NUMERIC
+        description: Balance-weighted average deposit cost rate (decimal)
+        example: "0.0215"
+      - name: rate_spread
+        type: NUMERIC
+        description: weighted_avg_loan_rate minus weighted_avg_deposit_rate (net interest margin proxy)
+        example: "0.0383"
+      - name: row_id
+        type: TEXT
+        description: as_of_month cast to TEXT (surrogate key)
+        example: "2024-03-01"
