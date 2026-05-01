@@ -20,6 +20,7 @@ export default defineConfig({
 				"src/**/__tests__/**/*.test.{ts,tsx}",
 				"src/ui/**/*.test.{ts,tsx}",
 				"src/shared/**/*.test.{ts,tsx}",
+				"src/app/**/*.test.{ts,tsx}",
 			],
 	},
 });

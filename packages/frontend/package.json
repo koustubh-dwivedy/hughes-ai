@@ -22,6 +22,7 @@
     "@mantine/core": "^8.3.18",
     "@mantine/dates": "^8.3.18",
     "@mantine/hooks": "^8.3.18",
+    "lucide-react": "^1.14.0",
     "pino": "^9.6.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -3,7 +3,7 @@ import {
 	RouterProvider,
 	createBrowserRouter,
 } from "react-router-dom";
-import AppLayout from "./layout/AppLayout";
+import AppLayout from "./app/AppLayout";
 import ChatPage from "./pages/ChatPage";
 import DepositsPage from "./pages/DepositsPage";
 import ExecutiveSummaryPage from "./pages/ExecutiveSummaryPage";

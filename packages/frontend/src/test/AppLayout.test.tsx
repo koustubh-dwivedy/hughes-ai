@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import AppLayout from "../layout/AppLayout";
+import AppLayout from "../app/AppLayout";
 
 function renderLayout(path = "/") {
 	return render(
