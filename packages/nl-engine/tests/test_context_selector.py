@@ -162,3 +162,134 @@ def test_30_day_dpd_metric(selector: ContextSelector) -> None:
 def test_empty_question_no_crash(selector: ContextSelector) -> None:
     sc = selector.select("")
     assert sc.relevant_tables == []
+
+
+# ---- total deposits ----
+
+def test_deposit_balance_table(selector: ContextSelector) -> None:
+    sc = selector.select("What is our total deposit balance this month?")
+    assert "fct_deposits_monthly" in _tables(sc)
+
+
+def test_deposit_balance_metric(selector: ContextSelector) -> None:
+    sc = selector.select("What is our total deposit balance this month?")
+    assert "total_deposits" in _metrics(sc)
+
+
+def test_deposit_product_metric(selector: ContextSelector) -> None:
+    sc = selector.select("What is the deposit breakdown by product type?")
+    assert "deposits_by_product" in _metrics(sc)
+
+
+# ---- top depositors ----
+
+def test_top_depositor_table(selector: ContextSelector) -> None:
+    sc = selector.select("Who are our top 25 depositors?")
+    assert "dim_member" in _tables(sc)
+
+
+def test_top_depositor_metric(selector: ContextSelector) -> None:
+    sc = selector.select("Who are our top depositors?")
+    assert "top_n_deposits" in _metrics(sc)
+
+
+# ---- officer portfolio ----
+
+def test_officer_table(selector: ContextSelector) -> None:
+    sc = selector.select("Which officers have the most past-due exposure?")
+    assert "dim_officer" in _tables(sc)
+
+
+def test_officer_column(selector: ContextSelector) -> None:
+    sc = selector.select("Which loan officer has the highest delinquency?")
+    assert "officer_name" in _cols(sc)
+
+
+# ---- watchlist / risk ----
+
+def test_watchlist_metric(selector: ContextSelector) -> None:
+    sc = selector.select("How many loans are on the watchlist?")
+    assert "watchlist_count" in _metrics(sc)
+
+
+def test_nonaccrual_metric(selector: ContextSelector) -> None:
+    sc = selector.select("What is our nonaccrual balance?")
+    assert "nonaccrual_balance" in _metrics(sc)
+
+
+def test_npl_metric(selector: ContextSelector) -> None:
+    sc = selector.select("What is our NPL balance?")
+    assert "nonperforming_loan_balance" in _metrics(sc)
+
+
+def test_aging_bucket_column(selector: ContextSelector) -> None:
+    sc = selector.select("Show delinquency aging bucket breakdown")
+    assert "bucket" in _cols(sc)
+
+
+# ---- executive KPIs ----
+
+def test_ltd_ratio_table(selector: ContextSelector) -> None:
+    sc = selector.select("What is our loan-to-deposit ratio?")
+    assert "fct_executive_kpis" in _tables(sc)
+
+
+def test_ltd_ratio_metric(selector: ContextSelector) -> None:
+    sc = selector.select("Show loan to deposit ratio trend")
+    assert "loan_to_deposit_ratio" in _metrics(sc)
+
+
+def test_core_deposit_metric(selector: ContextSelector) -> None:
+    sc = selector.select("What is our core deposit ratio?")
+    assert "core_deposit_ratio" in _metrics(sc)
+
+
+def test_rate_spread_metric(selector: ContextSelector) -> None:
+    sc = selector.select("How has our rate spread changed over the year?")
+    assert "rate_spread" in _metrics(sc)
+
+
+# ---- MTD / YTD ----
+
+def test_mtd_table(selector: ContextSelector) -> None:
+    sc = selector.select("What is the MTD deposit change?")
+    assert "fct_deposits_monthly" in _tables(sc)
+
+
+def test_mtd_metric(selector: ContextSelector) -> None:
+    sc = selector.select("Show MTD deposit change by branch")
+    assert "mtd_deposit_change" in _metrics(sc)
+
+
+def test_ytd_metric(selector: ContextSelector) -> None:
+    sc = selector.select("What is the year-to-date deposit growth?")
+    assert "ytd_deposit_change" in _metrics(sc)
+
+
+def test_monthly_growth_metric(selector: ContextSelector) -> None:
+    sc = selector.select("Show monthly loan growth for the last 12 months")
+    assert "monthly_growth_loans" in _metrics(sc)
+
+
+# ---- top borrowers / single-loan ----
+
+def test_top_borrower_table(selector: ContextSelector) -> None:
+    sc = selector.select("Who are our top 25 borrowers?")
+    assert "fct_loans_monthly" in _tables(sc)
+
+
+def test_top_borrower_metric(selector: ContextSelector) -> None:
+    sc = selector.select("Show the top 10 borrowers by outstanding balance")
+    assert "top_n_borrowers" in _metrics(sc)
+
+
+def test_single_loan_metric(selector: ContextSelector) -> None:
+    sc = selector.select("How many single-loan customers do we have?")
+    assert "single_loan_customers" in _metrics(sc)
+
+
+# ---- loan lifecycle ----
+
+def test_lifecycle_table(selector: ContextSelector) -> None:
+    sc = selector.select("Show new and paid-off loan lifecycle events")
+    assert "fct_loan_lifecycle_events" in _tables(sc)
