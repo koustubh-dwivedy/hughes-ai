@@ -55,9 +55,7 @@ describe("TrustPanel", () => {
 		await waitFor(() => screen.getByText(/Known caveats \(2\)/));
 		await user.click(screen.getByText(/Known caveats \(2\)/));
 		expect(screen.getByText("Exclude pending.")).toBeInTheDocument();
-		expect(
-			screen.getByText("Deposits are Symitar-only."),
-		).toBeInTheDocument();
+		expect(screen.getByText("Deposits are Symitar-only.")).toBeInTheDocument();
 	});
 
 	it("renders nothing when getTrust rejects", async () => {

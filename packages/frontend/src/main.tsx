@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import AppProviders from "./app/AppProviders";
 import ErrorBoundary from "./components/ErrorBoundary";
 import log from "./lib/logger";
 import GlobalStyles from "./theme/GlobalStyles";
@@ -23,8 +24,10 @@ if (rootEl === null) throw new Error("Root element not found");
 createRoot(rootEl).render(
 	<StrictMode>
 		<ErrorBoundary>
-			<GlobalStyles />
-			<App />
+			<AppProviders>
+				<GlobalStyles />
+				<App />
+			</AppProviders>
 		</ErrorBoundary>
 	</StrictMode>,
 );

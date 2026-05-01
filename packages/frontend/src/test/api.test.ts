@@ -127,9 +127,7 @@ describe("dashboard fetchers", () => {
 
 	it("getOfficerBranch omits qs when params are absent", async () => {
 		await getOfficerBranch();
-		expect(fetchMock.mock.calls[0][0]).toBe(
-			"/api/dashboards/officer-branch",
-		);
+		expect(fetchMock.mock.calls[0][0]).toBe("/api/dashboards/officer-branch");
 	});
 });
 
