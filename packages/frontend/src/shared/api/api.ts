@@ -34,6 +34,7 @@ export interface TrustResponse {
 	symitar_row_count: number;
 	reconciliation_match_rate: number;
 	known_caveats: string[];
+	as_of_date?: string;
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {

@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import TrustFooter from "../features/trust/TrustFooter";
 import AppHeader from "./AppHeader";
 import SideNav from "./SideNav";
 
@@ -18,6 +19,7 @@ export default function AppLayout() {
 				<main style={{ flex: 1, overflow: "auto", padding: "2rem" }}>
 					<Outlet />
 				</main>
+				<TrustFooter />
 			</div>
 		</div>
 	);

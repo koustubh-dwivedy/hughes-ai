@@ -21,6 +21,7 @@ export default defineConfig({
 				"src/ui/**/*.test.{ts,tsx}",
 				"src/shared/**/*.test.{ts,tsx}",
 				"src/app/**/*.test.{ts,tsx}",
+				"src/features/**/*.test.{ts,tsx}",
 			],
 	},
 });
