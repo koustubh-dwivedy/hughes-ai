@@ -4,11 +4,11 @@ import Donut from "../../charts/Donut";
 import KpiTile from "../../charts/KpiTile";
 import StackedBar from "../../charts/StackedBar";
 import Waterfall from "../../charts/Waterfall";
-import { useDashboardContext } from "../../context/DashboardContext";
-import { useDashboard } from "../../hooks/useDashboard";
 import DashboardShell from "../../layout/DashboardShell";
-import { getDepositPortfolio } from "../../lib/api";
-import type { DepositPortfolioData } from "../../lib/dashboardApi";
+import { getDepositPortfolio } from "../../shared/api/api";
+import type { DepositPortfolioData } from "../../shared/api/dashboardApi";
+import { useDashboardContext } from "../../shared/context/DashboardContext";
+import { useDashboard } from "../../shared/hooks/useDashboard";
 import { spacing } from "../../theme/tokens";
 
 function fmt(n: number): string {

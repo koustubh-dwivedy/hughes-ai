@@ -5,12 +5,12 @@ import OfficerBranch, {
 	buildBorrowerRows,
 	buildLoanMix,
 	buildTabRows,
-} from "../dashboards/OfficerBranch";
-import type { UseDashboardResult } from "../hooks/useDashboard";
-import type { OfficerBranchData } from "../lib/dashboardApi";
+} from "../features/officer-branch";
+import type { OfficerBranchData } from "../shared/api/dashboardApi";
+import type { UseDashboardResult } from "../shared/hooks/useDashboard";
 
-vi.mock("../hooks/useDashboard");
-import { useDashboard } from "../hooks/useDashboard";
+vi.mock("../shared/hooks/useDashboard");
+import { useDashboard } from "../shared/hooks/useDashboard";
 
 const PRODUCTS = [
 	"Auto",

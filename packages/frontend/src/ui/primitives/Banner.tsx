@@ -1,4 +1,4 @@
-import { radii, spacing, typography } from "../theme/tokens";
+import { radii, spacing, typography } from "../../theme/tokens";
 
 interface BannerProps {
 	message: string;

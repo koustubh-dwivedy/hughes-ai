@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import type { AskResponse, HistorySummary } from "../lib/api";
+import type { AskResponse, HistorySummary } from "../../shared/api/api";
 import {
 	getHistory,
 	getHistoryDetail,
 	historyDetailToAskResponse,
 	postRerun,
-} from "../lib/api";
-import log from "../lib/logger";
+} from "../../shared/api/api";
+import log from "../../shared/lib/logger";
 
 interface Props {
 	onSelect: (result: AskResponse) => void;

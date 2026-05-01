@@ -3,13 +3,13 @@ import {
 	RouterProvider,
 	createBrowserRouter,
 } from "react-router-dom";
-import { DashboardContextProvider } from "./context/DashboardContext";
 import AppLayout from "./layout/AppLayout";
 import ChatPage from "./pages/ChatPage";
 import DepositsPage from "./pages/DepositsPage";
 import ExecutiveSummaryPage from "./pages/ExecutiveSummaryPage";
 import OfficersPage from "./pages/OfficersPage";
 import PastDuePage from "./pages/PastDuePage";
+import { DashboardContextProvider } from "./shared/context/DashboardContext";
 
 const router = createBrowserRouter([
 	{

@@ -9,7 +9,7 @@ import {
 	historyDetailToAskResponse,
 	postAsk,
 	postRerun,
-} from "../lib/api";
+} from "../shared/api/api";
 
 let fetchMock: ReturnType<typeof vi.fn>;
 

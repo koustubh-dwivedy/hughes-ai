@@ -1,7 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { useDashboard } from "../hooks/useDashboard";
-import type { DashboardEnvelope, DashboardParams } from "../lib/dashboardApi";
+import type {
+	DashboardEnvelope,
+	DashboardParams,
+} from "../shared/api/dashboardApi";
+import { useDashboard } from "../shared/hooks/useDashboard";
 
 function makeEnvelope<T>(data: T): DashboardEnvelope<T> {
 	return {

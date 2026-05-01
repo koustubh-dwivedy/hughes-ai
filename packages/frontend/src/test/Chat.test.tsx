@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import Chat from "../dashboards/Chat";
+import Chat from "../features/chat";
 
-vi.mock("../lib/api", () => ({
+vi.mock("../shared/api/api", () => ({
 	postAsk: vi.fn(),
 	getHistory: vi.fn(() => Promise.resolve([])),
 	getTrust: vi.fn(() => Promise.resolve({ model: "test", grounding: [] })),

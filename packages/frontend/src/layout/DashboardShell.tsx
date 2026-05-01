@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import ErrorBoundary from "../components/ErrorBoundary";
-import { useDashboardContext } from "../context/DashboardContext";
+import { useDashboardContext } from "../shared/context/DashboardContext";
 import { colors, spacing, typography } from "../theme/tokens";
+import ErrorBoundary from "../ui/primitives/ErrorBoundary";
 
 interface DashboardShellProps {
 	title: string;

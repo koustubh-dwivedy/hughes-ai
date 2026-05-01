@@ -1,11 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import PastDue, { buildDelinquencyTrend } from "../dashboards/PastDue";
-import type { UseDashboardResult } from "../hooks/useDashboard";
-import type { PastDueData } from "../lib/dashboardApi";
+import PastDue, { buildDelinquencyTrend } from "../features/past-due";
+import type { PastDueData } from "../shared/api/dashboardApi";
+import type { UseDashboardResult } from "../shared/hooks/useDashboard";
 
-vi.mock("../hooks/useDashboard");
-import { useDashboard } from "../hooks/useDashboard";
+vi.mock("../shared/hooks/useDashboard");
+import { useDashboard } from "../shared/hooks/useDashboard";
 
 const fixture: PastDueData = {
 	past_due_total: 2_500_000,

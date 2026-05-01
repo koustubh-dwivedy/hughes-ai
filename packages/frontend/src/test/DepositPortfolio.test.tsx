@@ -1,11 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import DepositPortfolio from "../dashboards/DepositPortfolio";
-import type { UseDashboardResult } from "../hooks/useDashboard";
-import type { DepositPortfolioData } from "../lib/dashboardApi";
+import DepositPortfolio from "../features/deposits";
+import type { DepositPortfolioData } from "../shared/api/dashboardApi";
+import type { UseDashboardResult } from "../shared/hooks/useDashboard";
 
-vi.mock("../hooks/useDashboard");
-import { useDashboard } from "../hooks/useDashboard";
+vi.mock("../shared/hooks/useDashboard");
+import { useDashboard } from "../shared/hooks/useDashboard";
 
 const fixture: DepositPortfolioData = {
 	total_deposits: 150_000_000,

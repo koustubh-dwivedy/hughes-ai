@@ -1,5 +1,5 @@
 import { Bar, BarChart, Tooltip, XAxis, YAxis } from "recharts";
-import type { AskResponse } from "../lib/api";
+import type { AskResponse } from "../../shared/api/api";
 
 interface Props {
 	result: AskResponse;

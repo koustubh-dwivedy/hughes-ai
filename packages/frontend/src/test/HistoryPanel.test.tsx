@@ -1,20 +1,20 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import HistoryPanel from "../components/HistoryPanel";
+import HistoryPanel from "../features/chat/HistoryPanel";
 
-vi.mock("../lib/api", () => ({
+vi.mock("../shared/api/api", () => ({
 	getHistory: vi.fn(),
 	getHistoryDetail: vi.fn(),
 	historyDetailToAskResponse: vi.fn((d) => d),
 	postRerun: vi.fn(),
 }));
 
-vi.mock("../lib/logger", () => ({
+vi.mock("../shared/lib/logger", () => ({
 	default: { warn: vi.fn(), error: vi.fn() },
 }));
 
-import * as api from "../lib/api";
+import * as api from "../shared/api/api";
 
 const ITEMS = [
 	{
@@ -74,7 +74,9 @@ describe("HistoryPanel", () => {
 	});
 
 	it("logs warn and does not crash on fetch failure", async () => {
-		const { warn } = await import("../lib/logger").then((m) => m.default);
+		const { warn } = await import("../shared/lib/logger").then(
+			(m) => m.default,
+		);
 		vi.mocked(api.getHistory).mockRejectedValue(new Error("network error"));
 		render(<HistoryPanel onSelect={vi.fn()} refreshKey={0} />);
 		await waitFor(() => expect(warn).toHaveBeenCalled());

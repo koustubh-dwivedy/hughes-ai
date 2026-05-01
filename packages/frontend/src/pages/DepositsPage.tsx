@@ -1,4 +1,4 @@
-import DepositPortfolio from "../dashboards/DepositPortfolio";
+import DepositPortfolio from "../features/deposits";
 
 export default function DepositsPage() {
 	return <DepositPortfolio />;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { DashboardEnvelope, DashboardParams } from "../lib/dashboardApi";
+import type { DashboardEnvelope, DashboardParams } from "../api/dashboardApi";
 
 export interface UseDashboardResult<T> {
 	data: T | null;

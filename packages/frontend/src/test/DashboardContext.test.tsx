@@ -3,12 +3,15 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import type {
+	DashboardEnvelope,
+	DashboardParams,
+} from "../shared/api/dashboardApi";
 import {
 	DashboardContextProvider,
 	useDashboardContext,
-} from "../context/DashboardContext";
-import { useDashboard } from "../hooks/useDashboard";
-import type { DashboardEnvelope, DashboardParams } from "../lib/dashboardApi";
+} from "../shared/context/DashboardContext";
+import { useDashboard } from "../shared/hooks/useDashboard";
 
 function TestRouter({
 	initialUrl = "/",

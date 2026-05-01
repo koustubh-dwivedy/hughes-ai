@@ -1,5 +1,5 @@
 import LineTrend from "../../charts/LineTrend";
-import type { WatchlistTrendPoint } from "../../lib/dashboardApi";
+import type { WatchlistTrendPoint } from "../../shared/api/dashboardApi";
 
 export default function WatchlistTrend({
 	data,

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import Banner from "../components/Banner";
+import Banner from "../ui/primitives/Banner";
 
 describe("Banner", () => {
 	it("renders the message inside a note role", () => {

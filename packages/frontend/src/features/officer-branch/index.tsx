@@ -5,13 +5,13 @@ import Donut from "../../charts/Donut";
 import KpiTile from "../../charts/KpiTile";
 import StackedBar from "../../charts/StackedBar";
 import Waterfall from "../../charts/Waterfall";
-import Banner from "../../components/Banner";
-import { useDashboardContext } from "../../context/DashboardContext";
-import { useDashboard } from "../../hooks/useDashboard";
 import DashboardShell from "../../layout/DashboardShell";
-import { getOfficerBranch } from "../../lib/api";
-import type { OfficerBranchData } from "../../lib/dashboardApi";
+import { getOfficerBranch } from "../../shared/api/api";
+import type { OfficerBranchData } from "../../shared/api/dashboardApi";
+import { useDashboardContext } from "../../shared/context/DashboardContext";
+import { useDashboard } from "../../shared/hooks/useDashboard";
 import { spacing } from "../../theme/tokens";
+import Banner from "../../ui/primitives/Banner";
 import Tabs from "./Tabs";
 import WatchlistTrend from "./WatchlistTrend";
 

@@ -1,10 +1,10 @@
 import { useState } from "react";
-import AskInput from "../../components/AskInput";
-import HistoryPanel from "../../components/HistoryPanel";
-import ResultPanel from "../../components/ResultPanel";
-import TrustPanel from "../../components/TrustPanel";
-import type { AskResponse } from "../../lib/api";
-import { postAsk } from "../../lib/api";
+import type { AskResponse } from "../../shared/api/api";
+import { postAsk } from "../../shared/api/api";
+import AskInput from "./AskInput";
+import HistoryPanel from "./HistoryPanel";
+import ResultPanel from "./ResultPanel";
+import TrustPanel from "./TrustPanel";
 
 export default function Chat() {
 	const [result, setResult] = useState<AskResponse | null>(null);

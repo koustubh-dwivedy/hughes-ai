@@ -1,4 +1,4 @@
-import ExecutiveSummary from "../dashboards/ExecutiveSummary";
+import ExecutiveSummary from "../features/executive";
 
 export default function ExecutiveSummaryPage() {
 	return <ExecutiveSummary />;

@@ -1,8 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import TrustPanel from "../components/TrustPanel";
-import * as api from "../lib/api";
+import TrustPanel from "../features/chat/TrustPanel";
+import * as api from "../shared/api/api";
 
 afterEach(() => {
 	vi.restoreAllMocks();

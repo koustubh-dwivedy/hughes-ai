@@ -1,13 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import ExecutiveSummary, {
-	buildAgingBar,
-} from "../dashboards/ExecutiveSummary";
-import type { UseDashboardResult } from "../hooks/useDashboard";
-import type { ExecutiveSummaryData } from "../lib/dashboardApi";
+import ExecutiveSummary, { buildAgingBar } from "../features/executive";
+import type { ExecutiveSummaryData } from "../shared/api/dashboardApi";
+import type { UseDashboardResult } from "../shared/hooks/useDashboard";
 
-vi.mock("../hooks/useDashboard");
-import { useDashboard } from "../hooks/useDashboard";
+vi.mock("../shared/hooks/useDashboard");
+import { useDashboard } from "../shared/hooks/useDashboard";
 
 const fixture: ExecutiveSummaryData = {
 	total_loans_balance: 42_500_000,

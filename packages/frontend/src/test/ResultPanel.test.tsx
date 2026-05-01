@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import ResultPanel from "../components/ResultPanel";
-import type { AskResponse } from "../lib/api";
+import ResultPanel from "../features/chat/ResultPanel";
+import type { AskResponse } from "../shared/api/api";
 
 const base: AskResponse = {
 	request_id: "req-1",

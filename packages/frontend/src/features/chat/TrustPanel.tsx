@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import type { TrustResponse } from "../lib/api";
-import { getTrust } from "../lib/api";
-import log from "../lib/logger";
+import type { TrustResponse } from "../../shared/api/api";
+import { getTrust } from "../../shared/api/api";
+import log from "../../shared/lib/logger";
 
 export default function TrustPanel() {
 	const [trust, setTrust] = useState<TrustResponse | null>(null);

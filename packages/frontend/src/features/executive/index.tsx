@@ -2,11 +2,11 @@ import Combo from "../../charts/Combo";
 import KpiTile from "../../charts/KpiTile";
 import LineTrend from "../../charts/LineTrend";
 import StackedBar from "../../charts/StackedBar";
-import { useDashboardContext } from "../../context/DashboardContext";
-import { useDashboard } from "../../hooks/useDashboard";
 import DashboardShell from "../../layout/DashboardShell";
-import { getExecutiveSummary } from "../../lib/api";
-import type { ExecutiveSummaryData } from "../../lib/dashboardApi";
+import { getExecutiveSummary } from "../../shared/api/api";
+import type { ExecutiveSummaryData } from "../../shared/api/dashboardApi";
+import { useDashboardContext } from "../../shared/context/DashboardContext";
+import { useDashboard } from "../../shared/hooks/useDashboard";
 import { spacing } from "../../theme/tokens";
 
 function fmt(n: number): string {
