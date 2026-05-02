@@ -112,8 +112,18 @@ async function delegate(fnName: keyof typeof api): Promise<Response> {
 	}
 }
 
+// Re-entrancy guard: every api.* function calls fetchJson → fetch, so
+// when a test renders a component that triggers a fetch but doesn't
+// vi.spyOn(api, "...") for that endpoint, the bridge would call the
+// real api.* → fetch → bridge → real api.* → ... unbounded recursion
+// (RangeError: Maximum call stack). Only delegate when the api fn has
+// been replaced by a vi mock; unspied calls fall through to the
+// empty fallback so the recursion cannot start.
 global.fetch = vi.fn(async (input: RequestInfo | URL) => {
 	const url = urlOf(input);
 	const match = URL_TO_API.find(([re]) => re.test(url));
-	return match ? delegate(match[1]) : jsonResponse({});
+	if (!match) return jsonResponse({});
+	const fn = api[match[1]];
+	if (!vi.isMockFunction(fn)) return jsonResponse({});
+	return delegate(match[1]);
 }) as unknown as typeof fetch;
