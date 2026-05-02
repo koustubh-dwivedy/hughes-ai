@@ -11,7 +11,7 @@ function answerFor(q: string) {
 		request_id: `r-${q.length}`,
 		question: q,
 		sql: "select 1",
-		explanation: `Answer for: ${q}`,
+		explanation: `Echo response (${q.length} chars)`,
 		tables_used: [],
 		assumptions: [],
 		caveats: [],
@@ -61,15 +61,23 @@ test("chat thread keeps three consecutive questions visible (HUG-132)", async ({
 	for (const q of QUESTIONS) {
 		await input.fill(q);
 		await askBtn.click();
-		await expect(page.getByText(`Answer for: ${q}`)).toBeVisible();
+		await expect(
+			page.getByText(`Echo response (${q.length} chars)`),
+		).toBeVisible();
 	}
 
 	const log = page.getByRole("log", { name: "Conversation" });
-	for (const q of QUESTIONS) {
-		await expect(log.getByText(q)).toBeVisible();
-		await expect(log.getByText(`Answer for: ${q}`)).toBeVisible();
+	const userCards = log.getByLabel("User question");
+	await expect(userCards).toHaveCount(3);
+	for (let i = 0; i < QUESTIONS.length; i++) {
+		await expect(userCards.nth(i)).toContainText(QUESTIONS[i] ?? "");
 	}
 
-	await expect(log.getByLabel("User question")).toHaveCount(3);
-	await expect(log.getByLabel("Assistant answer")).toHaveCount(3);
+	const assistantCards = log.getByLabel("Assistant answer");
+	await expect(assistantCards).toHaveCount(3);
+	for (let i = 0; i < QUESTIONS.length; i++) {
+		await expect(assistantCards.nth(i)).toContainText(
+			`Echo response (${(QUESTIONS[i] ?? "").length} chars)`,
+		);
+	}
 });
