@@ -46,11 +46,10 @@ describe("PastDue", () => {
 		expect(screen.getByText("Watchlist")).toBeInTheDocument();
 	});
 
-	it("positive past_due_total_delta renders delta indicator in red", () => {
-		mockHook({ data: fixture }); // past_due_total_delta=100_000 → negated → -100_000 → red ↓
+	it("positive past_due_total_delta shows red delta with formatted currency", () => {
+		mockHook({ data: fixture });
 		renderWithProviders(<PastDue />);
-		// KpiTile renders: "↓ " + String(Math.abs(-100_000)) = "↓ 100000"
-		const deltaEl = screen.getByText("↓ 100000");
+		const deltaEl = screen.getByText("↑ $100K");
 		expect(deltaEl).toHaveStyle({ color: "#dc2626" });
 	});
 

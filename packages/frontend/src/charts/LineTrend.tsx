@@ -19,6 +19,7 @@ interface LineTrendProps {
 	seriesLabel?: string;
 	title?: string;
 	loading?: boolean;
+	showDots?: boolean;
 }
 
 /**
@@ -38,6 +39,7 @@ export default function LineTrend({
 	seriesLabel = "Value",
 	title,
 	loading = false,
+	showDots = false,
 }: LineTrendProps) {
 	if (loading) {
 		return (
@@ -88,7 +90,7 @@ export default function LineTrend({
 					name={seriesLabel}
 					type="monotone"
 					stroke={colors.indigo[500]}
-					dot={false}
+					dot={showDots ? { r: 3 } : false}
 					activeDot={{ r: 4 }}
 				/>
 			</LineChart>
