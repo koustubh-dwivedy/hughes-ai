@@ -178,7 +178,7 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 				>
 					<button
 						type="button"
-						aria-label="Close navigation backdrop"
+						aria-label="Dismiss navigation"
 						onClick={() => setDrawerOpen(false)}
 						style={{
 							position: "absolute",
