@@ -83,10 +83,13 @@ export interface ChatClarificationRefined {
 	refined: string;
 }
 
+export type ChatResultType = "number" | "table" | "chart" | "clarification";
+
 export interface ChatResultRendered {
 	type: "chat.result.rendered";
 	query_id: string;
 	row_count: number;
+	result_type: ChatResultType;
 }
 
 export interface ApiRequestStarted {
