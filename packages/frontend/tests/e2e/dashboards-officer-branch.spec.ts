@@ -70,3 +70,39 @@ test("Officer/Branch passes branch_id and officer_id to the API", async ({
 	expect(seenUrls.length).toBeGreaterThan(0);
 	expect(seenUrls[0]).toContain("as_of_date=2026-02-01");
 });
+
+test("clicking Renewed tab updates URL with tab=renewed", async ({ page }) => {
+	const seenUrls: string[] = [];
+	await page.route("**/api/dashboards/officer-branch**", (route) => {
+		seenUrls.push(route.request().url());
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify(FIXTURE),
+		});
+	});
+	await page.goto("/dashboards/officer-branch");
+	await expect(page.getByRole("tab", { name: "Renewed" })).toBeVisible();
+	await page.getByRole("tab", { name: "Renewed" }).click();
+	await expect(page).toHaveURL(/tab=renewed/);
+	expect(seenUrls.some((url) => url.includes("tab=renewed"))).toBe(true);
+});
+
+test("branch filter sends branch_id query param to API", async ({ page }) => {
+	const seenUrls: string[] = [];
+	await page.route("**/api/dashboards/officer-branch**", (route) => {
+		seenUrls.push(route.request().url());
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify(FIXTURE),
+		});
+	});
+	await page.goto("/dashboards/officer-branch");
+	await expect(
+		page.getByRole("heading", { name: "Officer / Branch Loans" }),
+	).toBeVisible();
+	await page.selectOption('[aria-label="Branch filter"]', "1");
+	await expect(page).toHaveURL(/branch_id=1/);
+	expect(seenUrls.some((url) => url.includes("branch_id=1"))).toBe(true);
+});

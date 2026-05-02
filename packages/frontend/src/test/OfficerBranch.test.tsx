@@ -86,7 +86,7 @@ describe("OfficerBranch", () => {
 		expect(screen.getByRole("note")).toBeInTheDocument();
 		expect(screen.getByText(/Demo data only/i)).toBeInTheDocument();
 		expect(screen.getByText("Total Loans")).toBeInTheDocument();
-		expect(screen.getByText("$42.0M")).toBeInTheDocument();
+		expect(screen.getByText("$42M")).toBeInTheDocument();
 	});
 
 	it("buildLoanMix maps 8 products to donut slices", () => {
