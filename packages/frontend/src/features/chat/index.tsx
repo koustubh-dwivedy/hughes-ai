@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { AskResponse } from "../../shared/api/api";
 import { historyDetailToAskResponse } from "../../shared/api/api";
@@ -33,6 +33,7 @@ export default function Chat() {
 		historyId ?? "",
 		{ skip: !historyId },
 	);
+	const loadedHistoryIdRef = useRef<string | null>(null);
 
 	function appendUser(question: string) {
 		setMessages((prev) => [
@@ -78,6 +79,9 @@ export default function Chat() {
 			}
 			return;
 		}
+		const detailId = String(historyDetail.id);
+		if (loadedHistoryIdRef.current === detailId) return;
+		loadedHistoryIdRef.current = detailId;
 		const now = Date.now();
 		const detail = historyDetail;
 		setMessages((prev) => [
