@@ -1,2 +1,11 @@
 \i migrations/001_lending_schema.sql
 \i migrations/002_query_history.sql
+\i migrations/003_members.sql
+\i migrations/004_officers.sql
+\i migrations/005_watchlist_nonaccrual.sql
+\i migrations/006_deposits.sql
+\i migrations/007_readonly_role.sql
+\i migrations/008_loan_lifecycle_events.sql
+\i migrations/009_deposit_history.sql
+\i migrations/010_readonly_grants.sql
+\i migrations/011_history_kind_column.sql

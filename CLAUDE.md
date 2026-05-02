@@ -48,6 +48,7 @@ Crossing layers is a CI failure, not a convention.
 
 ```bash
 make dev        # docker-compose up (Postgres, Redis, Vector + Victoria observability)
+make migrate    # apply every migrations/*.sql file in numeric order against local Postgres (idempotent)
 make seed       # generate + load synthetic data (deterministic; cache invalidates when profile
                 #   YAML or any generator source file changes — see scripts/seed.py _SRC_FILES)
 make lint       # ruff + mypy + biome + semgrep

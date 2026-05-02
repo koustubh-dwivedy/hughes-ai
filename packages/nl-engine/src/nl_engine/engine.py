@@ -161,7 +161,13 @@ def _call_llm(
     system_prompt: str, question: str
 ) -> tuple[dict[str, object], int | None, str]:
     _rate_limit_wait()
-    client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
+    api_key = os.environ.get("CEREBRAS_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "CEREBRAS_API_KEY is not set. Source .env or export the key "
+            "before starting the API server."
+        )
+    client = Cerebras(api_key=api_key)
     # Primary: Qwen 235B. On RateLimitError fall back to llama3.1-8b,
     # then retry the fallback twice (60s, 120s) if the queue is still full.
     try:
