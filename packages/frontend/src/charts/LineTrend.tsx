@@ -3,6 +3,7 @@ import {
 	Legend,
 	Line,
 	LineChart,
+	ResponsiveContainer,
 	Tooltip,
 	XAxis,
 	YAxis,
@@ -46,7 +47,7 @@ export default function LineTrend({
 			<output
 				aria-label="loading chart"
 				style={{
-					width: 600,
+					width: "100%",
 					height: 300,
 					backgroundColor: colors.slate[100],
 					borderRadius: "0.5rem",
@@ -63,7 +64,7 @@ export default function LineTrend({
 	}
 
 	return (
-		<figure aria-label={title} style={{ margin: 0 }}>
+		<figure aria-label={title} style={{ margin: 0, width: "100%" }}>
 			{title && (
 				<figcaption
 					style={{
@@ -76,24 +77,26 @@ export default function LineTrend({
 					{title}
 				</figcaption>
 			)}
-			<LineChart width={600} height={300} data={data}>
-				<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
-				<XAxis
-					dataKey="period"
-					tick={{ fontSize: 11, fill: colors.slate[500] }}
-				/>
-				<YAxis tick={{ fontSize: 11, fill: colors.slate[500] }} />
-				<Tooltip />
-				<Legend />
-				<Line
-					dataKey="value"
-					name={seriesLabel}
-					type="monotone"
-					stroke={colors.indigo[500]}
-					dot={showDots ? { r: 3 } : false}
-					activeDot={{ r: 4 }}
-				/>
-			</LineChart>
+			<ResponsiveContainer width="100%" height={300}>
+				<LineChart data={data}>
+					<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
+					<XAxis
+						dataKey="period"
+						tick={{ fontSize: 11, fill: colors.slate[500] }}
+					/>
+					<YAxis tick={{ fontSize: 11, fill: colors.slate[500] }} />
+					<Tooltip />
+					<Legend />
+					<Line
+						dataKey="value"
+						name={seriesLabel}
+						type="monotone"
+						stroke={colors.indigo[500]}
+						dot={showDots ? { r: 3 } : false}
+						activeDot={{ r: 4 }}
+					/>
+				</LineChart>
+			</ResponsiveContainer>
 		</figure>
 	);
 }

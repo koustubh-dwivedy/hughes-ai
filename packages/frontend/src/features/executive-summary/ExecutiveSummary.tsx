@@ -24,9 +24,9 @@ const clusterLabelStyle: React.CSSProperties = {
 	margin: `0 0 ${spacing[3]}`,
 };
 const tilesRowStyle: React.CSSProperties = {
-	display: "flex",
+	display: "grid",
+	gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
 	gap: spacing[4],
-	flexWrap: "wrap" as const,
 };
 
 function onTileClick(kpi_id: string, value: number) {
@@ -122,7 +122,7 @@ export default function ExecutiveSummary() {
 			<div
 				style={{
 					display: "grid",
-					gridTemplateColumns: "1fr 1fr",
+					gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
 					gap: spacing[6],
 					marginBottom: spacing[6],
 				}}

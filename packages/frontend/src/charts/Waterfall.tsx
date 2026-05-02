@@ -3,6 +3,7 @@ import {
 	BarChart,
 	CartesianGrid,
 	Cell,
+	ResponsiveContainer,
 	Tooltip,
 	XAxis,
 	YAxis,
@@ -55,7 +56,7 @@ export default function Waterfall({
 			<output
 				aria-label="loading chart"
 				style={{
-					width: 600,
+					width: "100%",
 					height: 300,
 					backgroundColor: colors.slate[100],
 					borderRadius: "0.5rem",
@@ -96,7 +97,7 @@ export default function Waterfall({
 	});
 
 	return (
-		<figure aria-label={title} style={{ margin: 0 }}>
+		<figure aria-label={title} style={{ margin: 0, width: "100%" }}>
 			{title && (
 				<figcaption
 					style={{
@@ -109,30 +110,38 @@ export default function Waterfall({
 					{title}
 				</figcaption>
 			)}
-			<BarChart width={600} height={300} data={chartData}>
-				<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
-				<XAxis
-					dataKey="label"
-					tick={{ fontSize: 11, fill: colors.slate[500] }}
-				/>
-				<YAxis tick={{ fontSize: 11, fill: colors.slate[500] }} />
-				<Tooltip />
-				<Bar dataKey="base" stackId="a" fill="transparent" legendType="none" />
-				<Bar dataKey="delta_abs" stackId="a" name="Change">
-					{chartData.map((d) => (
-						<Cell
-							key={d.label}
-							fill={
-								d.isTotal
-									? STEP_TOTAL
-									: d.positive
-										? STEP_POSITIVE
-										: STEP_NEGATIVE
-							}
-						/>
-					))}
-				</Bar>
-			</BarChart>
+			<ResponsiveContainer width="100%" height={300}>
+				<BarChart data={chartData}>
+					<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
+					<XAxis
+						dataKey="label"
+						interval={0}
+						tick={{ fontSize: 11, fill: colors.slate[500] }}
+					/>
+					<YAxis tick={{ fontSize: 11, fill: colors.slate[500] }} />
+					<Tooltip />
+					<Bar
+						dataKey="base"
+						stackId="a"
+						fill="transparent"
+						legendType="none"
+					/>
+					<Bar dataKey="delta_abs" stackId="a" name="Change">
+						{chartData.map((d) => (
+							<Cell
+								key={d.label}
+								fill={
+									d.isTotal
+										? STEP_TOTAL
+										: d.positive
+											? STEP_POSITIVE
+											: STEP_NEGATIVE
+								}
+							/>
+						))}
+					</Bar>
+				</BarChart>
+			</ResponsiveContainer>
 		</figure>
 	);
 }

@@ -79,16 +79,31 @@ function BottomRail({ collapsed }: BottomRailProps) {
 	);
 }
 
-function useMobileViewport() {
-	const [isMobile, setIsMobile] = useState(
-		() => typeof window !== "undefined" && window.innerWidth < 768,
+type ViewportSize = "mobile" | "narrow" | "wide";
+
+function classifyWidth(w: number): ViewportSize {
+	if (w < 768) return "mobile";
+	if (w < 1024) return "narrow";
+	return "wide";
+}
+
+function useViewportSize() {
+	const [size, setSize] = useState<ViewportSize>(() =>
+		typeof window === "undefined" ? "wide" : classifyWidth(window.innerWidth),
 	);
 	useEffect(() => {
-		const handler = () => setIsMobile(window.innerWidth < 768);
+		const handler = () => setSize(classifyWidth(window.innerWidth));
 		window.addEventListener("resize", handler);
 		return () => window.removeEventListener("resize", handler);
 	}, []);
-	return isMobile;
+	return size;
+}
+
+function isCollapsedFor(viewport: ViewportSize, state: CollapseState): boolean {
+	// Narrow viewports (768-1024) force icon-only; otherwise honor user
+	// preference. Mobile uses a separate drawer entirely.
+	if (viewport === "narrow") return true;
+	return state === "collapsed";
 }
 
 function HamburgerButton({
@@ -128,11 +143,12 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 		defaultCollapsed ? "collapsed" : "full",
 	);
 	const [drawerOpen, setDrawerOpen] = useState(false);
-	const isMobile = useMobileViewport();
+	const viewport = useViewportSize();
+	const isMobile = viewport === "mobile";
 	const navigate = useNavigate();
 	const onHistorySelect = (id: string) => navigate(`/chat?history=${id}`);
 
-	const collapsed = state === "collapsed";
+	const collapsed = isCollapsedFor(viewport, state);
 	const width = collapsed ? 56 : 240;
 
 	const navStyle: React.CSSProperties = {

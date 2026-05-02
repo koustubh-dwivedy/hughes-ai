@@ -3,6 +3,7 @@ import {
 	BarChart,
 	CartesianGrid,
 	Legend,
+	ResponsiveContainer,
 	Tooltip,
 	XAxis,
 	YAxis,
@@ -57,7 +58,7 @@ export default function StackedBar({
 			<output
 				aria-label="loading chart"
 				style={{
-					width: 600,
+					width: "100%",
 					height: 300,
 					backgroundColor: colors.slate[100],
 					borderRadius: "0.5rem",
@@ -74,7 +75,7 @@ export default function StackedBar({
 	}
 
 	return (
-		<figure aria-label={title} style={{ margin: 0 }}>
+		<figure aria-label={title} style={{ margin: 0, width: "100%" }}>
 			{title && (
 				<figcaption
 					style={{
@@ -87,24 +88,26 @@ export default function StackedBar({
 					{title}
 				</figcaption>
 			)}
-			<BarChart width={600} height={300} data={data}>
-				<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
-				<XAxis
-					dataKey="period"
-					tick={{ fontSize: 11, fill: colors.slate[500] }}
-				/>
-				<YAxis tick={{ fontSize: 11, fill: colors.slate[500] }} />
-				<Tooltip />
-				<Legend />
-				{series.map((s, i) => (
-					<Bar
-						key={s.key}
-						dataKey={s.key}
-						stackId="a"
-						fill={s.color ?? PALETTE[i % PALETTE.length]}
+			<ResponsiveContainer width="100%" height={300}>
+				<BarChart data={data}>
+					<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
+					<XAxis
+						dataKey="period"
+						tick={{ fontSize: 11, fill: colors.slate[500] }}
 					/>
-				))}
-			</BarChart>
+					<YAxis tick={{ fontSize: 11, fill: colors.slate[500] }} />
+					<Tooltip />
+					<Legend />
+					{series.map((s, i) => (
+						<Bar
+							key={s.key}
+							dataKey={s.key}
+							stackId="a"
+							fill={s.color ?? PALETTE[i % PALETTE.length]}
+						/>
+					))}
+				</BarChart>
+			</ResponsiveContainer>
 		</figure>
 	);
 }

@@ -27,14 +27,18 @@ describe("Waterfall", () => {
 	});
 
 	it("renders XAxis label for each step", () => {
-		render(<Waterfall data={data} />);
+		const { container } = render(<Waterfall data={data} />);
+		// SVG <tspan> wrapping makes screen.getByText brittle and may
+		// strip inter-word spaces in textContent; compare with whitespace
+		// removed so multi-word labels still match.
+		const txt = (container.textContent ?? "").replace(/\s+/g, "");
 		for (const step of data) {
-			expect(screen.getByText(step.label)).toBeInTheDocument();
+			expect(txt).toContain(step.label.replace(/\s+/g, ""));
 		}
 	});
 
 	it("renders with only positive steps", () => {
-		render(
+		const { container } = render(
 			<Waterfall
 				data={[
 					{ label: "Base", value: 10, isTotal: true },
@@ -42,8 +46,9 @@ describe("Waterfall", () => {
 				]}
 			/>,
 		);
-		expect(screen.getByText("Base")).toBeInTheDocument();
-		expect(screen.getByText("Up")).toBeInTheDocument();
+		const txt = container.textContent ?? "";
+		expect(txt).toContain("Base");
+		expect(txt).toContain("Up");
 	});
 
 	it("renders with only negative steps", () => {

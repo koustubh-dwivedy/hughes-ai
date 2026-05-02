@@ -24,15 +24,15 @@ const SEVERITY_SERIES = [
 ];
 
 const tilesRowStyle: React.CSSProperties = {
-	display: "flex",
+	display: "grid",
+	gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
 	gap: spacing[4],
-	flexWrap: "wrap" as const,
 	marginBottom: spacing[6],
 };
 
 const gridStyle: React.CSSProperties = {
 	display: "grid",
-	gridTemplateColumns: "1fr 1fr",
+	gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
 	gap: spacing[6],
 	marginBottom: spacing[6],
 };

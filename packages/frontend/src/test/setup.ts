@@ -16,6 +16,64 @@ Object.defineProperty(window, "matchMedia", {
 	}),
 });
 
+// jsdom doesn't ship ResizeObserver, but recharts ResponsiveContainer
+// reaches for it. Provide a polyfill that immediately reports a
+// non-zero size so the wrapped chart actually paints during tests.
+class FakeResizeObserver {
+	private callback: ResizeObserverCallback;
+	constructor(cb: ResizeObserverCallback) {
+		this.callback = cb;
+	}
+	observe(target: Element): void {
+		const entry = {
+			target,
+			contentRect: {
+				width: 800,
+				height: 300,
+				top: 0,
+				left: 0,
+				right: 800,
+				bottom: 300,
+				x: 0,
+				y: 0,
+				toJSON: () => ({}),
+			},
+			borderBoxSize: [],
+			contentBoxSize: [],
+			devicePixelContentBoxSize: [],
+		} as unknown as ResizeObserverEntry;
+		queueMicrotask(() =>
+			this.callback([entry], this as unknown as ResizeObserver),
+		);
+	}
+	unobserve(): void {}
+	disconnect(): void {}
+}
+Object.defineProperty(window, "ResizeObserver", {
+	writable: true,
+	configurable: true,
+	value: FakeResizeObserver,
+});
+Object.defineProperty(globalThis, "ResizeObserver", {
+	writable: true,
+	configurable: true,
+	value: FakeResizeObserver,
+});
+
+// jsdom's getBoundingClientRect returns zeros; make recharts happy by
+// reporting a fixed rect so its width/height calculations succeed.
+Element.prototype.getBoundingClientRect = () => ({
+	x: 0,
+	y: 0,
+	top: 0,
+	left: 0,
+	bottom: 300,
+	right: 800,
+	width: 800,
+	height: 300,
+	toJSON: () => ({}),
+});
+
 // Bridge: route RTK Query fetches to existing api.* test mocks. Tests
 // still spyOn api.getDepositPortfolio etc.; this fetch stub awaits
 // that mock, wraps the envelope in a Response, and lets the component

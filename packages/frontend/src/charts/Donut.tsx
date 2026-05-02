@@ -1,4 +1,12 @@
-import { Cell, Label, Legend, Pie, PieChart, Tooltip } from "recharts";
+import {
+	Cell,
+	Label,
+	Legend,
+	Pie,
+	PieChart,
+	ResponsiveContainer,
+	Tooltip,
+} from "recharts";
 import { colors, typography } from "../theme/tokens";
 
 const PALETTE = [
@@ -41,7 +49,7 @@ export default function Donut({
 			<output
 				aria-label="loading chart"
 				style={{
-					width: 600,
+					width: "100%",
 					height: 300,
 					backgroundColor: colors.slate[100],
 					borderRadius: "0.5rem",
@@ -60,7 +68,7 @@ export default function Donut({
 	const rechartData = data.map((d) => ({ name: d.label, value: d.value }));
 
 	return (
-		<figure aria-label={title} style={{ margin: 0 }}>
+		<figure aria-label={title} style={{ margin: 0, width: "100%" }}>
 			{title && (
 				<figcaption
 					style={{
@@ -73,33 +81,34 @@ export default function Donut({
 					{title}
 				</figcaption>
 			)}
-			<PieChart width={600} height={300}>
-				<Pie
-					data={rechartData}
-					dataKey="value"
-					nameKey="name"
-					innerRadius={80}
-					outerRadius={120}
-					cx={180}
-				>
-					{rechartData.map((entry, i) => (
-						<Cell key={entry.name} fill={PALETTE[i % PALETTE.length]} />
-					))}
-					{centerLabel !== undefined && (
-						<Label
-							value={centerLabel}
-							position="center"
-							style={{
-								fontSize: typography.size.lg,
-								fontWeight: typography.weight.bold,
-								fill: colors.slate[800],
-							}}
-						/>
-					)}
-				</Pie>
-				<Tooltip />
-				<Legend />
-			</PieChart>
+			<ResponsiveContainer width="100%" height={300}>
+				<PieChart>
+					<Pie
+						data={rechartData}
+						dataKey="value"
+						nameKey="name"
+						innerRadius="50%"
+						outerRadius="80%"
+					>
+						{rechartData.map((entry, i) => (
+							<Cell key={entry.name} fill={PALETTE[i % PALETTE.length]} />
+						))}
+						{centerLabel !== undefined && (
+							<Label
+								value={centerLabel}
+								position="center"
+								style={{
+									fontSize: typography.size.lg,
+									fontWeight: typography.weight.bold,
+									fill: colors.slate[800],
+								}}
+							/>
+						)}
+					</Pie>
+					<Tooltip />
+					<Legend />
+				</PieChart>
+			</ResponsiveContainer>
 		</figure>
 	);
 }

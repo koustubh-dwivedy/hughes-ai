@@ -46,7 +46,7 @@ const OFFICER_OPTIONS = [
 
 const gridStyle: React.CSSProperties = {
 	display: "grid",
-	gridTemplateColumns: "1fr 1fr",
+	gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
 	gap: spacing[6],
 	marginBottom: spacing[6],
 };
@@ -108,9 +108,9 @@ function KpiRow({
 	return (
 		<div
 			style={{
-				display: "flex",
+				display: "grid",
+				gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
 				gap: spacing[4],
-				flexWrap: "wrap" as const,
 				marginBottom: spacing[6],
 			}}
 		>

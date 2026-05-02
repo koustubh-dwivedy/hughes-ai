@@ -4,6 +4,7 @@ import {
 	ComposedChart,
 	Legend,
 	Line,
+	ResponsiveContainer,
 	Tooltip,
 	XAxis,
 	YAxis,
@@ -48,7 +49,7 @@ export default function Combo({
 			<output
 				aria-label="loading chart"
 				style={{
-					width: 600,
+					width: "100%",
 					height: 300,
 					backgroundColor: colors.slate[100],
 					borderRadius: "0.5rem",
@@ -65,7 +66,7 @@ export default function Combo({
 	}
 
 	return (
-		<figure aria-label={title} style={{ margin: 0 }}>
+		<figure aria-label={title} style={{ margin: 0, width: "100%" }}>
 			{title && (
 				<figcaption
 					style={{
@@ -78,38 +79,40 @@ export default function Combo({
 					{title}
 				</figcaption>
 			)}
-			<ComposedChart width={600} height={300} data={data}>
-				<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
-				<XAxis
-					dataKey="period"
-					tick={{ fontSize: 11, fill: colors.slate[500] }}
-				/>
-				<YAxis
-					yAxisId="left"
-					tick={{ fontSize: 11, fill: colors.slate[500] }}
-				/>
-				<YAxis
-					yAxisId="right"
-					orientation="right"
-					tick={{ fontSize: 11, fill: colors.slate[500] }}
-				/>
-				<Tooltip />
-				<Legend />
-				<Bar
-					yAxisId="left"
-					dataKey="bar"
-					name={barLabel}
-					fill={colors.indigo[500]}
-				/>
-				<Line
-					yAxisId="right"
-					dataKey="line"
-					name={lineLabel}
-					type="monotone"
-					stroke={colors.slate[600]}
-					dot={false}
-				/>
-			</ComposedChart>
+			<ResponsiveContainer width="100%" height={300}>
+				<ComposedChart data={data}>
+					<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
+					<XAxis
+						dataKey="period"
+						tick={{ fontSize: 11, fill: colors.slate[500] }}
+					/>
+					<YAxis
+						yAxisId="left"
+						tick={{ fontSize: 11, fill: colors.slate[500] }}
+					/>
+					<YAxis
+						yAxisId="right"
+						orientation="right"
+						tick={{ fontSize: 11, fill: colors.slate[500] }}
+					/>
+					<Tooltip />
+					<Legend />
+					<Bar
+						yAxisId="left"
+						dataKey="bar"
+						name={barLabel}
+						fill={colors.indigo[500]}
+					/>
+					<Line
+						yAxisId="right"
+						dataKey="line"
+						name={lineLabel}
+						type="monotone"
+						stroke={colors.slate[600]}
+						dot={false}
+					/>
+				</ComposedChart>
+			</ResponsiveContainer>
 		</figure>
 	);
 }
