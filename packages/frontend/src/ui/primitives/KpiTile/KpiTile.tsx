@@ -2,6 +2,7 @@ import type React from "react";
 import { useState } from "react";
 import { Line, LineChart } from "recharts";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import { CountUp, motionDurations, usePrefersReducedMotion } from "../motion";
 import type { KpiTileProps } from "./types";
 
 const POSITIVE_COLOR = "#16a34a";
@@ -12,6 +13,23 @@ function deltaColor(deltaPositive: boolean | undefined): string {
 	if (deltaPositive === true) return POSITIVE_COLOR;
 	if (deltaPositive === false) return NEGATIVE_COLOR;
 	return NEUTRAL_COLOR;
+}
+
+interface HoverVisuals {
+	boxShadow: string;
+	transform: string;
+	transition: string;
+}
+
+function hoverVisuals(hovered: boolean, reduced: boolean): HoverVisuals {
+	if (reduced) {
+		return { boxShadow: "none", transform: "none", transition: "none" };
+	}
+	return {
+		boxShadow: hovered ? "0 4px 12px rgba(0,0,0,0.08)" : "none",
+		transform: hovered ? "translateY(-2px)" : "none",
+		transition: `box-shadow ${motionDurations.hoverLift}ms ease, transform ${motionDurations.hoverLift}ms ease`,
+	};
 }
 
 interface HeaderRowProps {
@@ -76,6 +94,7 @@ export default function KpiTile({
 	loading = false,
 }: KpiTileProps) {
 	const [hovered, setHovered] = useState(false);
+	const reducedMotion = usePrefersReducedMotion();
 
 	if (loading) {
 		return (
@@ -100,6 +119,7 @@ export default function KpiTile({
 		}
 	}
 
+	const visuals = hoverVisuals(hovered, reducedMotion);
 	const cardStyle: React.CSSProperties = {
 		display: "inline-flex",
 		flexDirection: "column",
@@ -109,8 +129,7 @@ export default function KpiTile({
 		borderRadius: radii.lg,
 		backgroundColor: colors.white,
 		minWidth: 160,
-		transition: "box-shadow 150ms ease",
-		boxShadow: hovered ? "0 4px 12px rgba(0,0,0,0.08)" : "none",
+		...visuals,
 		cursor: isClickable ? "pointer" : "default",
 		userSelect: "none" as const,
 	};
@@ -134,7 +153,7 @@ export default function KpiTile({
 					lineHeight: 1.2,
 				}}
 			>
-				{value}
+				<CountUp value={value} />
 			</span>
 			{delta !== undefined && (
 				<span

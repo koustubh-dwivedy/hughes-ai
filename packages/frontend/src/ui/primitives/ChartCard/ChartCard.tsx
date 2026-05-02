@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import { motionDurations, usePrefersReducedMotion } from "../motion";
 import type { ChartCardProps } from "./types";
 
 const cardStyle = {
@@ -36,6 +38,20 @@ export default function ChartCard({
 	children,
 	loading = false,
 }: ChartCardProps) {
+	const reducedMotion = usePrefersReducedMotion();
+	const [opacity, setOpacity] = useState(reducedMotion ? 1 : 0);
+
+	useEffect(() => {
+		if (reducedMotion || loading) {
+			setOpacity(1);
+			return;
+		}
+		const id = window.setTimeout(() => setOpacity(1), 0);
+		return () => window.clearTimeout(id);
+	}, [reducedMotion, loading]);
+
+	const entryDuration = reducedMotion ? 0 : motionDurations.chartEntry;
+
 	if (loading) {
 		return (
 			<output
@@ -52,7 +68,14 @@ export default function ChartCard({
 	}
 
 	return (
-		<section style={cardStyle}>
+		<section
+			data-chart-card
+			style={{
+				...cardStyle,
+				opacity,
+				transition: `opacity ${entryDuration}ms ease`,
+			}}
+		>
 			<div style={headerStyle}>
 				<div>
 					<h3

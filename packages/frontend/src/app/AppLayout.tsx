@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import TrustFooter from "../features/trust/TrustFooter";
+import { RouteFade } from "../ui/primitives/motion";
 import AppHeader from "./AppHeader";
 import SideNav from "./SideNav";
 
@@ -17,7 +18,9 @@ export default function AppLayout() {
 			>
 				<AppHeader />
 				<main style={{ flex: 1, overflow: "auto", padding: "2rem" }}>
-					<Outlet />
+					<RouteFade>
+						<Outlet />
+					</RouteFade>
 				</main>
 				<TrustFooter />
 			</div>
