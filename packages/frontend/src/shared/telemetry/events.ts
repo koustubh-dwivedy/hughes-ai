@@ -103,6 +103,8 @@ export interface ApiRequestSucceeded {
 	endpoint: string;
 	status_code: number;
 	duration_ms: number;
+	cache?: "hit" | "miss";
+	retry_count?: number;
 }
 
 export interface ApiRequestFailed {
@@ -110,6 +112,8 @@ export interface ApiRequestFailed {
 	endpoint: string;
 	status_code?: number;
 	error: string;
+	duration_ms?: number;
+	retry_count?: number;
 }
 
 type VitalsRating = "good" | "needs-improvement" | "poor";
