@@ -29,16 +29,10 @@ function answerFor(q: string) {
 	};
 }
 
-async function setupRoutes(page: import("@playwright/test").Page, delayMs = 0) {
-	await page.route("**/api/ask", async (route) => {
-		const body = JSON.parse(route.request().postData() ?? "{}");
-		if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(answerFor(body.question)),
-		});
-	});
+// Sets up auxiliary routes only (history, trust). /api/ask is left to
+// each test so the per-test counter handler isn't shadowed by another
+// matching route registered later in the chain (Playwright is LIFO).
+async function setupAuxRoutes(page: import("@playwright/test").Page) {
 	await page.route("**/api/history**", (r) =>
 		r.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
 	);
@@ -69,7 +63,7 @@ test("double-clicking Ask does not double-submit", async ({ page }) => {
 			body: JSON.stringify(answerFor(body.question)),
 		});
 	});
-	await setupRoutes(page);
+	await setupAuxRoutes(page);
 
 	await page.goto("/chat");
 	const input = page.getByPlaceholder("Ask a question about lending…");
@@ -108,7 +102,7 @@ test("submitting B while A is in-flight produces both Q+A pairs", async ({
 			body: JSON.stringify(answerFor(body.question)),
 		});
 	});
-	await setupRoutes(page);
+	await setupAuxRoutes(page);
 
 	await page.goto("/chat");
 	const input = page.getByPlaceholder("Ask a question about lending…");
@@ -147,7 +141,7 @@ test("rapid-fire 5 questions all land with answers in order", async ({
 			body: JSON.stringify(answerFor(body.question)),
 		});
 	});
-	await setupRoutes(page);
+	await setupAuxRoutes(page);
 
 	await page.goto("/chat");
 	const input = page.getByPlaceholder("Ask a question about lending…");
