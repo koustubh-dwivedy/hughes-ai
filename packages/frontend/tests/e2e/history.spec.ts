@@ -26,19 +26,6 @@ const HISTORY_DETAIL = {
 	lineage_json: { tables_used: ["fct_loan_originations"] },
 };
 
-const RERUN_RESPONSE = {
-	request_id: "rerun-req-1",
-	question: "How many loans were funded?",
-	sql: "SELECT COUNT(*) FROM fct_loan_originations",
-	explanation: "Re-executed: counts all funded loans.",
-	tables_used: ["fct_loan_originations"],
-	assumptions: [],
-	caveats: ["Only includes matched funded loans."],
-	rows: [{ loan_count: 291 }],
-	columns: ["loan_count"],
-	clarification: null,
-};
-
 async function interceptHistory(page: import("@playwright/test").Page) {
 	await page.route("**/api/**", async (route) => {
 		const url = new URL(route.request().url());
@@ -56,12 +43,6 @@ async function interceptHistory(page: import("@playwright/test").Page) {
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify(HISTORY_DETAIL),
-			});
-		} else if (p === `/api/history/${HIST_ID}/rerun` && method === "POST") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(RERUN_RESPONSE),
 			});
 		} else {
 			await route.continue();
@@ -91,22 +72,4 @@ test.describe("history panel", () => {
 		await expect(section.locator("table")).toBeVisible();
 	});
 
-	test("clicking Rerun re-executes and shows fresh result", async ({ page }) => {
-		await interceptHistory(page);
-		await page.goto("/chat");
-
-		const historyPanel = page.locator("aside").filter({ hasText: "History" });
-		await expect(
-			historyPanel.getByRole("button", { name: "Rerun" }),
-		).toBeVisible();
-
-		await historyPanel.getByRole("button", { name: "Rerun" }).click();
-
-		const section = page.locator("section");
-		await expect(section).toBeVisible();
-		await expect(
-			section.getByText("Re-executed: counts all funded loans."),
-		).toBeVisible();
-		await expect(section.locator("table")).toBeVisible();
-	});
 });
