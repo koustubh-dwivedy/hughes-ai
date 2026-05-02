@@ -1,3 +1,4 @@
+import { SESSION_HEADER, getSessionId } from "../telemetry/session";
 import type {
 	DashboardEnvelope,
 	DashboardParams,
@@ -38,7 +39,9 @@ export interface TrustResponse {
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-	const res = await fetch(url, init);
+	const headers = new Headers(init?.headers);
+	headers.set(SESSION_HEADER, getSessionId());
+	const res = await fetch(url, { ...init, headers });
 	if (!res.ok) throw new Error(`HTTP ${res.status}`);
 	return res.json() as Promise<T>;
 }

@@ -1,7 +1,8 @@
 import log from "../lib/logger";
 import type { TelemetryEvent } from "./events";
+import { getSessionId } from "./session";
 
-const SESSION_ID = crypto.randomUUID();
+const SESSION_ID = getSessionId();
 const BATCH_MAX = 20;
 const FLUSH_INTERVAL_MS = 5_000;
 

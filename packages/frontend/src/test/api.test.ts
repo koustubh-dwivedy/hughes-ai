@@ -36,7 +36,11 @@ describe("postAsk", () => {
 		const [url, init] = fetchMock.mock.calls[0];
 		expect(url).toBe("/api/ask");
 		expect(init.method).toBe("POST");
-		expect(init.headers["Content-Type"]).toBe("application/json");
+		// fetchJson now wraps headers in a Headers instance to inject
+		// X-Hughes-Session — use the Headers API instead of object access.
+		const headers = init.headers as Headers;
+		expect(headers.get("Content-Type")).toBe("application/json");
+		expect(headers.get("X-Hughes-Session")).toMatch(/^[0-9a-f-]{36}$/);
 		expect(JSON.parse(init.body)).toEqual({ question: "how many loans" });
 	});
 

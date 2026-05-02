@@ -4,6 +4,7 @@ import {
 	coreModule,
 	reactHooksModule,
 } from "@reduxjs/toolkit/query/react";
+import { SESSION_HEADER, getSessionId } from "../telemetry/session";
 import { TAG_TYPES } from "./tags";
 
 /**
@@ -22,7 +23,15 @@ const baseUrl =
 
 export const baseApi = createApi({
 	reducerPath: "api",
-	baseQuery: fetchBaseQuery({ baseUrl }),
+	baseQuery: fetchBaseQuery({
+		baseUrl,
+		// Tag every request with the per-tab session id so backend logs
+		// and frontend telemetry events can be correlated end-to-end.
+		prepareHeaders: (headers) => {
+			headers.set(SESSION_HEADER, getSessionId());
+			return headers;
+		},
+	}),
 	tagTypes: TAG_TYPES,
 	endpoints: () => ({}),
 });
