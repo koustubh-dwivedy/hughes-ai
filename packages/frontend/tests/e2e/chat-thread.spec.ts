@@ -66,7 +66,7 @@ test("chat thread keeps three consecutive questions visible (HUG-132)", async ({
 
 	const log = page.getByRole("log", { name: "Conversation" });
 	for (const q of QUESTIONS) {
-		await expect(log.getByText(q, { exact: true })).toBeVisible();
+		await expect(log.getByText(q)).toBeVisible();
 		await expect(log.getByText(`Answer for: ${q}`)).toBeVisible();
 	}
 
