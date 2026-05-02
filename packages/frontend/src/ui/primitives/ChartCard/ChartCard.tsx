@@ -106,7 +106,10 @@ export default function ChartCard({
 					<div style={{ flexShrink: 0, marginLeft: spacing[4] }}>{actions}</div>
 				)}
 			</div>
-			<div style={bodyStyle}>{children}</div>
+			{/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region (overflowX: auto) needs a focusable handle so keyboard users can pan wide chart/table content (axe scrollable-region-focusable) */}
+			<div tabIndex={0} style={bodyStyle}>
+				{children}
+			</div>
 			{footer !== undefined && <div style={footerStyle}>{footer}</div>}
 		</section>
 	);
