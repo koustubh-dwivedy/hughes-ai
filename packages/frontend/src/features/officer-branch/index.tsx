@@ -180,7 +180,13 @@ export default function OfficerBranch() {
 		officerId: officerId || undefined,
 	});
 
-	if (isError) return <p role="alert">Failed to load Officer/Branch data.</p>;
+	if (isError)
+		return (
+			<div>
+				<PageHeader title="Officer / Branch Loans" eyebrow="Loan Portfolio" />
+				<p role="alert">Failed to load Officer/Branch data.</p>
+			</div>
+		);
 
 	return (
 		<div>

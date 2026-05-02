@@ -63,7 +63,12 @@ export default function ExecutiveSummary() {
 	const { data, loading, isError } = useExecutiveSummary({ asOfDate });
 
 	if (isError) {
-		return <p role="alert">Failed to load executive summary.</p>;
+		return (
+			<div>
+				<PageHeader title="Executive Summary" eyebrow="Overview" />
+				<p role="alert">Failed to load executive summary.</p>
+			</div>
+		);
 	}
 
 	const loans = data ? loansTiles(data, onTileClick) : [];
