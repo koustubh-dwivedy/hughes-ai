@@ -155,7 +155,8 @@ export default function HistoryRail({ onSelect }: Props) {
 					{items.length === 0 ? "No history yet." : "No matches."}
 				</p>
 			) : (
-				<ul style={listStyle}>
+				// biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region needs a focusable handle so keyboard users can pan the list (axe scrollable-region-focusable)
+				<ul tabIndex={0} style={listStyle}>
 					{groups.map((group) => (
 						<li key={group.dateKey}>
 							<h3 style={dayHeaderStyle}>{group.label}</h3>

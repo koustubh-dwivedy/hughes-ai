@@ -62,6 +62,8 @@ export default function Thread({ messages }: Props) {
 			role="log"
 			aria-label="Conversation"
 			aria-live="polite"
+			// biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region needs a focusable handle so keyboard users can pan the log (axe scrollable-region-focusable)
+			tabIndex={0}
 			style={containerStyle}
 		>
 			{messages.map((m) => {
