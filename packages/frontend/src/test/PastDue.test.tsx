@@ -2,11 +2,10 @@ import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import PastDue, { buildDelinquencyTrend } from "../features/past-due";
 import type { PastDueData } from "../shared/api/dashboardApi";
-import type { UseDashboardResult } from "../shared/hooks/useDashboard";
 import { renderWithProviders } from "./test-utils";
 
-vi.mock("../shared/hooks/useDashboard");
-import { useDashboard } from "../shared/hooks/useDashboard";
+vi.mock("../features/past-due/api");
+import { usePastDue } from "../features/past-due/api";
 
 const fixture: PastDueData = {
 	past_due_total: 2_500_000,
@@ -27,12 +26,16 @@ const fixture: PastDueData = {
 	past_due_ratio_trend: [{ month: "2025-01", ratio: 0.023 }],
 };
 
-function mockHook(overrides: Partial<UseDashboardResult<PastDueData>>) {
-	vi.mocked(useDashboard).mockReturnValue({
+interface MockShape {
+	data?: PastDueData | null;
+	loading?: boolean;
+	isError?: boolean;
+}
+function mockHook(overrides: MockShape) {
+	vi.mocked(usePastDue).mockReturnValue({
 		data: null,
 		loading: false,
-		error: null,
-		refetch: vi.fn(),
+		isError: false,
 		...overrides,
 	});
 }

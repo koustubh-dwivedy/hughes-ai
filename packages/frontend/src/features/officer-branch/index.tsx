@@ -4,10 +4,8 @@ import Combo from "../../charts/Combo";
 import Donut from "../../charts/Donut";
 import StackedBar from "../../charts/StackedBar";
 import Waterfall from "../../charts/Waterfall";
-import { getOfficerBranch } from "../../shared/api/api";
 import type { OfficerBranchData } from "../../shared/api/dashboardApi";
 import { useDashboardContext } from "../../shared/context/DashboardContext";
-import { useDashboard } from "../../shared/hooks/useDashboard";
 import { emit } from "../../shared/telemetry/client";
 import { formatCurrency } from "../../shared/utils/format";
 import { colors, spacing, typography } from "../../theme/tokens";
@@ -18,6 +16,7 @@ import DateBadge from "../../ui/primitives/DateBadge";
 import KpiTile from "../../ui/primitives/KpiTile";
 import PageHeader from "../../ui/primitives/PageHeader";
 import WatchlistTrend from "./WatchlistTrend";
+import { useOfficerBranch } from "./api";
 import {
 	buildBorrowerRows,
 	buildComboData,
@@ -174,14 +173,14 @@ export default function OfficerBranch() {
 	const branchId = searchParams.get("branch_id") ?? "";
 	const officerId = searchParams.get("officer_id") ?? "";
 
-	const { data, loading, error } = useDashboard(getOfficerBranch, {
+	const { data, loading, isError } = useOfficerBranch({
 		asOfDate,
 		tab: tab ?? undefined,
 		branchId: branchId ? Number(branchId) : undefined,
 		officerId: officerId || undefined,
 	});
 
-	if (error) return <p role="alert">Failed to load Officer/Branch data.</p>;
+	if (isError) return <p role="alert">Failed to load Officer/Branch data.</p>;
 
 	return (
 		<div>

@@ -1,8 +1,6 @@
 import Combo from "../../charts/Combo";
 import LineTrend from "../../charts/LineTrend";
-import { getExecutiveSummary } from "../../shared/api/api";
 import { useDashboardContext } from "../../shared/context/DashboardContext";
-import { useDashboard } from "../../shared/hooks/useDashboard";
 import { emit } from "../../shared/telemetry/client";
 import { spacing } from "../../theme/tokens";
 import { formatAxisDate, formatAxisPercent } from "../../ui/charts/formatters";
@@ -11,6 +9,7 @@ import DateBadge from "../../ui/primitives/DateBadge";
 import KpiTile from "../../ui/primitives/KpiTile";
 import type { KpiTileProps } from "../../ui/primitives/KpiTile/types";
 import PageHeader from "../../ui/primitives/PageHeader";
+import { useExecutiveSummary } from "./api";
 import { depositsTiles, efficiencyTiles, loansTiles, riskTiles } from "./tiles";
 
 const LOADING_KEYS = ["a", "b", "c", "d"];
@@ -61,11 +60,9 @@ function ClusterRow({
 
 export default function ExecutiveSummary() {
 	const { asOfDate } = useDashboardContext();
-	const { data, loading, error } = useDashboard(getExecutiveSummary, {
-		asOfDate,
-	});
+	const { data, loading, isError } = useExecutiveSummary({ asOfDate });
 
-	if (error) {
+	if (isError) {
 		return <p role="alert">Failed to load executive summary.</p>;
 	}
 

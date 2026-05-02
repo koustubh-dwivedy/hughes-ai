@@ -1,12 +1,10 @@
 import LineTrend from "../../charts/LineTrend";
 import StackedBar from "../../charts/StackedBar";
-import { getPastDue } from "../../shared/api/api";
 import type {
 	OfficerDelinquency,
 	PastDueData,
 } from "../../shared/api/dashboardApi";
 import { useDashboardContext } from "../../shared/context/DashboardContext";
-import { useDashboard } from "../../shared/hooks/useDashboard";
 import { emit } from "../../shared/telemetry/client";
 import { formatCurrency, formatPercent } from "../../shared/utils/format";
 import { spacing } from "../../theme/tokens";
@@ -15,6 +13,7 @@ import DataTable from "../../ui/primitives/DataTable";
 import DateBadge from "../../ui/primitives/DateBadge";
 import KpiTile from "../../ui/primitives/KpiTile";
 import PageHeader from "../../ui/primitives/PageHeader";
+import { usePastDue } from "./api";
 
 const LOADING_KEYS = ["a", "b", "c", "d"];
 
@@ -101,9 +100,9 @@ function buildKpiTiles(d: PastDueData) {
 
 export default function PastDue() {
 	const { asOfDate } = useDashboardContext();
-	const { data, loading, error } = useDashboard(getPastDue, { asOfDate });
+	const { data, loading, isError } = usePastDue({ asOfDate });
 
-	if (error)
+	if (isError)
 		return (
 			<div>
 				<PageHeader title="Past Due" eyebrow="Credit Risk" />

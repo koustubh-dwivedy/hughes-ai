@@ -14,9 +14,15 @@ import { TAG_TYPES } from "./tags";
  */
 export const createApi = buildCreateApi(coreModule(), reactHooksModule());
 
+// Resolve the API base URL absolutely so the WHATWG Request constructor
+// (used by fetchBaseQuery internally) works under jsdom — relative paths
+// throw "Failed to parse URL" in node-side test environments.
+const baseUrl =
+	typeof window !== "undefined" ? `${window.location.origin}/api` : "/api";
+
 export const baseApi = createApi({
 	reducerPath: "api",
-	baseQuery: fetchBaseQuery({ baseUrl: "/api" }),
+	baseQuery: fetchBaseQuery({ baseUrl }),
 	tagTypes: TAG_TYPES,
 	endpoints: () => ({}),
 });

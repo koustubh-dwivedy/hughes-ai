@@ -7,11 +7,10 @@ import OfficerBranch, {
 	buildTabRows,
 } from "../features/officer-branch";
 import type { OfficerBranchData } from "../shared/api/dashboardApi";
-import type { UseDashboardResult } from "../shared/hooks/useDashboard";
 import { renderWithProviders } from "./test-utils";
 
-vi.mock("../shared/hooks/useDashboard");
-import { useDashboard } from "../shared/hooks/useDashboard";
+vi.mock("../features/officer-branch/api");
+import { useOfficerBranch } from "../features/officer-branch/api";
 
 const PRODUCTS = [
 	"Auto",
@@ -59,12 +58,16 @@ const fixture: OfficerBranchData = {
 	tab_data: null,
 };
 
-function mockHook(overrides: Partial<UseDashboardResult<OfficerBranchData>>) {
-	vi.mocked(useDashboard).mockReturnValue({
+interface MockShape {
+	data?: OfficerBranchData | null;
+	loading?: boolean;
+	isError?: boolean;
+}
+function mockHook(overrides: MockShape) {
+	vi.mocked(useOfficerBranch).mockReturnValue({
 		data: null,
 		loading: false,
-		error: null,
-		refetch: vi.fn(),
+		isError: false,
 		...overrides,
 	});
 }
@@ -112,8 +115,8 @@ describe("OfficerBranch", () => {
 		fireEvent.click(newTab);
 
 		expect(newTab).toHaveAttribute("aria-selected", "true");
-		const calls = vi.mocked(useDashboard).mock.calls;
-		expect(calls[calls.length - 1]?.[1]).toMatchObject({ tab: "new" });
+		const calls = vi.mocked(useOfficerBranch).mock.calls;
+		expect(calls[calls.length - 1]?.[0]).toMatchObject({ tab: "new" });
 	});
 
 	it("deep-link ?tab=paid_off activates Paid Off tab", () => {
