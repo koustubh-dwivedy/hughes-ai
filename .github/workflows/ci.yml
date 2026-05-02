@@ -168,6 +168,7 @@ jobs:
           psql $DATABASE_URL -f migrations/008_loan_lifecycle_events.sql
           psql $DATABASE_URL -f migrations/009_deposit_history.sql
           psql $DATABASE_URL -f migrations/010_readonly_grants.sql
+          psql $DATABASE_URL -f migrations/011_history_kind_column.sql
       - name: Seed synthetic data
         run: uv run python scripts/seed.py --profile small_cu
       - name: Build and test marts
@@ -229,6 +230,7 @@ jobs:
         run: |
           psql $DATABASE_URL -f migrations/001_lending_schema.sql
           psql $DATABASE_URL -f migrations/002_query_history.sql
+          psql $DATABASE_URL -f migrations/011_history_kind_column.sql
       - name: Start API server
         run: |
           uv run uvicorn api.main:app --host 127.0.0.1 --port 8000 &
