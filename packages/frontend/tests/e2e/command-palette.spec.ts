@@ -40,7 +40,7 @@ test("typing exec shows Executive Summary action", async ({ page }) => {
 	await page.goto("/dashboards/deposits");
 	await page.getByRole("button", { name: "Open search" }).click();
 	await page.getByRole("combobox").fill("exec");
-	await expect(page.getByText("Executive Summary")).toBeVisible();
+	await expect(page.getByText("Executive Summary").last()).toBeVisible();
 });
 
 test("selecting Executive Summary navigates to that dashboard", async ({
@@ -49,7 +49,7 @@ test("selecting Executive Summary navigates to that dashboard", async ({
 	await page.goto("/dashboards/deposits");
 	await page.getByRole("button", { name: "Open search" }).click();
 	await page.getByRole("combobox").fill("exec");
-	await expect(page.getByText("Executive Summary")).toBeVisible();
+	await expect(page.getByText("Executive Summary").last()).toBeVisible();
 	await page.keyboard.press("Enter");
 	await expect(page).toHaveURL(/\/dashboards\/executive/);
 });

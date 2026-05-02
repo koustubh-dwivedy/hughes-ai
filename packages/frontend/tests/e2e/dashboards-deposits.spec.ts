@@ -91,7 +91,7 @@ test("Deposit Portfolio top-25 table renders 25 rows", async ({ page }) => {
 		}),
 	);
 	await page.goto("/dashboards/deposits");
-	const table = page.getByRole("table").first();
+	const table = page.getByRole("table").last();
 	await expect(table).toBeVisible();
 	// 25 data rows + 1 header row
 	await expect(table.locator("tbody tr")).toHaveCount(25);

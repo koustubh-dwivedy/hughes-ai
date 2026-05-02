@@ -40,7 +40,7 @@ test("Past Due renders KPI tiles without error", async ({ page }) => {
 	await page.goto("/dashboards/past-due");
 
 	await expect(
-		page.getByRole("heading", { name: "Past Due" }),
+		page.getByRole("heading", { name: "Past Due", exact: true }),
 	).toBeVisible();
 
 	for (const label of [
