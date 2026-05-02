@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { AskResponse } from "../../shared/api/api";
-import { postAsk } from "../../shared/api/api";
+import {
+	getHistoryDetail,
+	historyDetailToAskResponse,
+	postAsk,
+} from "../../shared/api/api";
+import log from "../../shared/lib/logger";
 import AskInput from "./AskInput";
-import HistoryPanel from "./HistoryPanel";
 import Thread, { type ThreadMessage } from "./Thread";
 import TrustPanel from "./TrustPanel";
 import SuggestedPrompts from "./messages/SuggestedPrompts";
@@ -14,7 +19,8 @@ function makeId(prefix: string): string {
 export default function Chat() {
 	const [messages, setMessages] = useState<ThreadMessage[]>([]);
 	const [loading, setLoading] = useState(false);
-	const [refreshKey, setRefreshKey] = useState(0);
+	const [searchParams, setSearchParams] = useSearchParams();
+	const historyId = searchParams.get("history");
 
 	function appendUser(question: string) {
 		setMessages((prev) => [
@@ -43,7 +49,6 @@ export default function Chat() {
 		try {
 			const res = await postAsk(question);
 			appendAssistant(res);
-			setRefreshKey((k) => k + 1);
 		} catch (e) {
 			appendError(e instanceof Error ? e.message : "Request failed");
 		} finally {
@@ -51,9 +56,41 @@ export default function Chat() {
 		}
 	}
 
-	function handleHistorySelect(result: AskResponse) {
-		appendAssistant(result);
-	}
+	useEffect(() => {
+		if (!historyId) return;
+		getHistoryDetail(historyId)
+			.then((d) => {
+				const now = Date.now();
+				setMessages((prev) => [
+					...prev,
+					{
+						id: makeId("u"),
+						kind: "user",
+						question: d.question,
+						timestamp: now,
+					},
+					{
+						id: makeId("a"),
+						kind: "assistant",
+						result: historyDetailToAskResponse(d),
+						timestamp: now,
+					},
+				]);
+				setSearchParams(
+					(prev) => {
+						prev.delete("history");
+						return prev;
+					},
+					{ replace: true },
+				);
+			})
+			.catch((err: unknown) => {
+				log.warn(
+					{ err: err instanceof Error ? err.message : String(err) },
+					"history_load_failed",
+				);
+			});
+	}, [historyId, setSearchParams]);
 
 	return (
 		<div>
@@ -75,10 +112,6 @@ export default function Chat() {
 					<AskInput onSubmit={handleAsk} loading={loading} />
 				</div>
 				<div style={{ flex: 1 }}>
-					<HistoryPanel
-						onSelect={handleHistorySelect}
-						refreshKey={refreshKey}
-					/>
 					<TrustPanel />
 				</div>
 			</div>

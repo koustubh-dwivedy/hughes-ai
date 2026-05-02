@@ -8,6 +8,8 @@ import {
 	X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import HistoryRail from "../../features/history/HistoryRail";
 import { colors, spacing, typography } from "../../theme/tokens";
 import NavItem from "./NavItem";
 import { DASHBOARDS, SECTION_LABEL, TOOLS } from "./constants";
@@ -127,6 +129,8 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 	);
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const isMobile = useMobileViewport();
+	const navigate = useNavigate();
+	const onHistorySelect = (id: string) => navigate(`/chat?history=${id}`);
 
 	const collapsed = state === "collapsed";
 	const width = collapsed ? 56 : 240;
@@ -266,29 +270,7 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 					</button>
 				</div>
 				<NavBody collapsed={collapsed} />
-				{!collapsed && (
-					<div
-						style={{
-							padding: `${spacing[2]} ${spacing[3]}`,
-							fontSize: typography.size.xs,
-							color: colors.slate[500],
-							textAlign: "center",
-						}}
-					>
-						<span
-							style={{
-								display: "inline-flex",
-								alignItems: "center",
-								gap: spacing[1],
-								padding: `2px ${spacing[2]}`,
-								border: `1px solid ${colors.slate[600]}`,
-								borderRadius: 4,
-							}}
-						>
-							⌘K
-						</span>
-					</div>
-				)}
+				{!collapsed && <HistoryRail onSelect={onHistorySelect} />}
 				<BottomRail collapsed={collapsed} />
 			</nav>
 		</>
