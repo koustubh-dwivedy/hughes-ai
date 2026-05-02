@@ -20,10 +20,13 @@ test.describe("dashboard error states", () => {
 
 		// Either a role=alert is shown, or some visible "error" copy. We don't
 		// require a specific string so the spec stays robust to copy changes.
-		const alerts = page.locator('[role="alert"]');
-		const errorText = page.getByText(/error|failed|HTTP/i);
-		const visibleErr = (await alerts.count()) + (await errorText.count());
-		expect(visibleErr).toBeGreaterThan(0);
+		// Use toBeVisible() instead of count() so Playwright auto-waits — the
+		// older count()-based assertion was racy: it ran before RTK Query
+		// finished propagating isError, marked the test as flaky.
+		const errIndicator = page
+			.locator('[role="alert"]')
+			.or(page.getByText(/error|failed|HTTP/i));
+		await expect(errIndicator.first()).toBeVisible();
 	});
 
 	test("a single dashboard error doesn't break sibling navigation", async ({
