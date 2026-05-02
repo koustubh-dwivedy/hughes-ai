@@ -14,6 +14,16 @@ function makeId(prefix: string): string {
 	return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function formatAskError(err: unknown): string {
+	if (err && typeof err === "object" && "status" in err) {
+		const status = (err as { status: unknown }).status;
+		if (typeof status === "number") return `HTTP ${status}`;
+		if (status === "FETCH_ERROR") return "Network error";
+		return "Request failed";
+	}
+	return err instanceof Error ? err.message : "Request failed";
+}
+
 export default function Chat() {
 	const [messages, setMessages] = useState<ThreadMessage[]>([]);
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -57,7 +67,7 @@ export default function Chat() {
 			const res = await postAsk({ question }).unwrap();
 			appendAssistant(res);
 		} catch (e) {
-			appendError(e instanceof Error ? e.message : "Request failed");
+			appendError(formatAskError(e));
 		}
 	}
 

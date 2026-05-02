@@ -37,7 +37,7 @@ const DETAIL = {
 };
 
 test.beforeEach(async ({ page }) => {
-	await page.route("**/api/history?limit=20", (route) =>
+	await page.route(/\/api\/history\?[^/]*$/, (route) =>
 		route.fulfill({
 			status: 200,
 			contentType: "application/json",
