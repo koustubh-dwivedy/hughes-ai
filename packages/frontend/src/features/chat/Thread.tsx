@@ -7,7 +7,13 @@ import UserMessage from "./UserMessage";
 
 export type ThreadMessage =
 	| { id: string; kind: "user"; question: string; timestamp: number }
-	| { id: string; kind: "assistant"; result: AskResponse; timestamp: number }
+	| {
+			id: string;
+			kind: "assistant";
+			result: AskResponse;
+			timestamp: number;
+			streaming?: boolean;
+	  }
 	| { id: string; kind: "error"; message: string; timestamp: number };
 
 interface Props {
@@ -69,7 +75,11 @@ export default function Thread({ messages }: Props) {
 							<UserMessage question={m.question} timestamp={m.timestamp} />
 						)}
 						{m.kind === "assistant" && (
-							<AssistantMessage result={m.result} timestamp={m.timestamp} />
+							<AssistantMessage
+								result={m.result}
+								timestamp={m.timestamp}
+								streaming={m.streaming ?? true}
+							/>
 						)}
 						{m.kind === "error" && (
 							<p role="alert" style={errorStyle}>

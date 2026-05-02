@@ -30,6 +30,7 @@ describe("Thread", () => {
 				kind: "assistant",
 				result: ASSISTANT_RESULT,
 				timestamp: ts(2026, 5, 1, 13),
+				streaming: false,
 			},
 			{ id: "u2", kind: "user", question: "Q2", timestamp: ts(2026, 5, 1, 14) },
 		];

@@ -74,6 +74,7 @@ export default function Chat() {
 						kind: "assistant",
 						result: historyDetailToAskResponse(d),
 						timestamp: now,
+						streaming: false,
 					},
 				]);
 				setSearchParams(
