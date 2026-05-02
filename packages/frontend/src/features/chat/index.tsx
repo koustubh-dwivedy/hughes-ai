@@ -5,6 +5,7 @@ import AskInput from "./AskInput";
 import HistoryPanel from "./HistoryPanel";
 import Thread, { type ThreadMessage } from "./Thread";
 import TrustPanel from "./TrustPanel";
+import SuggestedPrompts from "./messages/SuggestedPrompts";
 
 function makeId(prefix: string): string {
 	return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -66,7 +67,11 @@ export default function Chat() {
 						gap: "1rem",
 					}}
 				>
-					<Thread messages={messages} />
+					{messages.length === 0 ? (
+						<SuggestedPrompts onSelect={(p) => void handleAsk(p)} />
+					) : (
+						<Thread messages={messages} />
+					)}
 					<AskInput onSubmit={handleAsk} loading={loading} />
 				</div>
 				<div style={{ flex: 1 }}>
