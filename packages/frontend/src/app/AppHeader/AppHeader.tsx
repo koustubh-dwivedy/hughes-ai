@@ -1,3 +1,4 @@
+import { useKBar } from "kbar";
 import { Search, UserCircle2 } from "lucide-react";
 import { useDashboardContext } from "../../shared/context/DashboardContext";
 import { colors, radii, spacing, typography } from "../../theme/tokens";
@@ -49,13 +50,19 @@ const kbdStyle: React.CSSProperties = {
 
 export default function AppHeader() {
 	const { asOfDate, setAsOfDate } = useDashboardContext();
+	const { query } = useKBar();
 
 	return (
 		<header aria-label="App header" style={stripStyle}>
 			<div style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
 				<span style={badgeStyle}>Hughes AI</span>
 			</div>
-			<button type="button" aria-label="Open search" style={searchBtnStyle}>
+			<button
+				type="button"
+				aria-label="Open search"
+				style={searchBtnStyle}
+				onClick={() => query.toggle()}
+			>
 				<Search size={14} />
 				<span>Search</span>
 				<span style={kbdStyle}>⌘K</span>

@@ -24,6 +24,7 @@
     "@mantine/hooks": "^8.3.18",
     "@mantine/notifications": "^8.3.18",
     "dayjs": "^1.11.20",
+    "kbar": "0.1.0-beta.48",
     "lucide-react": "^1.14.0",
     "pino": "^9.6.0",
     "react": "^18.3.1",
