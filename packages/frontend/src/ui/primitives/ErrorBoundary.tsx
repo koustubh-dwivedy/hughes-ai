@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import log from "../../shared/lib/logger";
+import { reportError } from "../../shared/telemetry/errorCapture";
 
 interface Props {
 	children: ReactNode;
@@ -21,10 +21,11 @@ export default class ErrorBoundary extends Component<Props, State> {
 	}
 
 	componentDidCatch(error: Error, info: ErrorInfo): void {
-		log.error(
-			{ err: error.message, componentStack: info.componentStack },
-			"react_render_error",
-		);
+		reportError({
+			message: error.message,
+			stack: error.stack ?? info.componentStack ?? undefined,
+			context: "react_render",
+		});
 	}
 
 	render(): ReactNode {
