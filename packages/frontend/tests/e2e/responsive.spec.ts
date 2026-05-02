@@ -13,12 +13,29 @@ const ROUTES = [
 	"/dashboards/officer-branch",
 ] as const;
 
+// Returning `data: null` keeps components in their loading-shell state
+// and skips the data helpers (which would crash on `{}`); we still get a
+// fully laid-out page with the heading and tile/grid skeleton.
+const ENVELOPE = JSON.stringify({
+	data: null,
+	as_of_date: "2026-04-30",
+	generated_at: "2026-04-30T00:00:00Z",
+	audit_id: "test",
+});
+
 test.beforeEach(async ({ page }) => {
 	await page.route("**/api/dashboards/**", (route) =>
 		route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ data: {} }),
+			body: ENVELOPE,
+		}),
+	);
+	await page.route("**/api/history**", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: "[]",
 		}),
 	);
 	await page.route("**/api/trust**", (route) =>
