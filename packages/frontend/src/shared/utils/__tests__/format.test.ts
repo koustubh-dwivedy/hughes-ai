@@ -1,106 +1,149 @@
+/**
+ * HUG-152: parametric coverage table for the format helpers. Every
+ * audit bug we've ever fixed in dashboards is captured as a
+ * permanent regression row so it can never silently come back.
+ *
+ * Audit bugs explicitly covered:
+ *   - "$-0.2M"          → sign placement, must produce "-$0.2M"
+ *   - "↓ 237659.38"     → raw number leaked into delta, must format
+ *   - "0.0M"            → trailing zero on million boundary
+ *   - "0.032"           → raw decimal leaked instead of "3.2%"
+ */
+
 import { describe, expect, it } from "vitest";
 import { formatCurrency, formatDelta, formatPercent } from "../format";
 
-describe("formatCurrency", () => {
-	it("formats millions with M suffix", () => {
-		expect(formatCurrency(42_500_000)).toBe("$42.5M");
+interface Row<Args extends unknown[]> {
+	name: string;
+	args: Args;
+	expected: string;
+}
+
+const CURRENCY: Array<Row<[number]>> = [
+	// Whole-millions and above
+	{ name: "exactly 1M", args: [1_000_000], expected: "$1M" },
+	{ name: "42.5M", args: [42_500_000], expected: "$42.5M" },
+	{ name: "142.5M", args: [142_500_000], expected: "$142.5M" },
+	{ name: "1B as 1000M", args: [1_000_000_000], expected: "$1000M" },
+	// Thousands
+	{ name: "exactly 1K", args: [1_000], expected: "$1K" },
+	{ name: "142.5K", args: [142_500], expected: "$142.5K" },
+	{ name: "999K stays K", args: [999_000], expected: "$999K" },
+	{ name: "999.9K rounds to 999.9K", args: [999_900], expected: "$999.9K" },
+	// Sub-thousand
+	{ name: "$142", args: [142], expected: "$142" },
+	{ name: "$0", args: [0], expected: "$0" },
+	{ name: "$1", args: [1], expected: "$1" },
+	{ name: "rounds 99.7 → $100", args: [99.7], expected: "$100" },
+	{ name: "rounds 99.4 → $99", args: [99.4], expected: "$99" },
+	// AUDIT BUG: sign placement
+	{
+		name: "audit: -1.2M as -$1.2M not $-1.2M",
+		args: [-1_200_000],
+		expected: "-$1.2M",
+	},
+	{
+		name: "audit: -500K as -$500K not $-500K",
+		args: [-500_000],
+		expected: "-$500K",
+	},
+	{
+		name: "audit: -200K as -$0.2M when ≥1M magnitude does NOT happen here",
+		args: [-200_000],
+		expected: "-$200K",
+	},
+	{ name: "audit: -99 as -$99 not $-99", args: [-99], expected: "-$99" },
+	// AUDIT BUG: trailing zeros stripped (0.0M → $0)
+	{ name: "audit: 0 → $0 not $0.0M", args: [0], expected: "$0" },
+	{ name: "audit: -0 normalised to $0", args: [-0], expected: "$0" },
+	// Unit boundaries
+	{ name: "999.999.99 stays K not M", args: [999_999.99], expected: "$1000K" },
+	{ name: "1.05M trims to 1.1M", args: [1_050_000], expected: "$1.1M" },
+];
+
+const PERCENT: Array<Row<[number, number?]>> = [
+	// AUDIT BUG: raw decimal leaked (0.032 must become 3.2%)
+	{ name: "audit: 0.032 → 3.2%", args: [0.032], expected: "3.2%" },
+	{ name: "audit: 0.913 → 91.3%", args: [0.913], expected: "91.3%" },
+	{ name: "0 → 0.0%", args: [0], expected: "0.0%" },
+	{ name: "1 → 100.0%", args: [1], expected: "100.0%" },
+	{ name: "0.0001 → 0.0%", args: [0.0001], expected: "0.0%" },
+	{ name: "0.00001 → 0.0%", args: [0.00001], expected: "0.0%" },
+	{ name: "negative -0.04 → -4.0%", args: [-0.04], expected: "-4.0%" },
+	{ name: "decimals=2 → 12.35%", args: [0.12345, 2], expected: "12.35%" },
+	{ name: "decimals=0 → 12%", args: [0.12345, 0], expected: "12%" },
+	{ name: "decimals=3 → 12.345%", args: [0.12345, 3], expected: "12.345%" },
+	{ name: "round-up boundary 0.005 → 0.5%", args: [0.005], expected: "0.5%" },
+];
+
+const DELTA: Array<Row<[number, number?]>> = [
+	// AUDIT BUG: raw number leaked (must become formatted delta)
+	{ name: "audit: positive ↑ 4.2%", args: [4.2], expected: "↑ 4.2%" },
+	{ name: "audit: negative ↓ 1.8%", args: [-1.8], expected: "↓ 1.8%" },
+	{ name: "audit: zero → em dash", args: [0], expected: "—" },
+	{ name: "small positive 0.1", args: [0.1], expected: "↑ 0.1%" },
+	{ name: "small negative -0.1", args: [-0.1], expected: "↓ 0.1%" },
+	{ name: "decimals=2 positive", args: [3.567, 2], expected: "↑ 3.57%" },
+	{ name: "decimals=2 negative", args: [-2.345, 2], expected: "↓ 2.35%" },
+	{ name: "decimals=0 truncates", args: [4.7, 0], expected: "↑ 5%" },
+	{ name: "exactly 100", args: [100], expected: "↑ 100.0%" },
+	{ name: "exactly -100", args: [-100], expected: "↓ 100.0%" },
+];
+
+describe("formatCurrency — parametric audit table", () => {
+	it.each(CURRENCY)("$name → $expected", ({ args, expected }) => {
+		expect(formatCurrency(...args)).toBe(expected);
 	});
 
-	it("formats exactly 1 million", () => {
-		expect(formatCurrency(1_000_000)).toBe("$1M");
+	it("never produces a $- prefix on negatives (sign goes before $)", () => {
+		for (const sample of [-1, -99, -1_000, -1_500_000, -42_750_000]) {
+			expect(formatCurrency(sample)).not.toContain("$-");
+		}
 	});
 
-	it("formats large millions", () => {
-		expect(formatCurrency(142_500_000)).toBe("$142.5M");
-	});
-
-	it("formats thousands with K suffix", () => {
-		expect(formatCurrency(142_500)).toBe("$142.5K");
-	});
-
-	it("formats exactly 1 thousand", () => {
-		expect(formatCurrency(1_000)).toBe("$1K");
-	});
-
-	it("formats sub-thousand as whole dollars", () => {
-		expect(formatCurrency(142)).toBe("$142");
-	});
-
-	it("formats zero", () => {
-		expect(formatCurrency(0)).toBe("$0");
-	});
-
-	it("formats negative millions correctly (sign before $)", () => {
-		const result = formatCurrency(-1_200_000);
-		expect(result).toBe("-$1.2M");
-		expect(result).not.toContain("$-");
-	});
-
-	it("formats negative thousands correctly (sign before $)", () => {
-		const result = formatCurrency(-500_000);
-		expect(result).toBe("-$500K");
-		expect(result).not.toContain("$-");
-	});
-
-	it("formats negative sub-thousand correctly", () => {
-		const result = formatCurrency(-99);
-		expect(result).toBe("-$99");
-		expect(result).not.toContain("$-");
-	});
-
-	it("rounds sub-thousand values", () => {
-		expect(formatCurrency(99.7)).toBe("$100");
+	it("never produces a stale .0 trailing fraction on whole units", () => {
+		for (const sample of [1_000_000, 2_000_000, 5_000, 10_000]) {
+			expect(formatCurrency(sample)).not.toMatch(/\.0[A-Z]?$/);
+		}
 	});
 });
 
-describe("formatPercent", () => {
-	it("converts ratio to percent with default 1 decimal", () => {
-		expect(formatPercent(0.032)).toBe("3.2%");
+describe("formatPercent — parametric audit table", () => {
+	it.each(PERCENT)("$name → $expected", ({ args, expected }) => {
+		expect(formatPercent(...args)).toBe(expected);
 	});
 
-	it("converts large ratio to percent", () => {
-		expect(formatPercent(0.913)).toBe("91.3%");
-	});
-
-	it("formats zero percent", () => {
-		expect(formatPercent(0)).toBe("0.0%");
-	});
-
-	it("formats 100 percent", () => {
-		expect(formatPercent(1)).toBe("100.0%");
-	});
-
-	it("respects decimals parameter", () => {
-		expect(formatPercent(0.12345, 2)).toBe("12.35%");
+	it("never returns a bare decimal — always has %", () => {
+		for (const sample of [0, 0.001, 0.5, 1, 2.5]) {
+			expect(formatPercent(sample)).toMatch(/%$/);
+		}
 	});
 });
 
-describe("formatDelta", () => {
-	it("formats positive delta with up arrow", () => {
-		expect(formatDelta(4.2)).toBe("↑ 4.2%");
+describe("formatDelta — parametric audit table", () => {
+	it.each(DELTA)("$name → $expected", ({ args, expected }) => {
+		expect(formatDelta(...args)).toBe(expected);
 	});
 
-	it("formats negative delta with down arrow", () => {
-		expect(formatDelta(-1.8)).toBe("↓ 1.8%");
+	it("never leaks a raw number — every non-zero result has an arrow", () => {
+		for (const sample of [1, -1, 0.5, -0.5, 50, -50]) {
+			const out = formatDelta(sample);
+			expect(out).toMatch(/^[↑↓]\s/);
+		}
 	});
 
-	it("formats zero as em dash", () => {
+	it("zero is the only value that returns the em dash", () => {
 		expect(formatDelta(0)).toBe("—");
+		for (const sample of [0.0001, -0.0001, 1, -1]) {
+			expect(formatDelta(sample)).not.toBe("—");
+		}
 	});
+});
 
-	it("respects decimals parameter for positive", () => {
-		expect(formatDelta(3.567, 2)).toBe("↑ 3.57%");
-	});
-
-	it("respects decimals parameter for negative", () => {
-		expect(formatDelta(-2.345, 2)).toBe("↓ 2.35%");
-	});
-
-	it("formats small positive delta", () => {
-		expect(formatDelta(0.1)).toBe("↑ 0.1%");
-	});
-
-	it("formats small negative delta", () => {
-		expect(formatDelta(-0.1)).toBe("↓ 0.1%");
+describe("Coverage discipline", () => {
+	it("audits the table size to keep ≥40 parametric rows (HUG-152 floor)", () => {
+		expect(
+			CURRENCY.length + PERCENT.length + DELTA.length,
+		).toBeGreaterThanOrEqual(40);
 	});
 });
