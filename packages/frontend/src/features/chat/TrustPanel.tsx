@@ -1,23 +1,9 @@
-import { useEffect, useState } from "react";
-import type { TrustResponse } from "../../shared/api/api";
-import { getTrust } from "../../shared/api/api";
-import log from "../../shared/lib/logger";
+import { useGetTrustQuery } from "../trust/api";
 
 export default function TrustPanel() {
-	const [trust, setTrust] = useState<TrustResponse | null>(null);
+	const { data: trust } = useGetTrustQuery();
 
-	useEffect(() => {
-		getTrust()
-			.then(setTrust)
-			.catch((err: unknown) => {
-				log.warn(
-					{ err: err instanceof Error ? err.message : String(err) },
-					"trust_fetch_failed",
-				);
-			});
-	}, []);
-
-	if (trust === null) return null;
+	if (!trust) return null;
 
 	const matchPct = (trust.reconciliation_match_rate * 100).toFixed(1);
 

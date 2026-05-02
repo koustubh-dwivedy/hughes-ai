@@ -25,6 +25,8 @@ const URL_TO_API: Array<[RegExp, keyof typeof api]> = [
 	[/\/api\/dashboards\/past-due/, "getPastDue"],
 	[/\/api\/dashboards\/officer-branch/, "getOfficerBranch"],
 	[/\/api\/dashboards\/executive-summary/, "getExecutiveSummary"],
+	[/\/api\/history(\?|$)/, "getHistory"],
+	[/\/api\/trust(\?|$)/, "getTrust"],
 ];
 
 function urlOf(input: RequestInfo | URL): string {

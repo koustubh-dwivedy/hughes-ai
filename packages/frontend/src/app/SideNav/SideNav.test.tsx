@@ -1,10 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
+import { renderWithProviders } from "../../test/test-utils";
 import SideNav from "./SideNav";
 
 function renderAt(path = "/dashboards/executive") {
-	return render(
+	return renderWithProviders(
 		<MemoryRouter initialEntries={[path]}>
 			<SideNav />
 		</MemoryRouter>,
@@ -19,7 +20,7 @@ describe("SideNav collapse states", () => {
 	});
 
 	it("starts collapsed when defaultCollapsed=true", () => {
-		render(
+		renderWithProviders(
 			<MemoryRouter initialEntries={["/dashboards/executive"]}>
 				<SideNav defaultCollapsed />
 			</MemoryRouter>,

@@ -1,9 +1,8 @@
 import { Drawer } from "@mantine/core";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { TrustResponse } from "../../shared/api/api";
-import { getTrust } from "../../shared/api/api";
-import log from "../../shared/lib/logger";
 import { colors, spacing, typography } from "../../theme/tokens";
+import { useGetTrustQuery } from "./api";
 
 function formatDate(isoDate: string): string {
 	try {
@@ -101,21 +100,10 @@ function TrustSheet({ trust, opened, onClose }: TrustSheetProps) {
 }
 
 export default function TrustFooter() {
-	const [trust, setTrust] = useState<TrustResponse | null>(null);
+	const { data: trust } = useGetTrustQuery();
 	const [sheetOpen, setSheetOpen] = useState(false);
 
-	useEffect(() => {
-		getTrust()
-			.then(setTrust)
-			.catch((err: unknown) => {
-				log.warn(
-					{ err: err instanceof Error ? err.message : String(err) },
-					"trust_fetch_failed",
-				);
-			});
-	}, []);
-
-	if (trust === null) return null;
+	if (!trust) return null;
 
 	const matchPct = (trust.reconciliation_match_rate * 100).toFixed(1);
 	const caveatCount = trust.known_caveats.length;

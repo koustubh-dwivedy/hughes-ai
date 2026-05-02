@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { AskResponse } from "../../shared/api/api";
-import {
-	getHistoryDetail,
-	historyDetailToAskResponse,
-	postAsk,
-} from "../../shared/api/api";
+import { historyDetailToAskResponse } from "../../shared/api/api";
 import log from "../../shared/lib/logger";
+import { useGetHistoryDetailQuery } from "../history/api";
 import AskInput from "./AskInput";
 import Thread, { type ThreadMessage } from "./Thread";
 import TrustPanel from "./TrustPanel";
+import { usePostAskMutation } from "./api";
 import SuggestedPrompts from "./messages/SuggestedPrompts";
 
 function makeId(prefix: string): string {
@@ -18,9 +16,13 @@ function makeId(prefix: string): string {
 
 export default function Chat() {
 	const [messages, setMessages] = useState<ThreadMessage[]>([]);
-	const [loading, setLoading] = useState(false);
 	const [searchParams, setSearchParams] = useSearchParams();
 	const historyId = searchParams.get("history");
+	const [postAsk, { isLoading: loading }] = usePostAskMutation();
+	const { data: historyDetail, error: historyError } = useGetHistoryDetailQuery(
+		historyId ?? "",
+		{ skip: !historyId },
+	);
 
 	function appendUser(question: string) {
 		setMessages((prev) => [
@@ -29,10 +31,16 @@ export default function Chat() {
 		]);
 	}
 
-	function appendAssistant(result: AskResponse) {
+	function appendAssistant(result: AskResponse, streaming = true) {
 		setMessages((prev) => [
 			...prev,
-			{ id: makeId("a"), kind: "assistant", result, timestamp: Date.now() },
+			{
+				id: makeId("a"),
+				kind: "assistant",
+				result,
+				timestamp: Date.now(),
+				streaming,
+			},
 		]);
 	}
 
@@ -45,53 +53,47 @@ export default function Chat() {
 
 	async function handleAsk(question: string): Promise<void> {
 		appendUser(question);
-		setLoading(true);
 		try {
-			const res = await postAsk(question);
+			const res = await postAsk({ question }).unwrap();
 			appendAssistant(res);
 		} catch (e) {
 			appendError(e instanceof Error ? e.message : "Request failed");
-		} finally {
-			setLoading(false);
 		}
 	}
 
 	useEffect(() => {
-		if (!historyId) return;
-		getHistoryDetail(historyId)
-			.then((d) => {
-				const now = Date.now();
-				setMessages((prev) => [
-					...prev,
-					{
-						id: makeId("u"),
-						kind: "user",
-						question: d.question,
-						timestamp: now,
-					},
-					{
-						id: makeId("a"),
-						kind: "assistant",
-						result: historyDetailToAskResponse(d),
-						timestamp: now,
-						streaming: false,
-					},
-				]);
-				setSearchParams(
-					(prev) => {
-						prev.delete("history");
-						return prev;
-					},
-					{ replace: true },
-				);
-			})
-			.catch((err: unknown) => {
-				log.warn(
-					{ err: err instanceof Error ? err.message : String(err) },
-					"history_load_failed",
-				);
-			});
-	}, [historyId, setSearchParams]);
+		if (!historyDetail) {
+			if (historyError) {
+				log.warn({ err: String(historyError) }, "history_load_failed");
+			}
+			return;
+		}
+		const now = Date.now();
+		const detail = historyDetail;
+		setMessages((prev) => [
+			...prev,
+			{
+				id: makeId("u"),
+				kind: "user",
+				question: detail.question,
+				timestamp: now,
+			},
+			{
+				id: makeId("a"),
+				kind: "assistant",
+				result: historyDetailToAskResponse(detail),
+				timestamp: now,
+				streaming: false,
+			},
+		]);
+		setSearchParams(
+			(prev) => {
+				prev.delete("history");
+				return prev;
+			},
+			{ replace: true },
+		);
+	}, [historyDetail, historyError, setSearchParams]);
 
 	return (
 		<div>

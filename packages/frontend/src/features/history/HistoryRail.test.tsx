@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as api from "../../shared/api/api";
+import { renderWithProviders } from "../../test/test-utils";
 import HistoryRail, { dayLabel, groupByDay } from "./HistoryRail";
 
 const ITEMS: api.HistorySummary[] = [
@@ -36,9 +37,9 @@ afterEach(() => {
 });
 
 function renderRail() {
-	return render(
+	return renderWithProviders(
 		<MemoryRouter>
-			<HistoryRail onSelect={vi.fn()} refreshKey={0} />
+			<HistoryRail onSelect={vi.fn()} />
 		</MemoryRouter>,
 	);
 }
@@ -109,9 +110,9 @@ describe("HistoryRail", () => {
 	it("calls onSelect with item id when clicked", async () => {
 		vi.spyOn(api, "getHistory").mockResolvedValue(ITEMS);
 		const onSelect = vi.fn();
-		render(
+		renderWithProviders(
 			<MemoryRouter>
-				<HistoryRail onSelect={onSelect} refreshKey={0} />
+				<HistoryRail onSelect={onSelect} />
 			</MemoryRouter>,
 		);
 		await waitFor(() => {

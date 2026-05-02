@@ -1,10 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import SideNav from "../app/SideNav";
+import { renderWithProviders } from "./test-utils";
 
 function renderAt(path: string) {
-	return render(
+	return renderWithProviders(
 		<MemoryRouter initialEntries={[path]}>
 			<SideNav />
 		</MemoryRouter>,

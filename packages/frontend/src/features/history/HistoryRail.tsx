@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { HistorySummary } from "../../shared/api/api";
-import { getHistory } from "../../shared/api/api";
-import log from "../../shared/lib/logger";
 import { colors, radii, spacing, typography } from "../../theme/tokens";
+import { useGetHistoryListQuery } from "./api";
 
 interface Props {
 	onSelect: (id: string) => void;
-	refreshKey?: number;
 }
 
 interface DayGroup {
@@ -128,21 +126,10 @@ const emptyStyle: React.CSSProperties = {
 	margin: 0,
 };
 
-export default function HistoryRail({ onSelect, refreshKey = 0 }: Props) {
-	const [items, setItems] = useState<HistorySummary[]>([]);
+export default function HistoryRail({ onSelect }: Props) {
+	const { data } = useGetHistoryListQuery({ kind: "ask" });
+	const items = useMemo<HistorySummary[]>(() => data ?? [], [data]);
 	const [query, setQuery] = useState("");
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey is a counter that signals "refetch now"
-	useEffect(() => {
-		getHistory()
-			.then(setItems)
-			.catch((err: unknown) => {
-				log.warn(
-					{ err: err instanceof Error ? err.message : String(err) },
-					"history_fetch_failed",
-				);
-			});
-	}, [refreshKey]);
 
 	const filtered = useMemo(() => {
 		const q = query.trim().toLowerCase();

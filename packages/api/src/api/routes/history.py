@@ -20,6 +20,7 @@ class HistorySummary(BaseModel):
     question: str
     sql: str
     created_at: datetime
+    kind: str = "ask"
 
 
 class HistoryDetail(HistorySummary):
@@ -36,9 +37,14 @@ def _str_list(val: object) -> list[str]:
 
 @router.get("", response_model=list[HistorySummary])
 async def list_history(
-    request: Request, limit: int = 20
+    request: Request, limit: int = 20, kind: str | None = None
 ) -> list[dict[str, object]]:
-    return get_history(limit, request.app.state.db_url)
+    if kind is not None and kind not in {"ask", "dashboard_audit"}:
+        raise HTTPException(
+            status_code=400,
+            detail="kind must be 'ask' or 'dashboard_audit'",
+        )
+    return get_history(limit, request.app.state.db_url, kind=kind)
 
 
 @router.get("/{record_id}", response_model=HistoryDetail)

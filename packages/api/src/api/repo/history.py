@@ -18,8 +18,8 @@ def save_query(
         conn.execute(
             "INSERT INTO query_history "
             "(id, question, sql, answer_json, assumptions, caveats,"
-            " lineage_json, token_usage) "
-            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+            " lineage_json, token_usage, kind) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (
                 record_id,
                 question,
@@ -35,6 +35,7 @@ def save_query(
                 json.dumps(result.caveats),
                 json.dumps({"tables_used": result.tables_used}),
                 json.dumps({}),
+                "ask",
             ),
         )
     return record_id
@@ -46,7 +47,7 @@ def get_history_by_id(
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT id, question, sql, answer_json, assumptions, caveats, "
-            "lineage_json, token_usage, created_at "
+            "lineage_json, token_usage, created_at, kind "
             "FROM query_history WHERE id = %s",
             (record_id,),
         )
@@ -71,8 +72,8 @@ def save_dashboard_audit(
         conn.execute(
             "INSERT INTO query_history "
             "(id, question, sql, answer_json, assumptions, caveats,"
-            " lineage_json, token_usage) "
-            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+            " lineage_json, token_usage, kind) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (
                 audit_id,
                 canonical,
@@ -82,17 +83,33 @@ def save_dashboard_audit(
                 json.dumps([]),
                 json.dumps({}),
                 json.dumps({}),
+                "dashboard_audit",
             ),
         )
 
 
-def get_history(limit: int, db_url: str) -> list[dict[str, object]]:
+def get_history(
+    limit: int, db_url: str, kind: str | None = None
+) -> list[dict[str, object]]:
+    """Return recent history entries.
+
+    When ``kind`` is provided, results are filtered to that discriminator
+    (e.g. ``"ask"``) so the chat HistoryRail can hide dashboard audit rows.
+    """
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
-        cur.execute(
-            "SELECT id, question, sql, created_at "
-            "FROM query_history ORDER BY created_at DESC LIMIT %s",
-            (limit,),
-        )
+        if kind is None:
+            cur.execute(
+                "SELECT id, question, sql, created_at, kind "
+                "FROM query_history ORDER BY created_at DESC LIMIT %s",
+                (limit,),
+            )
+        else:
+            cur.execute(
+                "SELECT id, question, sql, created_at, kind "
+                "FROM query_history WHERE kind = %s "
+                "ORDER BY created_at DESC LIMIT %s",
+                (kind, limit),
+            )
         cols = [d.name for d in cur.description or []]
         return [
             dict(zip(cols, row, strict=False)) for row in cur.fetchall()
