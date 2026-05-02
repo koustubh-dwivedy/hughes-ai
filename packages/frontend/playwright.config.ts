@@ -1,5 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Smoke specs picked for cross-browser runs: navigation + the four
+// dashboard-render specs. Keeps Firefox/WebKit fast in CI while still
+// catching engine-specific regressions in the most-trafficked paths.
+const SMOKE_SPECS = [
+	"navigation.spec.ts",
+	"dashboards-executive.spec.ts",
+	"dashboards-deposits.spec.ts",
+	"dashboards-past-due.spec.ts",
+	"dashboards-officer-branch.spec.ts",
+];
+
 export default defineConfig({
 	testDir: "./tests/e2e",
 	fullyParallel: false,
@@ -14,6 +25,16 @@ export default defineConfig({
 	},
 	projects: [
 		{ name: "chromium", use: { ...devices["Desktop Chrome"] } },
+		{
+			name: "firefox-smoke",
+			testMatch: SMOKE_SPECS,
+			use: { ...devices["Desktop Firefox"] },
+		},
+		{
+			name: "webkit-smoke",
+			testMatch: SMOKE_SPECS,
+			use: { ...devices["Desktop Safari"] },
+		},
 	],
 	webServer: {
 		command: "node_modules/.bin/vite",

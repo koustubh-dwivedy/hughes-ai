@@ -235,9 +235,9 @@ jobs:
         run: |
           uv run uvicorn api.main:app --host 127.0.0.1 --port 8000 &
           timeout 30 bash -c 'until curl -sf http://127.0.0.1:8000/health; do sleep 2; done'
-      - name: Install Playwright Chromium
+      - name: Install Playwright browsers (Chromium full + Firefox/WebKit smoke)
         working-directory: packages/frontend
-        run: pnpm exec playwright install chromium --with-deps
+        run: pnpm exec playwright install chromium firefox webkit --with-deps
       - name: Run E2E tests
         working-directory: packages/frontend
         run: pnpm test:e2e
