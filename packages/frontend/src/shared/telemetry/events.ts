@@ -138,6 +138,12 @@ export interface WebVitalsCls {
 	rating: VitalsRating;
 }
 
+export interface WebVitalsTtfb {
+	type: "web_vitals.ttfb";
+	value: number;
+	rating: VitalsRating;
+}
+
 export interface AppError {
 	type: "app.error";
 	message: string;
@@ -175,6 +181,7 @@ export type TelemetryEvent =
 	| WebVitalsFcp
 	| WebVitalsInp
 	| WebVitalsCls
+	| WebVitalsTtfb
 	| AppError
 	| DashboardCacheObserved;
 
@@ -202,6 +209,7 @@ export const ALL_EVENT_TYPES: Array<TelemetryEvent["type"]> = [
 	"web_vitals.fcp",
 	"web_vitals.inp",
 	"web_vitals.cls",
+	"web_vitals.ttfb",
 	"app.error",
 	"dashboard.cache.observed",
 ];

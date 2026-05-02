@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import AppProviders from "./app/AppProviders";
 import log from "./shared/lib/logger";
+import { initWebVitals } from "./shared/telemetry/webVitals";
 import GlobalStyles from "./theme/GlobalStyles";
 import ErrorBoundary from "./ui/primitives/ErrorBoundary";
 
@@ -18,6 +19,8 @@ window.addEventListener("unhandledrejection", (event) => {
 		event.reason instanceof Error ? event.reason.message : String(event.reason);
 	log.error({ err: message }, "unhandled_rejection");
 });
+
+initWebVitals();
 
 const rootEl = document.getElementById("root");
 if (rootEl === null) throw new Error("Root element not found");

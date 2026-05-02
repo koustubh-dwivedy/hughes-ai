@@ -56,6 +56,9 @@ importers:
       shiki:
         specifier: 4.0.2
         version: 4.0.2
+      web-vitals:
+        specifier: 5.2.0
+        version: 5.2.0
     devDependencies:
       '@axe-core/playwright':
         specifier: 4.11.3
@@ -3278,6 +3281,9 @@ packages:
     resolution: {integrity: sha512-3e04qkoN3LxTMLakdqeWth8nih8usyg+sf1Bgdf9wwUkp05iuK1eSY/QpLvscT/+F/gA89+LpUmmgBtesbqI2Q==}
     engines: {node: '>=10'}
     hasBin: true
+
+  web-vitals@5.2.0:
+    resolution: {integrity: sha512-i2z98bEmaCqSDiHEDu+gHl/dmR4Q+TxFmG3/13KkMO+o8UxQzCqWaDRCiLgEa41nlO4VpXSI0ASa1xWmO9sBlA==}
 
   webidl-conversions@7.0.0:
     resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
@@ -6657,6 +6663,8 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
+
+  web-vitals@5.2.0: {}
 
   webidl-conversions@7.0.0: {}
 

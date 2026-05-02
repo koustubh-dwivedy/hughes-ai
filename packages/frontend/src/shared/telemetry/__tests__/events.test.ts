@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ALL_EVENT_TYPES, type TelemetryEvent } from "../events";
 
 describe("ALL_EVENT_TYPES", () => {
-	it("contains exactly 25 event names", () => {
-		expect(ALL_EVENT_TYPES).toHaveLength(25);
+	it("contains exactly 26 event names", () => {
+		expect(ALL_EVENT_TYPES).toHaveLength(26);
 	});
 
 	it("matches expected event taxonomy", () => {
@@ -31,6 +31,7 @@ describe("ALL_EVENT_TYPES", () => {
 			"web_vitals.fcp",
 			"web_vitals.inp",
 			"web_vitals.cls",
+			"web_vitals.ttfb",
 			"app.error",
 			"dashboard.cache.observed",
 		]);
