@@ -32,7 +32,7 @@ test.describe("navigation", () => {
 		await page.getByRole("link", { name: "Past Due" }).click();
 		await expect(page).toHaveURL("/dashboards/past-due");
 		await expect(
-			page.getByRole("heading", { name: "Past Due" }),
+			page.getByRole("heading", { name: "Past Due", exact: true }),
 		).toBeVisible();
 
 		await page.getByRole("link", { name: "Officer/Branch" }).click();
@@ -66,17 +66,17 @@ test.describe("navigation", () => {
 		).toHaveAttribute("aria-current", "page");
 	});
 
-	for (const { path, heading } of [
+	for (const { path, heading, exact } of [
 		{ path: "/dashboards/executive", heading: "Executive Summary" },
 		{ path: "/dashboards/deposits", heading: "Deposit Portfolio" },
-		{ path: "/dashboards/past-due", heading: "Past Due" },
+		{ path: "/dashboards/past-due", heading: "Past Due", exact: true },
 		{ path: "/dashboards/officer-branch", heading: "Officer / Branch Loans" },
 		{ path: "/chat", heading: "Hughes AI" },
 	]) {
 		test(`deep-link to ${path} renders correct heading`, async ({ page }) => {
 			await page.goto(path);
 			await expect(
-				page.getByRole("heading", { name: heading }),
+				page.getByRole("heading", { name: heading, exact: exact ?? false }),
 			).toBeVisible();
 		});
 	}

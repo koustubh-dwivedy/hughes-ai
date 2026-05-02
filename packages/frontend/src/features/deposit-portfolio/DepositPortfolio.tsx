@@ -94,7 +94,13 @@ export default function DepositPortfolio() {
 		asOfDate,
 	});
 
-	if (error) return <p role="alert">Failed to load deposit portfolio.</p>;
+	if (error)
+		return (
+			<div>
+				<PageHeader title="Deposit Portfolio" eyebrow="Deposits" />
+				<p role="alert">Failed to load deposit portfolio.</p>
+			</div>
+		);
 
 	const kpiTiles = data ? buildKpiTiles(data) : [];
 	const mixSlices = data ? topWithOther(data) : [];
@@ -108,6 +114,13 @@ export default function DepositPortfolio() {
 		? data.change_by_product.map((d) => ({
 				label: d.product,
 				value: d.delta / 1_000_000,
+			}))
+		: [];
+	const depositorRows = data
+		? data.top_25_deposits.map((d) => ({
+				Member: d.member_name,
+				Balance: formatCurrency(d.balance),
+				"Share %": `${d.share_pct.toFixed(1)}%`,
 			}))
 		: [];
 
@@ -167,6 +180,14 @@ export default function DepositPortfolio() {
 				<DataTable
 					columns={["Branch", "Balance"]}
 					rows={branchRows}
+					loading={loading}
+				/>
+			</ChartCard>
+
+			<ChartCard title="Top Depositors" loading={loading}>
+				<DataTable
+					columns={["Member", "Balance", "Share %"]}
+					rows={depositorRows}
 					loading={loading}
 				/>
 			</ChartCard>

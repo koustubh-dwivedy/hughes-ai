@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { colors, spacing, typography } from "../../theme/tokens";
 import type { NavEntry } from "./types";
 
@@ -34,9 +34,15 @@ export default function NavItem({
 	icon,
 	collapsed,
 }: NavItemProps) {
+	const location = useLocation();
+	const asOfDate = new URLSearchParams(location.search).get("as_of_date");
+	const toPath = asOfDate
+		? `${href}?as_of_date=${encodeURIComponent(asOfDate)}`
+		: href;
+
 	return (
 		<NavLink
-			to={href}
+			to={toPath}
 			title={collapsed ? label : undefined}
 			style={({ isActive }) => activeStyle(isActive)}
 		>

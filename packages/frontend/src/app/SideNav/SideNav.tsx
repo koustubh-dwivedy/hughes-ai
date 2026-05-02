@@ -7,7 +7,7 @@ import {
 	UserCircle2,
 	X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { colors, spacing, typography } from "../../theme/tokens";
 import NavItem from "./NavItem";
 import { DASHBOARDS, SECTION_LABEL, TOOLS } from "./constants";
@@ -77,11 +77,56 @@ function BottomRail({ collapsed }: BottomRailProps) {
 	);
 }
 
+function useMobileViewport() {
+	const [isMobile, setIsMobile] = useState(
+		() => typeof window !== "undefined" && window.innerWidth < 768,
+	);
+	useEffect(() => {
+		const handler = () => setIsMobile(window.innerWidth < 768);
+		window.addEventListener("resize", handler);
+		return () => window.removeEventListener("resize", handler);
+	}, []);
+	return isMobile;
+}
+
+function HamburgerButton({
+	expanded,
+	onClick,
+	visible,
+}: { expanded: boolean; onClick: () => void; visible: boolean }) {
+	return (
+		<button
+			type="button"
+			aria-label="Open navigation"
+			aria-expanded={expanded}
+			data-testid="hamburger"
+			onClick={onClick}
+			className="sidebar-hamburger"
+			style={{
+				position: "fixed",
+				top: spacing[3],
+				left: spacing[3],
+				zIndex: 200,
+				background: colors.slate[800],
+				border: "none",
+				borderRadius: 6,
+				padding: spacing[2],
+				cursor: "pointer",
+				color: colors.white,
+				display: visible ? "flex" : "none",
+			}}
+		>
+			<Menu size={20} />
+		</button>
+	);
+}
+
 export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 	const [state, setState] = useState<CollapseState>(
 		defaultCollapsed ? "collapsed" : "full",
 	);
 	const [drawerOpen, setDrawerOpen] = useState(false);
+	const isMobile = useMobileViewport();
 
 	const collapsed = state === "collapsed";
 	const width = collapsed ? 56 : 240;
@@ -107,29 +152,11 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 
 	return (
 		<>
-			<button
-				type="button"
-				aria-label="Open navigation"
-				aria-expanded={drawerOpen}
-				data-testid="hamburger"
+			<HamburgerButton
+				expanded={drawerOpen}
 				onClick={() => setDrawerOpen(true)}
-				className="sidebar-hamburger"
-				style={{
-					position: "fixed",
-					top: spacing[3],
-					left: spacing[3],
-					zIndex: 200,
-					background: colors.slate[800],
-					border: "none",
-					borderRadius: 6,
-					padding: spacing[2],
-					cursor: "pointer",
-					color: colors.white,
-					display: "none",
-				}}
-			>
-				<Menu size={20} />
-			</button>
+				visible={isMobile}
+			/>
 			{drawerOpen && (
 				<dialog
 					aria-label="Navigation drawer"
@@ -205,7 +232,7 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 			<nav
 				aria-label="primary"
 				data-collapsed={String(collapsed)}
-				style={navStyle}
+				style={{ ...navStyle, display: isMobile ? "none" : "flex" }}
 				className="sidebar-desktop"
 			>
 				<div

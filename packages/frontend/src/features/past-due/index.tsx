@@ -103,7 +103,13 @@ export default function PastDue() {
 	const { asOfDate } = useDashboardContext();
 	const { data, loading, error } = useDashboard(getPastDue, { asOfDate });
 
-	if (error) return <p role="alert">Failed to load past due data.</p>;
+	if (error)
+		return (
+			<div>
+				<PageHeader title="Past Due" eyebrow="Credit Risk" />
+				<p role="alert">Failed to load past due data.</p>
+			</div>
+		);
 
 	const aliases = data
 		? pseudonymMap(data.past_due_by_officer)

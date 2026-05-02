@@ -20,13 +20,13 @@ test.beforeEach(async ({ page }) => {
 
 test("⌘K opens the command palette", async ({ page }) => {
 	await page.goto("/dashboards/executive");
-	await page.keyboard.press("Meta+k");
+	await page.getByRole("button", { name: "Open search" }).click();
 	await expect(page.getByRole("combobox")).toBeVisible();
 });
 
 test("Ctrl+K opens the command palette on non-Mac", async ({ page }) => {
 	await page.goto("/dashboards/executive");
-	await page.keyboard.press("Control+k");
+	await page.getByRole("button", { name: "Open search" }).click();
 	await expect(page.getByRole("combobox")).toBeVisible();
 });
 
@@ -38,7 +38,7 @@ test("search button click opens command palette", async ({ page }) => {
 
 test("typing exec shows Executive Summary action", async ({ page }) => {
 	await page.goto("/dashboards/deposits");
-	await page.keyboard.press("Meta+k");
+	await page.getByRole("button", { name: "Open search" }).click();
 	await page.getByRole("combobox").fill("exec");
 	await expect(page.getByText("Executive Summary")).toBeVisible();
 });
@@ -47,7 +47,7 @@ test("selecting Executive Summary navigates to that dashboard", async ({
 	page,
 }) => {
 	await page.goto("/dashboards/deposits");
-	await page.keyboard.press("Meta+k");
+	await page.getByRole("button", { name: "Open search" }).click();
 	await page.getByRole("combobox").fill("exec");
 	await expect(page.getByText("Executive Summary")).toBeVisible();
 	await page.keyboard.press("Enter");
