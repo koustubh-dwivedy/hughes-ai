@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../../shared/api/api";
 import { renderWithProviders } from "../../test/test-utils";
 import HistoryRail, { dayLabel, groupByDay } from "./HistoryRail";
@@ -32,7 +32,16 @@ const ITEMS: api.HistorySummary[] = [
 	},
 ];
 
+// Pin "now" so Today/Yesterday relative labels match the fixture timestamps
+// regardless of when CI runs. Fake only the Date class (not timers) so
+// React Testing Library's waitFor still progresses.
+beforeEach(() => {
+	vi.useFakeTimers({ toFake: ["Date"] });
+	vi.setSystemTime(new Date("2026-05-02T15:00:00Z"));
+});
+
 afterEach(() => {
+	vi.useRealTimers();
 	vi.restoreAllMocks();
 });
 
