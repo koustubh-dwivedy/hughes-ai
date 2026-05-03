@@ -22,6 +22,7 @@ export default function Logo({
 				display: "block",
 				height: height ?? fallbackHeight,
 				width: "auto",
+				maxWidth: "100%",
 				objectFit: "contain",
 				filter: onDark ? "brightness(0) invert(1)" : undefined,
 			}}

@@ -180,11 +180,11 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 								display: "flex",
 								justifyContent: "center",
 								alignItems: "center",
-								padding: `${spacing[4]} ${spacing[3]}`,
+								padding: `${spacing[2]} ${spacing[3]}`,
 								borderBottom: `1px solid ${colors.slate[700]}`,
 							}}
 						>
-							<Logo variant="wordmark" onDark height={28} />
+							<Logo variant="wordmark" onDark height={30} />
 							<button
 								type="button"
 								aria-label="Close navigation"
@@ -250,11 +250,11 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 							display: "flex",
 							alignItems: "center",
 							justifyContent: "center",
-							padding: `${spacing[4]} ${spacing[3]}`,
+							padding: `${spacing[2]} ${spacing[3]}`,
 							borderBottom: `1px solid ${colors.slate[700]}`,
 						}}
 					>
-						<Logo variant="wordmark" onDark height={28} />
+						<Logo variant="wordmark" onDark height={30} />
 						<button
 							type="button"
 							aria-label="Collapse sidebar"
