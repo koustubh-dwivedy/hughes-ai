@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import {
 	Navigate,
 	RouterProvider,
@@ -11,6 +12,9 @@ import IntelligencePage from "./pages/IntelligencePage";
 import OfficersPage from "./pages/OfficersPage";
 import PastDuePage from "./pages/PastDuePage";
 import { DashboardContextProvider } from "./shared/context/DashboardContext";
+
+// Lazy-load to keep reactflow + dagre (~100KB gzipped) off other routes.
+const DataModelsPage = lazy(() => import("./pages/DataModelsPage"));
 
 const router = createBrowserRouter([
 	{
@@ -31,6 +35,14 @@ const router = createBrowserRouter([
 			{ path: "/intelligence", element: <IntelligencePage /> },
 			{ path: "/chat", element: <Navigate to="/intelligence" replace /> },
 			{ path: "/data/sources", element: <DataSourcesPage /> },
+			{
+				path: "/data/models",
+				element: (
+					<Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+						<DataModelsPage />
+					</Suspense>
+				),
+			},
 		],
 	},
 ]);

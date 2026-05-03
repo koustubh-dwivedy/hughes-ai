@@ -13,9 +13,17 @@ function renderAt(path: string) {
 }
 
 describe("SideNav", () => {
-	it("renders 6 nav links (1 intelligence + 4 dashboards + 1 data)", () => {
+	it("renders 7 nav links (1 intelligence + 4 dashboards + 2 data)", () => {
 		renderAt("/dashboards/executive");
-		expect(screen.getAllByRole("link")).toHaveLength(6);
+		expect(screen.getAllByRole("link")).toHaveLength(7);
+	});
+
+	it("marks Data Models active at /data/models", () => {
+		renderAt("/data/models");
+		expect(screen.getByRole("link", { name: "Data Models" })).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
 	});
 
 	it("marks Executive Summary active at /dashboards/executive", () => {

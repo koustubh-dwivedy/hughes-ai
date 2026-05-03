@@ -10,7 +10,16 @@ from fastapi import FastAPI
 from nl_engine.context_loader import load_all
 
 from api.middleware.request_id import RequestIDMiddleware
-from api.routes import ask, dashboards, health, history, log, metrics_route, trust
+from api.routes import (
+    ask,
+    dashboards,
+    data_model,
+    health,
+    history,
+    log,
+    metrics_route,
+    trust,
+)
 
 # Source the repo-root .env so a plain `uvicorn api.main:app` finds
 # DATABASE_URL, CEREBRAS_API_KEY, etc. without the caller having to
@@ -29,6 +38,7 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(RequestIDMiddleware)
 app.include_router(ask.router)
 app.include_router(dashboards.router)
+app.include_router(data_model.router)
 app.include_router(health.router)
 app.include_router(history.router)
 app.include_router(log.router)

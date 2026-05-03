@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { codeToHtml } from "shiki";
-import { emit } from "../../../shared/telemetry/client";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 
 interface Props {
 	sql: string;
-	queryId: string;
 	editorUrl?: string;
+	onCopy?: () => void;
 }
 
 const wrapperStyle: React.CSSProperties = {
@@ -67,7 +66,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
 	}
 }
 
-export default function SqlBlock({ sql, queryId, editorUrl }: Props) {
+export default function SqlBlock({ sql, editorUrl, onCopy }: Props) {
 	const [html, setHtml] = useState<string>("");
 	const [copied, setCopied] = useState(false);
 
@@ -89,7 +88,7 @@ export default function SqlBlock({ sql, queryId, editorUrl }: Props) {
 		const ok = await copyToClipboard(sql);
 		if (ok) {
 			setCopied(true);
-			emit({ type: "chat.sql.copied", query_id: queryId });
+			onCopy?.();
 			setTimeout(() => setCopied(false), 1500);
 		}
 	}

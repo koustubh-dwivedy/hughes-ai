@@ -16,7 +16,14 @@ export default function AppLayout() {
 				}}
 			>
 				<AppHeader />
-				<main style={{ flex: 1, overflow: "auto", padding: "2rem" }}>
+				<main
+					style={{
+						flex: 1,
+						overflow: "auto",
+						padding: "2rem",
+						position: "relative",
+					}}
+				>
 					<RouteFade>
 						<Outlet />
 					</RouteFade>

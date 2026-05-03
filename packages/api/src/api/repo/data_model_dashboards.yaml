@@ -1,0 +1,38 @@
+# Static map of dashboard pages to the dbt models that back them.
+# Source of truth: docs/dashboards.md. Update when a new dashboard is added.
+# Doc-validation CI checks every model name listed here exists in
+# packages/dbt-models/target/manifest.json.
+
+dashboards:
+  - id: dashboard.executive
+    name: Executive Summary
+    route: /dashboards/executive
+    backed_by:
+      - fct_executive_kpis
+      - fct_loans_monthly
+      - fct_delinquency_monthly
+
+  - id: dashboard.deposits
+    name: Deposit Portfolio
+    route: /dashboards/deposits
+    backed_by:
+      - fct_deposits_monthly
+      - dim_deposit_product
+      - dim_member
+
+  - id: dashboard.past_due
+    name: Past Due
+    route: /dashboards/past-due
+    backed_by:
+      - fct_delinquency_monthly
+      - fct_loan_performance
+      - dim_officer
+
+  - id: dashboard.officer_branch
+    name: Officer / Branch Loans
+    route: /dashboards/officer-branch
+    backed_by:
+      - fct_loans_monthly
+      - fct_loan_lifecycle_events
+      - dim_officer
+      - dim_loan

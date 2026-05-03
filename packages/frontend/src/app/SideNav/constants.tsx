@@ -2,6 +2,7 @@ import {
 	AlertTriangle,
 	BarChart2,
 	Database,
+	GitBranch,
 	Landmark,
 	Sparkles,
 	Users,
@@ -45,6 +46,11 @@ export const DATA: NavEntry[] = [
 		label: "Sources & Freshness",
 		href: "/data/sources",
 		icon: <Database size={16} />,
+	},
+	{
+		label: "Data Models",
+		href: "/data/models",
+		icon: <GitBranch size={16} />,
 	},
 ];
 
