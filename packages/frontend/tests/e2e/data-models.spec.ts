@@ -89,10 +89,10 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("Data Models page", () => {
-	test("renders header and DAG canvas", async ({ page }) => {
+	test("renders filter bar and DAG canvas", async ({ page }) => {
 		await page.goto("/data/models");
 		await expect(
-			page.getByRole("heading", { name: "Data Models" }),
+			page.getByRole("toolbar", { name: "Data model filters" }),
 		).toBeVisible();
 		await expect(page.locator(".react-flow")).toBeVisible();
 	});
@@ -102,7 +102,7 @@ test.describe("Data Models page", () => {
 		await page.getByRole("link", { name: "Data Models" }).click();
 		await expect(page).toHaveURL(/\/data\/models$/);
 		await expect(
-			page.getByRole("heading", { name: "Data Models" }),
+			page.getByRole("toolbar", { name: "Data model filters" }),
 		).toBeVisible();
 	});
 
@@ -131,11 +131,13 @@ test.describe("Data Models page", () => {
 		await expect(page).toHaveURL(/\/dashboards\/executive$/);
 	});
 
-	test("filter chip Marts hides non-mart nodes", async ({ page }) => {
+	test("toggling Sources layer hides source nodes", async ({ page }) => {
 		await page.goto("/data/models");
 		await expect(page.getByText("booked_loans").first()).toBeVisible();
-		// Click Sources chip to disable that layer.
-		await page.getByRole("button", { name: "Sources", pressed: true }).click();
+		const toolbar = page.getByRole("toolbar", { name: "Data model filters" });
+		await toolbar
+			.getByRole("button", { name: "Sources", pressed: true })
+			.click();
 		await expect(page.getByText("booked_loans")).toHaveCount(0);
 	});
 });
