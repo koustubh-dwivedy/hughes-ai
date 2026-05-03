@@ -40,7 +40,7 @@ test("Officer/Branch renders KPI tiles, demo banner, without error", async ({
 	).toBeVisible();
 
 	for (const label of ["Total Loans", "Account Count", "Avg Loan Balance"]) {
-		await expect(page.getByText(label)).toBeVisible();
+		await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
 	}
 
 	await expect(page.getByRole("note")).toBeVisible();

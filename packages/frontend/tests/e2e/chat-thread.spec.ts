@@ -52,10 +52,9 @@ test("chat thread keeps three consecutive questions visible (HUG-132)", async ({
 		}),
 	);
 
-	await page.goto("/chat");
-	await expect(page.getByRole("heading", { name: "Hughes AI" })).toBeVisible();
-
+	await page.goto("/intelligence");
 	const input = page.getByPlaceholder("Ask a question about lending…");
+	await expect(input).toBeVisible();
 	const askBtn = page.getByRole("button", { name: "Ask" });
 
 	for (const q of QUESTIONS) {

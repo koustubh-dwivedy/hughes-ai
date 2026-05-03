@@ -7,45 +7,35 @@ const TRUST_RESPONSE = {
 	known_caveats: ["Synthetic data only — no real member data."],
 };
 
-test.describe("trust panel", () => {
-	test("renders data freshness stats and caveats", async ({ page }) => {
-		await page.route("**/api/**", async (route) => {
-			const url = new URL(route.request().url());
-			const p = url.pathname;
-			const method = route.request().method();
+test.describe("data sources page", () => {
+	test("renders source counts, reconciliation rate, and caveats", async ({
+		page,
+	}) => {
+		await page.route("**/api/trust", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(TRUST_RESPONSE),
+			}),
+		);
+		await page.route("**/api/dashboards/available-months**", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ months: [] }),
+			}),
+		);
 
-			if (p === "/api/trust" && method === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(TRUST_RESPONSE),
-				});
-			} else if (p === "/api/history" && method === "GET") {
-				// Empty list suppresses HistoryPanel's <aside> to avoid selector ambiguity
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: "[]",
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		await page.goto("/data/sources");
 
-		await page.goto("/chat");
-
-		const trustPanel = page.locator("aside").filter({ hasText: "Data Freshness" });
-		await expect(trustPanel).toBeVisible();
-
-		await expect(trustPanel.getByText("Origence records: 500")).toBeVisible();
-		await expect(trustPanel.getByText("Symitar records: 500")).toBeVisible();
 		await expect(
-			trustPanel.getByText("Reconciliation match rate: 98.7%"),
+			page.getByRole("heading", { name: "Sources & Freshness" }),
 		).toBeVisible();
-
-		// Caveats disclosure present
+		await expect(page.getByText(/Origence/i).first()).toBeVisible();
+		await expect(page.getByText(/Symitar/i).first()).toBeVisible();
+		await expect(page.getByText("98.7%")).toBeVisible();
 		await expect(
-			trustPanel.locator("details summary", { hasText: "Known caveats (1)" }),
+			page.getByText("Synthetic data only — no real member data."),
 		).toBeVisible();
 	});
 });

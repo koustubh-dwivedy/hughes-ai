@@ -55,11 +55,13 @@ test("Executive Summary renders KPI tiles without error", async ({ page }) => {
 		"YTD Loan Growth",
 		"MTD Deposit Growth",
 		"YTD Deposit Growth",
-		"Past Due Ratio",
+		"Past Due Loans",
 		"Loan-to-Deposit",
-		"Core Deposit Ratio",
+		"Sticky-Deposit Share",
 	]) {
-		await expect(page.getByText(label, { exact: true })).toBeVisible();
+		await expect(
+			page.getByText(label, { exact: true }).first(),
+		).toBeVisible();
 	}
 
 	await expect(page.locator('[role="alert"]')).not.toBeVisible();

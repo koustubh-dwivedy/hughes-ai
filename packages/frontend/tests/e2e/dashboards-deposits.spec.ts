@@ -61,7 +61,9 @@ test("Deposit Portfolio renders KPI tiles without error", async ({ page }) => {
 		"Account Count",
 		"Avg Balance",
 	]) {
-		await expect(page.getByText(label)).toBeVisible();
+		// exact: insight bullets / chart subtitles include lowercase
+		// substrings ("...of total deposits") that would otherwise match.
+		await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
 	}
 
 	await expect(page.locator('[role="alert"]')).not.toBeVisible();

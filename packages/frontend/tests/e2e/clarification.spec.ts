@@ -27,11 +27,10 @@ test.describe("ask — clarification flow", () => {
 			});
 		});
 
-		await page.goto("/chat");
+		await page.goto("/intelligence");
 		await expect(
-			page.getByRole("heading", { name: "Hughes AI" }),
+			page.getByPlaceholder("Ask a question about lending…"),
 		).toBeVisible();
-
 		await page
 			.getByPlaceholder("Ask a question about lending…")
 			.fill("Show me rates");

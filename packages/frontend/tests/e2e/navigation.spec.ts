@@ -41,11 +41,9 @@ test.describe("navigation", () => {
 			page.getByRole("heading", { name: "Officer / Branch Loans" }),
 		).toBeVisible();
 
-		await page.getByRole("link", { name: "Chat" }).click();
-		await expect(page).toHaveURL("/chat");
-		await expect(
-			page.getByRole("heading", { name: "Hughes AI" }),
-		).toBeVisible();
+		await page.getByRole("link", { name: "Data Intelligence" }).click();
+		await expect(page).toHaveURL("/intelligence");
+		await expect(page.getByRole("textbox")).toBeVisible();
 
 		await page.getByRole("link", { name: "Executive Summary" }).click();
 		await expect(page).toHaveURL("/dashboards/executive");
@@ -71,7 +69,6 @@ test.describe("navigation", () => {
 		{ path: "/dashboards/deposits", heading: "Deposit Portfolio" },
 		{ path: "/dashboards/past-due", heading: "Past Due", exact: true },
 		{ path: "/dashboards/officer-branch", heading: "Officer / Branch Loans" },
-		{ path: "/chat", heading: "Hughes AI" },
 	]) {
 		test(`deep-link to ${path} renders correct heading`, async ({ page }) => {
 			await page.goto(path);
@@ -80,4 +77,14 @@ test.describe("navigation", () => {
 			).toBeVisible();
 		});
 	}
+
+	test("deep-link to /intelligence renders the ask input", async ({ page }) => {
+		await page.goto("/intelligence");
+		await expect(page.getByRole("textbox")).toBeVisible();
+	});
+
+	test("/chat redirects to /intelligence", async ({ page }) => {
+		await page.goto("/chat");
+		await expect(page).toHaveURL("/intelligence");
+	});
 });

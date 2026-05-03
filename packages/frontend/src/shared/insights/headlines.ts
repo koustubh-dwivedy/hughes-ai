@@ -39,11 +39,11 @@ function overallTone(callouts: HeadlineCallout[]): HeadlineTone {
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: narrative generator — branching is the point of the rule, splitting would scatter the logic
 export function executiveHeadline(d: ExecutiveSummaryData): Headline {
+	const trend = d.kpi_trend_13_months ?? [];
 	const ratioPct = d.blended_past_due_ratio * 100;
 	const ratioPriorPct =
-		d.kpi_trend_13_months.length >= 2
-			? d.kpi_trend_13_months[d.kpi_trend_13_months.length - 2]
-					.blended_past_due_ratio * 100
+		trend.length >= 2
+			? trend[trend.length - 2].blended_past_due_ratio * 100
 			: ratioPct;
 	const ratioDeltaPp = ratioPct - ratioPriorPct;
 
@@ -109,9 +109,11 @@ export function depositsHeadline(d: DepositPortfolioData): Headline {
 		`${dirArrow(d.ytd_change)} ${fmtMoney(Math.abs(d.ytd_change))} YTD.`;
 
 	const callouts: HeadlineCallout[] = [];
+	const mix = d.deposit_mix ?? [];
+	const top25 = d.top_25_deposits ?? [];
 
-	const opened = d.new_vs_closed_accounts.opened.count;
-	const closed = d.new_vs_closed_accounts.closed.count;
+	const opened = d.new_vs_closed_accounts?.opened?.count ?? 0;
+	const closed = d.new_vs_closed_accounts?.closed?.count ?? 0;
 	const netAccounts = opened - closed;
 	if (netAccounts > 0) {
 		callouts.push({
@@ -127,9 +129,9 @@ export function depositsHeadline(d: DepositPortfolioData): Headline {
 		});
 	}
 
-	const totalMix = d.deposit_mix.reduce((s, x) => s + x.balance, 0);
+	const totalMix = mix.reduce((s, x) => s + x.balance, 0);
 	if (totalMix > 0) {
-		const top = [...d.deposit_mix].sort((a, b) => b.balance - a.balance)[0];
+		const top = [...mix].sort((a, b) => b.balance - a.balance)[0];
 		const share = (top.balance / totalMix) * 100;
 		callouts.push({
 			tone: share > 50 ? "warn" : "info",
@@ -141,8 +143,8 @@ export function depositsHeadline(d: DepositPortfolioData): Headline {
 		});
 	}
 
-	if (d.top_25_deposits.length > 0) {
-		const top = d.top_25_deposits[0];
+	if (top25.length > 0) {
+		const top = top25[0];
 		callouts.push({
 			tone: top.share_pct > 5 ? "warn" : "info",
 			label: "Top relationship",
@@ -161,7 +163,9 @@ export function depositsHeadline(d: DepositPortfolioData): Headline {
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: narrative generator — branching is the point of the rule
 export function pastDueHeadline(d: PastDueData): Headline {
-	const trend = d.past_due_ratio_trend;
+	const trend = d.past_due_ratio_trend ?? [];
+	const officers = d.past_due_by_officer ?? [];
+	const buckets = d.delinquency_trend_13_months ?? [];
 	const lastRatio = trend.length > 0 ? trend[trend.length - 1].ratio * 100 : 0;
 	const firstRatio = trend.length > 0 ? trend[0].ratio * 100 : lastRatio;
 	const dirText =
@@ -177,12 +181,10 @@ export function pastDueHeadline(d: PastDueData): Headline {
 
 	const callouts: HeadlineCallout[] = [];
 
-	if (d.past_due_by_officer.length > 0) {
-		const total = d.past_due_by_officer.reduce((s, o) => s + o.balance, 0);
+	if (officers.length > 0) {
+		const total = officers.reduce((s, o) => s + o.balance, 0);
 		if (total > 0) {
-			const top = [...d.past_due_by_officer].sort(
-				(a, b) => b.balance - a.balance,
-			)[0];
+			const top = [...officers].sort((a, b) => b.balance - a.balance)[0];
 			const share = (top.balance / total) * 100;
 			callouts.push(
 				share > 40
@@ -200,9 +202,8 @@ export function pastDueHeadline(d: PastDueData): Headline {
 		}
 	}
 
-	if (d.delinquency_trend_13_months.length > 0) {
-		const last =
-			d.delinquency_trend_13_months[d.delinquency_trend_13_months.length - 1];
+	if (buckets.length > 0) {
+		const last = buckets[buckets.length - 1];
 		const total = last.bucket_30_59 + last.bucket_60_89 + last.bucket_90_plus;
 		const ninetyShare = total === 0 ? 0 : (last.bucket_90_plus / total) * 100;
 		callouts.push({
@@ -240,10 +241,15 @@ export function officerBranchHeadline(d: OfficerBranchData): Headline {
 		`Avg ticket: ${fmtMoney(d.avg_loan_balance)}.`;
 
 	const callouts: HeadlineCallout[] = [];
+	// Defensive: e2e fixtures may omit nested arrays even though the TS
+	// type marks them required, and partial API responses must not crash.
+	const mix = d.loan_mix_donut ?? [];
+	const watch = d.watchlist_trend ?? [];
+	const borrowers = d.top_25_borrowers ?? [];
 
-	const totalMix = d.loan_mix_donut.reduce((s, x) => s + x.balance, 0);
+	const totalMix = mix.reduce((s, x) => s + x.balance, 0);
 	if (totalMix > 0) {
-		const sorted = [...d.loan_mix_donut].sort((a, b) => b.balance - a.balance);
+		const sorted = [...mix].sort((a, b) => b.balance - a.balance);
 		const top = sorted[0];
 		const topName = productLabel(top.product);
 		const share = (top.balance / totalMix) * 100;
@@ -257,22 +263,22 @@ export function officerBranchHeadline(d: OfficerBranchData): Headline {
 		});
 	}
 
-	if (d.watchlist_trend.length >= 2) {
-		const first = d.watchlist_trend[0].count;
-		const last = d.watchlist_trend[d.watchlist_trend.length - 1].count;
+	if (watch.length >= 2) {
+		const first = watch[0].count;
+		const last = watch[watch.length - 1].count;
 		const delta = last - first;
 		callouts.push({
 			tone: delta > 0 ? "warn" : delta < 0 ? "success" : "info",
 			label: "Watchlist",
 			body:
 				delta === 0
-					? `${last} loans under watch (flat over ${d.watchlist_trend.length - 1} mo.).`
-					: `${last} loans under watch (${delta > 0 ? "↑" : "↓"} ${Math.abs(delta)} over ${d.watchlist_trend.length - 1} mo.).`,
+					? `${last} loans under watch (flat over ${watch.length - 1} mo.).`
+					: `${last} loans under watch (${delta > 0 ? "↑" : "↓"} ${Math.abs(delta)} over ${watch.length - 1} mo.).`,
 		});
 	}
 
-	if (d.top_25_borrowers.length > 0) {
-		const top = d.top_25_borrowers[0];
+	if (borrowers.length > 0) {
+		const top = borrowers[0];
 		callouts.push({
 			tone: top.share_pct > 5 ? "warn" : "info",
 			label: "Top exposure",

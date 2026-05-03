@@ -48,7 +48,7 @@ export default function AppHeader() {
 
 	return (
 		<header aria-label="App header" style={stripStyle}>
-			<div style={tenantStyle} aria-label="Workspace">
+			<div style={tenantStyle}>
 				<span
 					style={{
 						fontSize: typography.size.sm,

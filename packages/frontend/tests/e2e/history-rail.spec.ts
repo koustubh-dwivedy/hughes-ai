@@ -51,51 +51,39 @@ test.beforeEach(async ({ page }) => {
 			body: JSON.stringify(DETAIL),
 		}),
 	);
-	await page.route("**/api/trust**", (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({
-				origence_row_count: 1,
-				symitar_row_count: 1,
-				reconciliation_match_rate: 1,
-				known_caveats: [],
-			}),
-		}),
-	);
 	await page.route("**/api/dashboards/**", (route) =>
 		route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
 	);
 });
 
-test("HistoryRail groups items by day in the sidebar (HUG-137)", async ({
+test("Recent questions card renders on the Data Intelligence empty state", async ({
 	page,
 }) => {
-	await page.goto("/chat");
-	const rail = page.getByRole("complementary", { name: "Conversation history" });
-	await expect(rail).toBeVisible();
-	await expect(rail.getByRole("heading", { name: "Today", level: 3 })).toBeVisible();
+	await page.goto("/intelligence");
+	const recent = page.getByRole("region", { name: "Recent questions" });
+	await expect(recent).toBeVisible();
 	await expect(
-		rail.getByRole("heading", { name: "Yesterday", level: 3 }),
+		recent.getByText("What is the past-due ratio?"),
 	).toBeVisible();
-	await expect(rail.getByText("What is the past-due ratio?")).toBeVisible();
+	await expect(recent.getByText("Top branches by deposits")).toBeVisible();
 });
 
-test("Search field filters history items", async ({ page }) => {
-	await page.goto("/chat");
-	const rail = page.getByRole("complementary", { name: "Conversation history" });
-	await expect(rail.getByText("Top branches by deposits")).toBeVisible();
-	await rail.getByLabel("Search history").fill("branches");
-	await expect(rail.getByText("Top branches by deposits")).toBeVisible();
-	await expect(rail.getByText("How many active loans?")).not.toBeVisible();
+test("Clicking the clock button opens the history drawer", async ({ page }) => {
+	await page.goto("/intelligence");
+	await page
+		.getByRole("button", { name: "Open conversation history" })
+		.click();
+	const drawer = page.getByRole("dialog", { name: "Conversation history" });
+	await expect(drawer).toBeVisible();
+	await expect(drawer.getByText("How many active loans?")).toBeVisible();
 });
 
-test("Clicking a history item loads the conversation in chat", async ({
+test("Clicking a recent question loads the conversation in chat", async ({
 	page,
 }) => {
-	await page.goto("/chat");
-	const rail = page.getByRole("complementary", { name: "Conversation history" });
-	await rail.getByText("How many active loans?").click();
+	await page.goto("/intelligence");
+	const recent = page.getByRole("region", { name: "Recent questions" });
+	await recent.getByText("How many active loans?").click();
 	await expect(
 		page.getByRole("log", { name: "Conversation" }),
 	).toBeVisible();

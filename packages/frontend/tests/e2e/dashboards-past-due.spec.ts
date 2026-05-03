@@ -45,11 +45,11 @@ test("Past Due renders KPI tiles without error", async ({ page }) => {
 
 	for (const label of [
 		"Past Due Total",
-		"Nonaccrual",
-		"Watchlist",
-		"NPL Balance",
+		"Loans Earning No Interest",
+		"Loans Under Watch",
+		"Non-Performing Balance",
 	]) {
-		await expect(page.getByText(label)).toBeVisible();
+		await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
 	}
 
 	await expect(page.locator('[role="alert"]')).not.toBeVisible();

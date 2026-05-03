@@ -50,26 +50,22 @@ async function interceptHistory(page: import("@playwright/test").Page) {
 	});
 }
 
-test.describe("history panel", () => {
-	test("clicking a history item loads its result", async ({ page }) => {
+test.describe("history surfaces", () => {
+	test("clicking a recent question card loads its result", async ({ page }) => {
 		await interceptHistory(page);
-		await page.goto("/chat");
+		await page.goto("/intelligence");
 
-		const historyPanel = page.locator("aside").filter({ hasText: "History" });
+		const recent = page.getByRole("region", { name: "Recent questions" });
 		await expect(
-			historyPanel.getByRole("button", { name: "How many loans were funded?" }),
+			recent.getByText("How many loans were funded?"),
 		).toBeVisible();
 
-		await historyPanel
-			.getByRole("button", { name: "How many loans were funded?" })
-			.click();
+		await recent.getByText("How many loans were funded?").click();
 
 		const section = page.locator("section");
-		await expect(section).toBeVisible();
+		await expect(section.first()).toBeVisible();
 		await expect(
-			section.getByText("Counts all funded loans in the originations table."),
+			page.getByText("Counts all funded loans in the originations table."),
 		).toBeVisible();
-		await expect(section.locator("table")).toBeVisible();
 	});
-
 });

@@ -41,7 +41,6 @@ export default function HistoryDrawer({ opened, onClose }: HistoryDrawerProps) {
 			position="right"
 			size={420}
 			title="Conversation history"
-			aria-label="Conversation history"
 		>
 			<div
 				style={{

@@ -6,7 +6,7 @@ const ROUTES = [
 	"/dashboards/deposits",
 	"/dashboards/past-due",
 	"/dashboards/officer-branch",
-	"/chat",
+	"/intelligence",
 ] as const;
 
 const ENVELOPE = JSON.stringify({
@@ -50,8 +50,13 @@ for (const route of ROUTES) {
 		page,
 	}) => {
 		await page.goto(route);
-		// Wait for the page heading so axe scans the steady-state UI
-		await expect(page.locator("h1")).toBeVisible();
+		// Wait for the steady-state UI: dashboards have an h1, the
+		// /intelligence surface only has the AskInput textbox.
+		if (route === "/intelligence") {
+			await expect(page.getByRole("textbox")).toBeVisible();
+		} else {
+			await expect(page.locator("h1")).toBeVisible();
+		}
 		const results = await new AxeBuilder({ page })
 			.withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
 			// Pre-existing issues tracked separately:
