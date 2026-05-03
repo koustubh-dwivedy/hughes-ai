@@ -31,15 +31,16 @@ const headingStyle: React.CSSProperties = {
 };
 
 const chipStyle: React.CSSProperties = {
-	background: colors.indigo[50],
-	color: colors.indigo[700],
-	border: `1px solid ${colors.indigo[100]}`,
+	background: colors.white,
+	color: colors.slate[800],
+	border: `1px solid ${colors.slate[300]}`,
 	borderRadius: radii.lg,
 	padding: `${spacing[2]} ${spacing[3]}`,
 	fontSize: typography.size.sm,
 	fontFamily: typography.fontFamily,
 	cursor: "pointer",
 	textAlign: "left",
+	boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
 };
 
 export default function SuggestedPrompts({ onSelect }: Props) {

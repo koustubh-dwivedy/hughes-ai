@@ -51,19 +51,22 @@ async function interceptHistory(page: import("@playwright/test").Page) {
 }
 
 test.describe("history surfaces", () => {
-	test("clicking a recent question card loads its result", async ({ page }) => {
+	test("clicking a question in the drawer loads its result", async ({
+		page,
+	}) => {
 		await interceptHistory(page);
 		await page.goto("/intelligence");
 
-		const recent = page.getByRole("region", { name: "Recent questions" });
+		await page
+			.getByRole("button", { name: "Open conversation history" })
+			.click();
+		const drawer = page.getByRole("dialog", { name: "Conversation history" });
 		await expect(
-			recent.getByText("How many loans were funded?"),
+			drawer.getByText("How many loans were funded?"),
 		).toBeVisible();
 
-		await recent.getByText("How many loans were funded?").click();
+		await drawer.getByText("How many loans were funded?").click();
 
-		const section = page.locator("section");
-		await expect(section.first()).toBeVisible();
 		await expect(
 			page.getByText("Counts all funded loans in the originations table."),
 		).toBeVisible();

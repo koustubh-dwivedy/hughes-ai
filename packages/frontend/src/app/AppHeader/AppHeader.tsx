@@ -6,9 +6,9 @@ import { colors, radii, spacing, typography } from "../../theme/tokens";
 const stripStyle: React.CSSProperties = {
 	height: 64,
 	minHeight: 64,
-	display: "flex",
+	display: "grid",
+	gridTemplateColumns: "1fr auto 1fr",
 	alignItems: "center",
-	justifyContent: "space-between",
 	padding: `0 ${spacing[6]}`,
 	backgroundColor: colors.white,
 	borderBottom: `1px solid ${colors.slate[200]}`,
@@ -18,7 +18,15 @@ const stripStyle: React.CSSProperties = {
 const tenantStyle: React.CSSProperties = {
 	display: "flex",
 	flexDirection: "column",
+	alignItems: "center",
+	textAlign: "center",
 	lineHeight: 1.1,
+	gridColumn: "2",
+};
+
+const searchSlotStyle: React.CSSProperties = {
+	gridColumn: "3",
+	justifySelf: "end",
 };
 
 const searchBtnStyle: React.CSSProperties = {
@@ -71,16 +79,18 @@ export default function AppHeader() {
 					{TENANT.subtitle}
 				</span>
 			</div>
-			<button
-				type="button"
-				aria-label="Open search"
-				style={searchBtnStyle}
-				onClick={() => query.toggle()}
-			>
-				<Search size={14} />
-				<span>Search</span>
-				<span style={kbdStyle}>⌘K</span>
-			</button>
+			<div style={searchSlotStyle}>
+				<button
+					type="button"
+					aria-label="Open search"
+					style={searchBtnStyle}
+					onClick={() => query.toggle()}
+				>
+					<Search size={14} />
+					<span>Search</span>
+					<span style={kbdStyle}>⌘K</span>
+				</button>
+			</div>
 		</header>
 	);
 }

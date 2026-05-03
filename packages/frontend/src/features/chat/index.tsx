@@ -6,7 +6,6 @@ import log from "../../shared/lib/logger";
 import { useGetHistoryDetailQuery } from "../history/api";
 import AskInput from "./AskInput";
 import HistoryDrawer from "./HistoryDrawer";
-import RecentQuestions from "./RecentQuestions";
 import Thread, { type ThreadMessage } from "./Thread";
 import { usePostAskMutation } from "./api";
 import SuggestedPrompts from "./messages/SuggestedPrompts";
@@ -122,10 +121,7 @@ export default function Chat() {
 			}}
 		>
 			{messages.length === 0 ? (
-				<>
-					<SuggestedPrompts onSelect={(p) => void handleAsk(p)} />
-					<RecentQuestions />
-				</>
+				<SuggestedPrompts onSelect={(p) => void handleAsk(p)} />
 			) : (
 				<Thread messages={messages} />
 			)}

@@ -184,7 +184,7 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 								borderBottom: `1px solid ${colors.slate[700]}`,
 							}}
 						>
-							<Logo variant="wordmark" onDark height={22} />
+							<Logo variant="wordmark" onDark height={18} />
 							<button
 								type="button"
 								aria-label="Close navigation"
@@ -254,7 +254,7 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 							borderBottom: `1px solid ${colors.slate[700]}`,
 						}}
 					>
-						<Logo variant="wordmark" onDark height={22} />
+						<Logo variant="wordmark" onDark height={18} />
 						<button
 							type="button"
 							aria-label="Collapse sidebar"

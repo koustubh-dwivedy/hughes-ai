@@ -56,34 +56,29 @@ test.beforeEach(async ({ page }) => {
 	);
 });
 
-test("Recent questions card renders on the Data Intelligence empty state", async ({
+test("Clock button opens the history drawer with recent questions", async ({
 	page,
 }) => {
-	await page.goto("/intelligence");
-	const recent = page.getByRole("region", { name: "Recent questions" });
-	await expect(recent).toBeVisible();
-	await expect(
-		recent.getByText("What is the past-due ratio?"),
-	).toBeVisible();
-	await expect(recent.getByText("Top branches by deposits")).toBeVisible();
-});
-
-test("Clicking the clock button opens the history drawer", async ({ page }) => {
 	await page.goto("/intelligence");
 	await page
 		.getByRole("button", { name: "Open conversation history" })
 		.click();
 	const drawer = page.getByRole("dialog", { name: "Conversation history" });
 	await expect(drawer).toBeVisible();
+	await expect(drawer.getByText("What is the past-due ratio?")).toBeVisible();
 	await expect(drawer.getByText("How many active loans?")).toBeVisible();
+	await expect(drawer.getByText("Top branches by deposits")).toBeVisible();
 });
 
-test("Clicking a recent question loads the conversation in chat", async ({
+test("Clicking a question in the drawer loads the conversation", async ({
 	page,
 }) => {
 	await page.goto("/intelligence");
-	const recent = page.getByRole("region", { name: "Recent questions" });
-	await recent.getByText("How many active loans?").click();
+	await page
+		.getByRole("button", { name: "Open conversation history" })
+		.click();
+	const drawer = page.getByRole("dialog", { name: "Conversation history" });
+	await drawer.getByText("How many active loans?").click();
 	await expect(
 		page.getByRole("log", { name: "Conversation" }),
 	).toBeVisible();
