@@ -1,7 +1,7 @@
 import type React from "react";
 import { useState } from "react";
-import { Line, LineChart } from "recharts";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import Tooltip from "../Tooltip";
 import { CountUp, motionDurations, usePrefersReducedMotion } from "../motion";
 import type { KpiTileProps } from "./types";
 
@@ -39,6 +39,19 @@ interface HeaderRowProps {
 }
 
 function HeaderRow({ label, icon, infoTooltip }: HeaderRowProps) {
+	const labelEl = (
+		<span
+			style={{
+				fontSize: typography.size.xs,
+				fontWeight: typography.weight.medium,
+				color: colors.slate[500],
+				textTransform: "uppercase",
+				letterSpacing: "0.05em",
+			}}
+		>
+			{label}
+		</span>
+	);
 	return (
 		<div style={{ display: "flex", alignItems: "center", gap: spacing[1] }}>
 			{icon !== undefined && (
@@ -48,35 +61,37 @@ function HeaderRow({ label, icon, infoTooltip }: HeaderRowProps) {
 					{icon}
 				</span>
 			)}
-			<span
-				style={{
-					fontSize: typography.size.xs,
-					fontWeight: typography.weight.medium,
-					color: colors.slate[500],
-					textTransform: "uppercase",
-					letterSpacing: "0.05em",
-				}}
-			>
-				{label}
-			</span>
+			{labelEl}
 			{infoTooltip !== undefined && (
-				<button
-					type="button"
-					title={infoTooltip}
-					aria-label={infoTooltip}
-					style={{
-						background: "none",
-						border: "none",
-						padding: 0,
-						marginLeft: spacing[1],
-						cursor: "help",
-						color: colors.slate[400],
-						fontSize: typography.size.xs,
-						lineHeight: 1,
-					}}
+				<Tooltip
+					label={infoTooltip}
+					multiline
+					w={300}
+					withArrow
+					position="top"
 				>
-					ⓘ
-				</button>
+					<span
+						aria-label={infoTooltip}
+						role="img"
+						style={{
+							display: "inline-flex",
+							alignItems: "center",
+							justifyContent: "center",
+							width: 14,
+							height: 14,
+							borderRadius: "50%",
+							border: `1px solid ${colors.slate[300]}`,
+							color: colors.slate[400],
+							fontSize: 10,
+							fontWeight: typography.weight.semibold,
+							marginLeft: spacing[1],
+							cursor: "help",
+							lineHeight: 1,
+						}}
+					>
+						i
+					</span>
+				</Tooltip>
 			)}
 		</div>
 	);
@@ -86,8 +101,9 @@ export default function KpiTile({
 	label,
 	value,
 	delta,
+	deltaLabel,
 	deltaPositive,
-	sparkline,
+	context,
 	icon,
 	infoTooltip,
 	onClick,
@@ -103,7 +119,7 @@ export default function KpiTile({
 				style={{
 					display: "block",
 					width: 180,
-					height: 90,
+					height: 110,
 					backgroundColor: colors.slate[100],
 					borderRadius: radii.lg,
 				}}
@@ -128,7 +144,7 @@ export default function KpiTile({
 		border: `1px solid ${colors.slate[200]}`,
 		borderRadius: radii.lg,
 		backgroundColor: colors.white,
-		minWidth: 160,
+		minWidth: 180,
 		...visuals,
 		cursor: isClickable ? "pointer" : "default",
 		userSelect: "none" as const,
@@ -161,21 +177,35 @@ export default function KpiTile({
 						fontSize: typography.size.xs,
 						color: deltaColor(deltaPositive),
 						fontWeight: typography.weight.medium,
+						display: "inline-flex",
+						alignItems: "center",
+						gap: spacing[1],
 					}}
 				>
-					{delta}
+					<span>{delta}</span>
+					{deltaLabel !== undefined && (
+						<span
+							style={{
+								color: colors.slate[400],
+								fontWeight: typography.weight.normal,
+							}}
+						>
+							{deltaLabel}
+						</span>
+					)}
 				</span>
 			)}
-			{sparkline !== undefined && sparkline.length > 0 && (
-				<LineChart width={80} height={24} data={sparkline}>
-					<Line
-						type="monotone"
-						dataKey="value"
-						stroke={colors.indigo[500]}
-						strokeWidth={1.5}
-						dot={false}
-					/>
-				</LineChart>
+			{context !== undefined && (
+				<span
+					style={{
+						fontSize: typography.size.xs,
+						color: colors.slate[500],
+						lineHeight: 1.4,
+						marginTop: spacing[1],
+					}}
+				>
+					{context}
+				</span>
 			)}
 		</div>
 	);

@@ -4,13 +4,22 @@ import type {
 	OfficerDelinquency,
 	PastDueData,
 } from "../../shared/api/dashboardApi";
+import DashboardHeadline from "../../shared/components/DashboardHeadline";
+import InsightCard from "../../shared/components/InsightCard";
+import MonthSelector from "../../shared/components/MonthSelector";
 import { useDashboardContext } from "../../shared/context/DashboardContext";
+import { metricDef } from "../../shared/insights/glossary";
+import { pastDueHeadline } from "../../shared/insights/headlines";
+import {
+	officerLoadInsight,
+	pastDueTrendInsight,
+	ratioTrendInsight,
+} from "../../shared/insights/rules";
 import { emit } from "../../shared/telemetry/client";
 import { formatCurrency, formatPercent } from "../../shared/utils/format";
 import { spacing } from "../../theme/tokens";
 import ChartCard from "../../ui/primitives/ChartCard";
 import DataTable from "../../ui/primitives/DataTable";
-import DateBadge from "../../ui/primitives/DateBadge";
 import KpiTile from "../../ui/primitives/KpiTile";
 import PageHeader from "../../ui/primitives/PageHeader";
 import { usePastDue } from "./api";
@@ -61,11 +70,19 @@ function onTile(kpi_id: string, value: number) {
 	emit({ type: "kpi.tile.clicked", kpi_id, value });
 }
 
+function tileFromDef(id: string, fallbackLabel: string) {
+	const def = metricDef(id);
+	return {
+		label: def?.short ?? fallbackLabel,
+		infoTooltip: def?.tooltip,
+	};
+}
+
 function buildKpiTiles(d: PastDueData) {
 	return [
 		{
 			id: "past_due_total",
-			label: "Past Due Total",
+			...tileFromDef("past_due_total", "Past Due Total"),
 			value: formatCurrency(d.past_due_total),
 			delta:
 				d.past_due_total_delta > 0
@@ -76,21 +93,21 @@ function buildKpiTiles(d: PastDueData) {
 		},
 		{
 			id: "nonaccrual_total",
-			label: "Nonaccrual",
+			...tileFromDef("nonaccrual_total", "Nonaccrual"),
 			value: formatCurrency(d.nonaccrual_total),
 			deltaPositive: d.nonaccrual_total_delta <= 0,
 			onClick: () => onTile("nonaccrual_total", d.nonaccrual_total),
 		},
 		{
 			id: "watchlist_count",
-			label: "Watchlist",
+			...tileFromDef("watchlist_count", "Watchlist"),
 			value: d.watchlist_count.toLocaleString(),
 			deltaPositive: d.watchlist_count_delta <= 0,
 			onClick: () => onTile("watchlist_count", d.watchlist_count),
 		},
 		{
 			id: "nonperforming_balance",
-			label: "NPL Balance",
+			...tileFromDef("nonperforming_balance", "NPL Balance"),
 			value: formatCurrency(d.nonperforming_balance),
 			deltaPositive: d.nonperforming_balance_delta <= 0,
 			onClick: () => onTile("nonperforming_balance", d.nonperforming_balance),
@@ -141,8 +158,9 @@ export default function PastDue() {
 			<PageHeader
 				title="Past Due"
 				eyebrow="Credit Risk"
-				dateBadge={asOfDate ? <DateBadge asOfDate={asOfDate} /> : undefined}
+				actions={<MonthSelector surface="past-due" />}
 			/>
+			{data && <DashboardHeadline headline={pastDueHeadline(data)} />}
 
 			<div style={tilesRowStyle}>
 				{loading
@@ -155,14 +173,30 @@ export default function PastDue() {
 			</div>
 
 			<div style={gridStyle}>
-				<ChartCard title="Past Due by Officer" loading={loading}>
+				<ChartCard
+					title="Past-Due Balance by Officer"
+					subtitle="Who carries the most overdue book this month"
+					loading={loading}
+					footer={
+						!loading && (
+							<InsightCard {...officerLoadInsight(officerBarData)} />
+						)
+					}
+				>
 					<StackedBar
 						data={officerBarData}
 						series={[{ key: "balance" }]}
 						loading={loading}
 					/>
 				</ChartCard>
-				<ChartCard title="Delinquency Trend (13 mo.)" loading={loading}>
+				<ChartCard
+					title="Delinquency by Lateness Bucket (13 mo.)"
+					subtitle="30-59 / 60-89 / 90+ days past due"
+					loading={loading}
+					footer={
+						!loading && <InsightCard {...pastDueTrendInsight(trendData)} />
+					}
+				>
 					<StackedBar
 						data={trendData}
 						series={SEVERITY_SERIES}
@@ -171,7 +205,12 @@ export default function PastDue() {
 				</ChartCard>
 			</div>
 
-			<ChartCard title="Past Due Ratio Trend (%)" loading={loading}>
+			<ChartCard
+				title="Past-Due Ratio (%)"
+				subtitle="Share of loan balance 30+ days late"
+				loading={loading}
+				footer={!loading && <InsightCard {...ratioTrendInsight(ratioData)} />}
+			>
 				<LineTrend
 					data={ratioData}
 					seriesLabel="Past Due Ratio (%)"

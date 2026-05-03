@@ -51,11 +51,11 @@ describe("PastDue — contract", () => {
 		renderWithProviders(<PastDue />);
 		expect(screen.getByText("Past Due Total")).toBeInTheDocument();
 		expect(screen.getByText("$2.5M")).toBeInTheDocument();
-		expect(screen.getByText("Nonaccrual")).toBeInTheDocument();
+		expect(screen.getByText("Loans Earning No Interest")).toBeInTheDocument();
 		expect(screen.getByText("$500K")).toBeInTheDocument();
-		expect(screen.getByText("Watchlist")).toBeInTheDocument();
+		expect(screen.getByText("Loans Under Watch")).toBeInTheDocument();
 		expect(screen.getByText("15")).toBeInTheDocument();
-		expect(screen.getByText("NPL Balance")).toBeInTheDocument();
+		expect(screen.getByText("Non-Performing Balance")).toBeInTheDocument();
 		expect(screen.getByText("$1.2M")).toBeInTheDocument();
 	});
 

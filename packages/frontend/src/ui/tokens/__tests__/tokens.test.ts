@@ -36,8 +36,8 @@ describe("color tokens", () => {
 		}
 	});
 
-	it("brand shade 6 is the primary indigo", () => {
-		expect(colorTokens.brand[6]).toBe("#4f46e5");
+	it("brand shade 6 is the primary monochrome charcoal", () => {
+		expect(colorTokens.brand[6]).toBe("#404040");
 	});
 
 	it("success base shade is a hex color", () => {

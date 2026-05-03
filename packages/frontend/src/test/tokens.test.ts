@@ -9,10 +9,10 @@ describe("tokens", () => {
 		}
 	});
 
-	it("colors.indigo has expected shades", () => {
-		expect(colors.indigo[50]).toBe("#eef2ff");
-		expect(colors.indigo[500]).toBe("#6366f1");
-		expect(colors.indigo[700]).toBe("#4338ca");
+	it("colors.indigo has expected monochrome shades", () => {
+		expect(colors.indigo[50]).toBe("#fafafa");
+		expect(colors.indigo[500]).toBe("#737373");
+		expect(colors.indigo[700]).toBe("#262626");
 	});
 
 	it("colors.white is white", () => {

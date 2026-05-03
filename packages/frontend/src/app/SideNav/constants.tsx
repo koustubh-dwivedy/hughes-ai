@@ -1,12 +1,21 @@
 import {
 	AlertTriangle,
 	BarChart2,
+	Database,
 	Landmark,
-	MessageSquare,
+	Sparkles,
 	Users,
 } from "lucide-react";
 import { colors, spacing, typography } from "../../theme/tokens";
 import type { NavEntry } from "./types";
+
+export const INTELLIGENCE: NavEntry[] = [
+	{
+		label: "Data Intelligence",
+		href: "/intelligence",
+		icon: <Sparkles size={16} />,
+	},
+];
 
 export const DASHBOARDS: NavEntry[] = [
 	{
@@ -31,8 +40,12 @@ export const DASHBOARDS: NavEntry[] = [
 	},
 ];
 
-export const TOOLS: NavEntry[] = [
-	{ label: "Chat", href: "/chat", icon: <MessageSquare size={16} /> },
+export const DATA: NavEntry[] = [
+	{
+		label: "Sources & Freshness",
+		href: "/data/sources",
+		icon: <Database size={16} />,
+	},
 ];
 
 export const SECTION_LABEL: React.CSSProperties = {
@@ -43,3 +56,5 @@ export const SECTION_LABEL: React.CSSProperties = {
 	textTransform: "uppercase",
 	letterSpacing: "0.06em",
 };
+
+export const INTELLIGENCE_PATH_PREFIXES = ["/intelligence", "/chat"];

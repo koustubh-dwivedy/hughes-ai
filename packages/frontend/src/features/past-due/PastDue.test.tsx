@@ -84,9 +84,9 @@ describe("PastDue — contract tests", () => {
 		renderPage();
 		for (const label of [
 			"Past Due Total",
-			"Nonaccrual",
-			"Watchlist",
-			"NPL Balance",
+			"Loans Earning No Interest",
+			"Loans Under Watch",
+			"Non-Performing Balance",
 		]) {
 			await waitFor(() =>
 				expect(screen.getByText(label, { exact: true })).toBeInTheDocument(),

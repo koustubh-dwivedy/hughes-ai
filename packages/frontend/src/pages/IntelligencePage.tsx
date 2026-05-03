@@ -1,5 +1,5 @@
 import Chat from "../features/chat";
 
-export default function ChatPage() {
+export default function IntelligencePage() {
 	return <Chat />;
 }

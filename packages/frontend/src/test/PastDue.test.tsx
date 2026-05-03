@@ -46,7 +46,7 @@ describe("PastDue", () => {
 		renderWithProviders(<PastDue />);
 		expect(screen.getByText("Past Due Total")).toBeInTheDocument();
 		expect(screen.getByText("$2.5M")).toBeInTheDocument();
-		expect(screen.getByText("Watchlist")).toBeInTheDocument();
+		expect(screen.getByText("Loans Under Watch")).toBeInTheDocument();
 	});
 
 	it("positive past_due_total_delta shows red delta with formatted currency", () => {

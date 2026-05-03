@@ -5,7 +5,7 @@ import uuid
 from datetime import date, datetime
 
 from fastapi import APIRouter, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from api.prometheus import (
     dashboard_cache_total,
@@ -15,6 +15,7 @@ from api.prometheus import (
 from api.repo import dashboards as repo_dash
 from api.repo import executive as repo_exec
 from api.repo import loans as repo_loans
+from api.repo import months as repo_months
 from api.repo.history import save_dashboard_audit
 from api.service import dashboard_query, executive_query
 from api.types.dashboard_envelope import DashboardEnvelope
@@ -24,6 +25,27 @@ from api.types.officer_branch import OfficerBranchData
 from api.types.past_due import PastDueData
 
 router = APIRouter(prefix="/dashboards")
+
+
+def _snap_to_month_start(d: date | None) -> date | None:
+    """Marts only contain month-start rows; any other day returns no data,
+    so normalise here. The frontend month selector enforces this too, but
+    a stale URL parameter or direct API caller should not see empty charts."""
+    return d.replace(day=1) if d is not None else None
+
+
+@router.get("/available-months")
+async def available_months(
+    request: Request,
+    surface: str = Query(...),
+) -> JSONResponse:
+    """Return month-start values present in the surface's mart, newest first."""
+    db_url: str = request.app.state.db_url
+    months = repo_months.fetch_available_months(surface, db_url)
+    return JSONResponse(
+        content={"months": [m.isoformat() for m in months]},
+        headers={"Cache-Control": "max-age=300, public"},
+    )
 
 
 def build_envelope(
@@ -53,7 +75,9 @@ async def deposit_portfolio(
     db_url: str = request.app.state.db_url
     endpoint = "deposit-portfolio"
 
-    as_of = as_of_date or repo_dash.fetch_latest_deposit_month(db_url)
+    as_of = _snap_to_month_start(as_of_date) or repo_dash.fetch_latest_deposit_month(
+        db_url
+    )
     as_of_str = str(as_of)
 
     cached = dashboard_query.cache_get(endpoint, as_of_str)
@@ -95,7 +119,8 @@ async def past_due(
     db_url: str = request.app.state.db_url
     endpoint = "past-due"
 
-    as_of = as_of_date or repo_dash.fetch_latest_delinquency_month(db_url)
+    snapped = _snap_to_month_start(as_of_date)
+    as_of = snapped or repo_dash.fetch_latest_delinquency_month(db_url)
     as_of_str = str(as_of)
 
     cached = dashboard_query.cache_get(endpoint, as_of_str)
@@ -140,7 +165,9 @@ async def officer_branch(
     db_url: str = request.app.state.db_url
     endpoint = "officer-branch"
 
-    as_of = as_of_date or repo_loans.fetch_latest_loans_month(db_url)
+    as_of = _snap_to_month_start(as_of_date) or repo_loans.fetch_latest_loans_month(
+        db_url
+    )
     as_of_str = f"{as_of}|b={branch_id}|o={officer_id}|t={tab}"
 
     cached = dashboard_query.cache_get(endpoint, as_of_str)
@@ -184,7 +211,9 @@ async def executive_summary(
     db_url: str = request.app.state.db_url
     endpoint = "executive-summary"
 
-    as_of = as_of_date or repo_exec.fetch_latest_executive_month(db_url)
+    as_of = _snap_to_month_start(as_of_date) or repo_exec.fetch_latest_executive_month(
+        db_url
+    )
     as_of_str = str(as_of)
 
     cached = dashboard_query.cache_get(endpoint, as_of_str)

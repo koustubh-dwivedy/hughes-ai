@@ -2,25 +2,29 @@ import { Tabs } from "@mantine/core";
 import { useSearchParams } from "react-router-dom";
 import Combo from "../../charts/Combo";
 import Donut from "../../charts/Donut";
-import StackedBar from "../../charts/StackedBar";
 import Waterfall from "../../charts/Waterfall";
 import type { OfficerBranchData } from "../../shared/api/dashboardApi";
+import DashboardHeadline from "../../shared/components/DashboardHeadline";
+import InsightCard from "../../shared/components/InsightCard";
+import MonthSelector from "../../shared/components/MonthSelector";
 import { useDashboardContext } from "../../shared/context/DashboardContext";
+import { metricDef } from "../../shared/insights/glossary";
+import { officerBranchHeadline } from "../../shared/insights/headlines";
+import { changeByProductInsight } from "../../shared/insights/rules";
 import { emit } from "../../shared/telemetry/client";
 import { formatCurrency } from "../../shared/utils/format";
-import { colors, spacing, typography } from "../../theme/tokens";
+import { spacing } from "../../theme/tokens";
 import Banner from "../../ui/primitives/Banner";
 import ChartCard from "../../ui/primitives/ChartCard";
 import DataTable from "../../ui/primitives/DataTable";
-import DateBadge from "../../ui/primitives/DateBadge";
 import KpiTile from "../../ui/primitives/KpiTile";
 import PageHeader from "../../ui/primitives/PageHeader";
+import FiltersRow from "./FiltersRow";
 import WatchlistTrend from "./WatchlistTrend";
 import { useOfficerBranch } from "./api";
 import {
 	buildBorrowerRows,
 	buildComboData,
-	buildSingleLoan,
 	buildTabRows,
 	buildWaterfallData,
 	productLabel,
@@ -30,33 +34,11 @@ export { buildBorrowerRows, buildTabRows };
 
 const LOADING_KEYS = ["a", "b", "c"];
 
-const BRANCH_OPTIONS = [
-	{ value: "", label: "All Branches" },
-	{ value: "1", label: "Main Branch" },
-	{ value: "2", label: "East Branch" },
-	{ value: "3", label: "West Branch" },
-];
-
-const OFFICER_OPTIONS = [
-	{ value: "", label: "All Officers" },
-	{ value: "off-01", label: "Officer #01" },
-	{ value: "off-02", label: "Officer #02" },
-	{ value: "off-03", label: "Officer #03" },
-];
-
 const gridStyle: React.CSSProperties = {
 	display: "grid",
 	gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
 	gap: spacing[6],
 	marginBottom: spacing[6],
-};
-
-const labelStyle: React.CSSProperties = {
-	fontSize: typography.size.xs,
-	fontWeight: typography.weight.medium,
-	color: colors.slate[600],
-	display: "block",
-	marginBottom: spacing[1],
 };
 
 type SetParams = ReturnType<typeof useSearchParams>[1];
@@ -70,26 +52,35 @@ function applyTabChange(value: string | null, set: SetParams) {
 	emit({ type: "tab.switched", tab_id: value, panel_id: "officer-branch" });
 }
 
-function applyFilterChange(value: string, key: string, set: SetParams) {
-	set((prev) => {
-		if (value) prev.set(key, value);
-		else prev.delete(key);
-		return prev;
-	});
-	emit({ type: "filter.changed", filter_name: key, value });
-}
-
 interface KpiTileSpec {
 	label: string;
 	value: string;
+	infoTooltip?: string;
+}
+
+function tileFromDef(id: string, fallback: string, value: string): KpiTileSpec {
+	const def = metricDef(id);
+	return {
+		label: def?.short ?? fallback,
+		value,
+		infoTooltip: def?.tooltip,
+	};
 }
 
 function buildKpiTiles(d: OfficerBranchData | null): KpiTileSpec[] {
 	if (!d) return [];
 	return [
-		{ label: "Total Loans", value: formatCurrency(d.total_loans) },
-		{ label: "Account Count", value: d.account_count.toLocaleString() },
-		{ label: "Avg Loan Balance", value: formatCurrency(d.avg_loan_balance) },
+		tileFromDef("total_loans_balance", "Total Loans", formatCurrency(d.total_loans)),
+		tileFromDef(
+			"account_count",
+			"Account Count",
+			d.account_count.toLocaleString(),
+		),
+		tileFromDef(
+			"avg_loan_balance",
+			"Avg Loan Balance",
+			formatCurrency(d.avg_loan_balance),
+		),
 	];
 }
 
@@ -121,51 +112,6 @@ function KpiRow({
 	);
 }
 
-function FiltersRow({
-	branchId,
-	officerId,
-	setSearchParams,
-}: {
-	branchId: string;
-	officerId: string;
-	setSearchParams: SetParams;
-}) {
-	function onBranch(e: React.ChangeEvent<HTMLSelectElement>) {
-		applyFilterChange(e.target.value, "branch_id", setSearchParams);
-	}
-	function onOfficer(e: React.ChangeEvent<HTMLSelectElement>) {
-		applyFilterChange(e.target.value, "officer_id", setSearchParams);
-	}
-	return (
-		<div style={{ display: "flex", gap: spacing[4], marginBottom: spacing[6] }}>
-			<label>
-				<span style={labelStyle}>Branch</span>
-				<select aria-label="Branch filter" value={branchId} onChange={onBranch}>
-					{BRANCH_OPTIONS.map((o) => (
-						<option key={o.value} value={o.value}>
-							{o.label}
-						</option>
-					))}
-				</select>
-			</label>
-			<label>
-				<span style={labelStyle}>Officer</span>
-				<select
-					aria-label="Officer filter"
-					value={officerId}
-					onChange={onOfficer}
-				>
-					{OFFICER_OPTIONS.map((o) => (
-						<option key={o.value} value={o.value}>
-							{o.label}
-						</option>
-					))}
-				</select>
-			</label>
-		</div>
-	);
-}
-
 export default function OfficerBranch() {
 	const { asOfDate } = useDashboardContext();
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -193,8 +139,9 @@ export default function OfficerBranch() {
 			<PageHeader
 				title="Officer / Branch Loans"
 				eyebrow="Loan Portfolio"
-				dateBadge={asOfDate ? <DateBadge asOfDate={asOfDate} /> : undefined}
+				actions={<MonthSelector surface="officer-branch" />}
 			/>
+			{data && <DashboardHeadline headline={officerBranchHeadline(data)} />}
 			<Banner message="Demo data only — borrower names are synthetic and do not represent real members." />
 
 			<KpiRow tiles={buildKpiTiles(data)} loading={loading} />
@@ -217,31 +164,47 @@ export default function OfficerBranch() {
 			</Tabs>
 
 			<div style={gridStyle}>
-				<ChartCard title="Loan Mix" loading={loading}>
+				<ChartCard
+					title="Loan Mix by Product"
+					subtitle="Share of loans by type (auto, mortgage, commercial, etc.)"
+					loading={loading}
+				>
 					<Donut data={buildLoanMix(data)} loading={loading} />
 				</ChartCard>
-				<ChartCard title="Single-Loan Customers by Type" loading={loading}>
-					<StackedBar
-						data={buildSingleLoan(data)}
-						series={[{ key: "count" }]}
-						loading={loading}
-					/>
-				</ChartCard>
-				<ChartCard title="MTD Change by Type ($M)" loading={loading}>
+				<ChartCard
+					title="Loan Movement by Product ($M)"
+					subtitle="Month-to-date balance change broken out by product"
+					loading={loading}
+					footer={
+						!loading && (
+							<InsightCard
+								{...changeByProductInsight(buildWaterfallData(data))}
+							/>
+						)
+					}
+				>
 					<Waterfall data={buildWaterfallData(data)} loading={loading} />
 				</ChartCard>
-				<ChartCard title="Balance vs. Rate" loading={loading}>
+				<ChartCard
+					title="Loans vs. Yield by Product"
+					subtitle="Bars: balance ($M). Line: average interest rate (%)"
+					loading={loading}
+				>
 					<Combo
 						data={buildComboData(data)}
 						barLabel="Balance ($M)"
-						lineLabel="Rate (%)"
+						lineLabel="Avg rate (%)"
 						loading={loading}
 					/>
 				</ChartCard>
 			</div>
 
-			{data?.tab_data && (
-				<ChartCard title="Lifecycle" loading={loading}>
+			{data?.tab_data && buildTabRows(data).length > 0 && (
+				<ChartCard
+					title={`Lifecycle: ${tab ?? "new"} loans`}
+					subtitle="Recent activity by product, last 12 months"
+					loading={loading}
+				>
 					<DataTable
 						columns={["Period", "Product Type", "Count", "Amount"]}
 						rows={buildTabRows(data)}
@@ -252,7 +215,11 @@ export default function OfficerBranch() {
 
 			<WatchlistTrend data={data?.watchlist_trend ?? []} />
 
-			<ChartCard title="Top Borrowers" loading={loading}>
+			<ChartCard
+				title="Top Borrowers"
+				subtitle="Largest individual loan relationships"
+				loading={loading}
+			>
 				<DataTable
 					columns={["Member", "Balance", "Share %"]}
 					rows={buildBorrowerRows(data)}

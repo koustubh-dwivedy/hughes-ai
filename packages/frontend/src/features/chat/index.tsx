@@ -5,8 +5,9 @@ import { historyDetailToAskResponse } from "../../shared/api/api";
 import log from "../../shared/lib/logger";
 import { useGetHistoryDetailQuery } from "../history/api";
 import AskInput from "./AskInput";
+import HistoryDrawer from "./HistoryDrawer";
+import RecentQuestions from "./RecentQuestions";
 import Thread, { type ThreadMessage } from "./Thread";
-import TrustPanel from "./TrustPanel";
 import { usePostAskMutation } from "./api";
 import SuggestedPrompts from "./messages/SuggestedPrompts";
 
@@ -26,6 +27,7 @@ function formatAskError(err: unknown): string {
 
 export default function Chat() {
 	const [messages, setMessages] = useState<ThreadMessage[]>([]);
+	const [historyOpen, setHistoryOpen] = useState(false);
 	const [searchParams, setSearchParams] = useSearchParams();
 	const historyId = searchParams.get("history");
 	const [postAsk, { isLoading: loading }] = usePostAskMutation();
@@ -110,28 +112,32 @@ export default function Chat() {
 	}, [historyDetail, historyError, setSearchParams]);
 
 	return (
-		<div>
-			<h1>Hughes AI</h1>
-			<div style={{ display: "flex", gap: "2rem", marginTop: "1.5rem" }}>
-				<div
-					style={{
-						flex: 2,
-						display: "flex",
-						flexDirection: "column",
-						gap: "1rem",
-					}}
-				>
-					{messages.length === 0 ? (
-						<SuggestedPrompts onSelect={(p) => void handleAsk(p)} />
-					) : (
-						<Thread messages={messages} />
-					)}
-					<AskInput onSubmit={handleAsk} loading={loading} />
-				</div>
-				<div style={{ flex: 1 }}>
-					<TrustPanel />
-				</div>
-			</div>
+		<div
+			style={{
+				display: "flex",
+				flexDirection: "column",
+				gap: "1rem",
+				maxWidth: 960,
+				margin: "0 auto",
+			}}
+		>
+			{messages.length === 0 ? (
+				<>
+					<SuggestedPrompts onSelect={(p) => void handleAsk(p)} />
+					<RecentQuestions />
+				</>
+			) : (
+				<Thread messages={messages} />
+			)}
+			<AskInput
+				onSubmit={handleAsk}
+				loading={loading}
+				onOpenHistory={() => setHistoryOpen(true)}
+			/>
+			<HistoryDrawer
+				opened={historyOpen}
+				onClose={() => setHistoryOpen(false)}
+			/>
 		</div>
 	);
 }

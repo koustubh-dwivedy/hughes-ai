@@ -1,13 +1,21 @@
 import Donut from "../../charts/Donut";
 import Waterfall from "../../charts/Waterfall";
 import type { DepositPortfolioData } from "../../shared/api/dashboardApi";
+import DashboardHeadline from "../../shared/components/DashboardHeadline";
+import InsightCard from "../../shared/components/InsightCard";
+import MonthSelector from "../../shared/components/MonthSelector";
 import { useDashboardContext } from "../../shared/context/DashboardContext";
+import { metricDef } from "../../shared/insights/glossary";
+import { depositsHeadline } from "../../shared/insights/headlines";
+import {
+	changeByProductInsight,
+	depositMixInsight,
+} from "../../shared/insights/rules";
 import { emit } from "../../shared/telemetry/client";
 import { formatCurrency } from "../../shared/utils/format";
 import { spacing } from "../../theme/tokens";
 import ChartCard from "../../ui/primitives/ChartCard";
 import DataTable from "../../ui/primitives/DataTable";
-import DateBadge from "../../ui/primitives/DateBadge";
 import KpiTile from "../../ui/primitives/KpiTile";
 import PageHeader from "../../ui/primitives/PageHeader";
 import { useDepositPortfolio } from "./api";
@@ -43,6 +51,14 @@ function topWithOther(data: DepositPortfolioData) {
 	return slices;
 }
 
+function tileFromDef(id: string, fallback: string) {
+	const def = metricDef(id);
+	return {
+		label: def?.short ?? fallback,
+		infoTooltip: def?.tooltip,
+	};
+}
+
 function buildKpiTiles(d: DepositPortfolioData) {
 	const mtdDelta =
 		d.mtd_change >= 0
@@ -51,7 +67,7 @@ function buildKpiTiles(d: DepositPortfolioData) {
 	return [
 		{
 			id: "total_deposits",
-			label: "Total Deposits",
+			...tileFromDef("total_deposits", "Total Deposits"),
 			value: formatCurrency(d.total_deposits),
 			delta: mtdDelta,
 			deltaPositive: d.mtd_change >= 0,
@@ -59,27 +75,27 @@ function buildKpiTiles(d: DepositPortfolioData) {
 		},
 		{
 			id: "mtd_change",
-			label: "MTD Change",
+			...tileFromDef("mtd_change", "MTD Change"),
 			value: formatCurrency(d.mtd_change),
 			deltaPositive: d.mtd_change >= 0,
 			onClick: () => onTile("mtd_change", d.mtd_change),
 		},
 		{
 			id: "ytd_change",
-			label: "YTD Change",
+			...tileFromDef("ytd_change", "YTD Change"),
 			value: formatCurrency(d.ytd_change),
 			deltaPositive: d.ytd_change >= 0,
 			onClick: () => onTile("ytd_change", d.ytd_change),
 		},
 		{
 			id: "account_count",
-			label: "Account Count",
+			...tileFromDef("account_count", "Account Count"),
 			value: d.account_count.toLocaleString(),
 			onClick: () => onTile("account_count", d.account_count),
 		},
 		{
 			id: "avg_balance",
-			label: "Avg Balance",
+			...tileFromDef("avg_balance", "Avg Balance"),
 			value: formatCurrency(d.avg_balance_per_customer),
 			onClick: () =>
 				onTile("avg_balance_per_customer", d.avg_balance_per_customer),
@@ -130,8 +146,9 @@ export default function DepositPortfolio() {
 			<PageHeader
 				title="Deposit Portfolio"
 				eyebrow="Deposits"
-				dateBadge={asOfDate ? <DateBadge asOfDate={asOfDate} /> : undefined}
+				actions={<MonthSelector surface="deposits" />}
 			/>
+			{data && <DashboardHeadline headline={depositsHeadline(data)} />}
 
 			<div style={tilesRowStyle}>
 				{loading
@@ -165,23 +182,49 @@ export default function DepositPortfolio() {
 			</div>
 
 			<div style={gridStyle}>
-				<ChartCard title="Deposit Mix" loading={loading}>
+				<ChartCard
+					title="Deposit Mix by Product"
+					subtitle="What share of deposits sits in each account type"
+					loading={loading}
+					footer={
+						!loading && <InsightCard {...depositMixInsight(mixSlices)} />
+					}
+				>
 					<Donut data={mixSlices} centerLabel={centerLabel} loading={loading} />
 				</ChartCard>
-				<ChartCard title="Change by Product ($M)" loading={loading}>
+				<ChartCard
+					title="Change by Product ($M)"
+					subtitle="Year-to-date deposit growth, broken out by account type"
+					loading={loading}
+					footer={
+						!loading && (
+							<InsightCard {...changeByProductInsight(waterfallData)} />
+						)
+					}
+				>
 					<Waterfall data={waterfallData} loading={loading} />
 				</ChartCard>
 			</div>
 
-			<ChartCard title="Deposits by Branch" loading={loading}>
-				<DataTable
-					columns={["Branch", "Balance"]}
-					rows={branchRows}
+			{branchRows.length > 1 && (
+				<ChartCard
+					title="Deposits by Branch"
+					subtitle="Balance held at each branch"
 					loading={loading}
-				/>
-			</ChartCard>
+				>
+					<DataTable
+						columns={["Branch", "Balance"]}
+						rows={branchRows}
+						loading={loading}
+					/>
+				</ChartCard>
+			)}
 
-			<ChartCard title="Top Depositors" loading={loading}>
+			<ChartCard
+				title="Top Depositors"
+				subtitle="Largest individual relationships"
+				loading={loading}
+			>
 				<DataTable
 					columns={["Member", "Balance", "Share %"]}
 					rows={depositorRows}

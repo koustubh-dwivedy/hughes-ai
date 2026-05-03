@@ -62,12 +62,12 @@ describe("ExecutiveSummary — contract tests", () => {
 			"Total Deposits",
 			"MTD Deposit Growth",
 			"YTD Deposit Growth",
-			"Past Due Ratio",
+			"Past Due Loans",
 			"Loan-to-Deposit",
-			"Core Deposit Ratio",
+			"Sticky-Deposit Share",
 		]) {
 			await waitFor(() =>
-				expect(screen.getByText(label, { exact: true })).toBeInTheDocument(),
+				expect(screen.getAllByText(label).length).toBeGreaterThan(0),
 			);
 		}
 	});
@@ -91,7 +91,7 @@ describe("ExecutiveSummary — contract tests", () => {
 		});
 		renderPage();
 		await waitFor(() =>
-			expect(screen.getByText("↓ $200K")).toBeInTheDocument(),
+			expect(screen.getAllByText(/↓ \$200K/).length).toBeGreaterThan(0),
 		);
 		expect(screen.queryByText(/\$-/)).toBeNull();
 	});

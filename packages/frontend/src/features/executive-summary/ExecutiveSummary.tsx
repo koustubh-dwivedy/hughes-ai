@@ -1,11 +1,18 @@
 import Combo from "../../charts/Combo";
 import LineTrend from "../../charts/LineTrend";
+import DashboardHeadline from "../../shared/components/DashboardHeadline";
+import InsightCard from "../../shared/components/InsightCard";
+import MonthSelector from "../../shared/components/MonthSelector";
 import { useDashboardContext } from "../../shared/context/DashboardContext";
+import { executiveHeadline } from "../../shared/insights/headlines";
+import {
+	loanRateSpreadInsight,
+	ratioTrendInsight,
+} from "../../shared/insights/rules";
 import { emit } from "../../shared/telemetry/client";
 import { spacing } from "../../theme/tokens";
 import { formatAxisDate, formatAxisPercent } from "../../ui/charts/formatters";
 import ChartCard from "../../ui/primitives/ChartCard";
-import DateBadge from "../../ui/primitives/DateBadge";
 import KpiTile from "../../ui/primitives/KpiTile";
 import type { KpiTileProps } from "../../ui/primitives/KpiTile/types";
 import PageHeader from "../../ui/primitives/PageHeader";
@@ -98,8 +105,9 @@ export default function ExecutiveSummary() {
 			<PageHeader
 				title="Executive Summary"
 				eyebrow="Overview"
-				dateBadge={asOfDate ? <DateBadge asOfDate={asOfDate} /> : undefined}
+				actions={<MonthSelector surface="executive" />}
 			/>
+			{data && <DashboardHeadline headline={executiveHeadline(data)} />}
 			<ClusterRow
 				label="Loans"
 				tiles={loans}
@@ -132,15 +140,29 @@ export default function ExecutiveSummary() {
 					marginBottom: spacing[6],
 				}}
 			>
-				<ChartCard title="Loans & Rate Spread (13 mo.)" loading={loading}>
+				<ChartCard
+					title="Loan Book vs. Margin (13 mo.)"
+					subtitle="Bars: total loans ($M). Line: loan yield − deposit cost (%)."
+					loading={loading}
+					footer={
+						!loading && <InsightCard {...loanRateSpreadInsight(loansTrend)} />
+					}
+				>
 					<Combo
 						data={loansTrend}
 						barLabel="Loans ($M)"
-						lineLabel="Rate Spread (%)"
+						lineLabel="Margin (%)"
 						loading={loading}
 					/>
 				</ChartCard>
-				<ChartCard title="Past Due Ratio Trend (13 mo.)" loading={loading}>
+				<ChartCard
+					title="Past-Due Ratio (13 mo.)"
+					subtitle="Share of loan balance 30+ days late"
+					loading={loading}
+					footer={
+						!loading && <InsightCard {...ratioTrendInsight(ratioTrend)} />
+					}
+				>
 					<LineTrend
 						data={ratioTrend}
 						seriesLabel="Past Due Ratio (%)"

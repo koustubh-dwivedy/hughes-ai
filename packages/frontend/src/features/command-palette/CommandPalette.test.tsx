@@ -13,10 +13,15 @@ describe("defaultActions", () => {
 		expect(ids).toContain("nav-officers");
 	});
 
-	it("includes tools actions", () => {
+	it("includes intelligence and data sources actions", () => {
 		const ids = defaultActions.map((a) => a.id);
-		expect(ids).toContain("nav-chat");
-		expect(ids).toContain("help");
+		expect(ids).toContain("nav-intelligence");
+		expect(ids).toContain("nav-data-sources");
+	});
+
+	it("does not include the dead Help & Documentation action", () => {
+		const ids = defaultActions.map((a) => a.id);
+		expect(ids).not.toContain("help");
 	});
 
 	it("all actions have id, name, and perform function", () => {

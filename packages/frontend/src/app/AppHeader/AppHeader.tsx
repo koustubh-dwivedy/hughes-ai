@@ -1,12 +1,11 @@
 import { useKBar } from "kbar";
-import { Search, UserCircle2 } from "lucide-react";
-import { useDashboardContext } from "../../shared/context/DashboardContext";
+import { Search } from "lucide-react";
+import { TENANT } from "../../shared/branding";
 import { colors, radii, spacing, typography } from "../../theme/tokens";
-import DatePicker from "./DatePicker";
 
 const stripStyle: React.CSSProperties = {
-	height: 56,
-	minHeight: 56,
+	height: 64,
+	minHeight: 64,
 	display: "flex",
 	alignItems: "center",
 	justifyContent: "space-between",
@@ -16,18 +15,14 @@ const stripStyle: React.CSSProperties = {
 	gap: spacing[4],
 };
 
-const badgeStyle: React.CSSProperties = {
-	fontSize: typography.size.sm,
-	fontWeight: typography.weight.semibold,
-	color: colors.indigo[600],
-	backgroundColor: colors.indigo[50],
-	padding: `${spacing[1]} ${spacing[3]}`,
-	borderRadius: "9999px",
-	letterSpacing: "0.02em",
+const tenantStyle: React.CSSProperties = {
+	display: "flex",
+	flexDirection: "column",
+	lineHeight: 1.1,
 };
 
 const searchBtnStyle: React.CSSProperties = {
-	display: "flex",
+	display: "inline-flex",
 	alignItems: "center",
 	gap: spacing[2],
 	padding: `${spacing[2]} ${spacing[4]}`,
@@ -49,13 +44,32 @@ const kbdStyle: React.CSSProperties = {
 };
 
 export default function AppHeader() {
-	const { asOfDate, setAsOfDate } = useDashboardContext();
 	const { query } = useKBar();
 
 	return (
 		<header aria-label="App header" style={stripStyle}>
-			<div style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
-				<span style={badgeStyle}>Hughes AI</span>
+			<div style={tenantStyle} aria-label="Workspace">
+				<span
+					style={{
+						fontSize: typography.size.sm,
+						fontWeight: typography.weight.semibold,
+						color: colors.slate[900],
+						letterSpacing: "0.01em",
+					}}
+				>
+					{TENANT.name}
+				</span>
+				<span
+					style={{
+						fontSize: typography.size.xs,
+						color: colors.slate[400],
+						fontWeight: typography.weight.medium,
+						letterSpacing: "0.04em",
+						textTransform: "uppercase",
+					}}
+				>
+					{TENANT.subtitle}
+				</span>
 			</div>
 			<button
 				type="button"
@@ -67,23 +81,6 @@ export default function AppHeader() {
 				<span>Search</span>
 				<span style={kbdStyle}>⌘K</span>
 			</button>
-			<div style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
-				<DatePicker value={asOfDate} onChange={setAsOfDate} />
-				<button
-					type="button"
-					aria-label="User menu"
-					style={{
-						background: "none",
-						border: "none",
-						cursor: "pointer",
-						color: colors.slate[600],
-						display: "flex",
-						alignItems: "center",
-					}}
-				>
-					<UserCircle2 size={24} />
-				</button>
-			</div>
 		</header>
 	);
 }

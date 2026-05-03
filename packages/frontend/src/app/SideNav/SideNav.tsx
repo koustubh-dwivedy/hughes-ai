@@ -1,18 +1,9 @@
-import {
-	ChevronLeft,
-	ChevronRight,
-	HelpCircle,
-	Menu,
-	Settings,
-	UserCircle2,
-	X,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import HistoryRail from "../../features/history/HistoryRail";
-import { colors, spacing, typography } from "../../theme/tokens";
+import Logo from "../AppHeader/Logo";
+import { colors, spacing } from "../../theme/tokens";
 import NavItem from "./NavItem";
-import { DASHBOARDS, SECTION_LABEL, TOOLS } from "./constants";
+import { DASHBOARDS, DATA, INTELLIGENCE, SECTION_LABEL } from "./constants";
 import type { CollapseState, SideNavProps } from "./types";
 
 interface NavBodyProps {
@@ -21,7 +12,18 @@ interface NavBodyProps {
 
 function NavBody({ collapsed }: NavBodyProps) {
 	return (
-		<div style={{ flex: 1, paddingTop: spacing[2] }}>
+		<div style={{ flex: 1, paddingTop: spacing[2], overflowY: "auto" }}>
+			{!collapsed && <p style={SECTION_LABEL}>Intelligence</p>}
+			{INTELLIGENCE.map((item) => (
+				<NavItem key={item.href} {...item} collapsed={collapsed} />
+			))}
+			<div
+				style={{
+					height: 1,
+					backgroundColor: colors.slate[700],
+					margin: `${spacing[2]} 0`,
+				}}
+			/>
 			{!collapsed && <p style={SECTION_LABEL}>Dashboards</p>}
 			{DASHBOARDS.map((item) => (
 				<NavItem key={item.href} {...item} collapsed={collapsed} />
@@ -33,48 +35,10 @@ function NavBody({ collapsed }: NavBodyProps) {
 					margin: `${spacing[2]} 0`,
 				}}
 			/>
-			{!collapsed && <p style={SECTION_LABEL}>Tools</p>}
-			{TOOLS.map((item) => (
+			{!collapsed && <p style={SECTION_LABEL}>Data</p>}
+			{DATA.map((item) => (
 				<NavItem key={item.href} {...item} collapsed={collapsed} />
 			))}
-		</div>
-	);
-}
-
-interface BottomRailProps {
-	collapsed: boolean;
-}
-
-function BottomRail({ collapsed }: BottomRailProps) {
-	const btnStyle: React.CSSProperties = {
-		background: "none",
-		border: "none",
-		cursor: "pointer",
-		color: colors.slate[400],
-	};
-	return (
-		<div
-			style={{
-				display: "flex",
-				justifyContent: collapsed ? "center" : "space-around",
-				padding: `${spacing[3]} ${spacing[2]}`,
-				borderTop: `1px solid ${colors.slate[700]}`,
-				gap: spacing[1],
-			}}
-		>
-			<button type="button" aria-label="User profile" style={btnStyle}>
-				<UserCircle2 size={20} />
-			</button>
-			{!collapsed && (
-				<>
-					<button type="button" aria-label="Settings" style={btnStyle}>
-						<Settings size={20} />
-					</button>
-					<button type="button" aria-label="Help" style={btnStyle}>
-						<HelpCircle size={20} />
-					</button>
-				</>
-			)}
 		</div>
 	);
 }
@@ -100,8 +64,6 @@ function useViewportSize() {
 }
 
 function isCollapsedFor(viewport: ViewportSize, state: CollapseState): boolean {
-	// Narrow viewports (768-1024) force icon-only; otherwise honor user
-	// preference. Mobile uses a separate drawer entirely.
 	if (viewport === "narrow") return true;
 	return state === "collapsed";
 }
@@ -145,8 +107,6 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const viewport = useViewportSize();
 	const isMobile = viewport === "mobile";
-	const navigate = useNavigate();
-	const onHistorySelect = (id: string) => navigate(`/chat?history=${id}`);
 
 	const collapsed = isCollapsedFor(viewport, state);
 	const width = collapsed ? 56 : 240;
@@ -162,12 +122,6 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 		overflowX: "hidden",
 		transition: "width 200ms ease, min-width 200ms ease",
 		flexShrink: 0,
-	};
-
-	const wordmarkStyle: React.CSSProperties = {
-		color: colors.white,
-		fontWeight: typography.weight.bold,
-		fontSize: typography.size.base,
 	};
 
 	return (
@@ -222,30 +176,34 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 					>
 						<div
 							style={{
+								position: "relative",
 								display: "flex",
-								justifyContent: "space-between",
+								justifyContent: "center",
 								alignItems: "center",
 								padding: `${spacing[4]} ${spacing[3]}`,
 								borderBottom: `1px solid ${colors.slate[700]}`,
 							}}
 						>
-							<span style={wordmarkStyle}>Hughes AI</span>
+							<Logo variant="wordmark" onDark height={28} />
 							<button
 								type="button"
 								aria-label="Close navigation"
 								onClick={() => setDrawerOpen(false)}
 								style={{
+									position: "absolute",
+									top: spacing[2],
+									right: spacing[2],
 									background: "none",
 									border: "none",
 									cursor: "pointer",
 									color: colors.slate[300],
+									padding: 4,
 								}}
 							>
 								<X size={18} />
 							</button>
 						</div>
 						<NavBody collapsed={false} />
-						<BottomRail collapsed={false} />
 					</nav>
 				</dialog>
 			)}
@@ -255,39 +213,70 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 				style={{ ...navStyle, display: isMobile ? "none" : "flex" }}
 				className="sidebar-desktop"
 			>
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						justifyContent: collapsed ? "center" : "space-between",
-						padding: collapsed
-							? `${spacing[4]} 0`
-							: `${spacing[4]} ${spacing[3]}`,
-						borderBottom: `1px solid ${colors.slate[700]}`,
-					}}
-				>
-					{!collapsed && <span style={wordmarkStyle}>Hughes AI</span>}
-					<button
-						type="button"
-						aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-						onClick={() =>
-							setState((s) => (s === "full" ? "collapsed" : "full"))
-						}
+				{collapsed ? (
+					<div
 						style={{
-							background: "none",
-							border: "none",
-							cursor: "pointer",
-							color: colors.slate[300],
 							display: "flex",
+							flexDirection: "column",
 							alignItems: "center",
+							gap: spacing[1],
+							padding: `${spacing[3]} 0`,
+							borderBottom: `1px solid ${colors.slate[700]}`,
 						}}
 					>
-						{collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-					</button>
-				</div>
+						<Logo variant="icon" onDark height={40} />
+						<button
+							type="button"
+							aria-label="Expand sidebar"
+							onClick={() => setState("full")}
+							style={{
+								background: "none",
+								border: "none",
+								cursor: "pointer",
+								color: colors.slate[400],
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "center",
+								padding: 2,
+							}}
+						>
+							<ChevronRight size={14} />
+						</button>
+					</div>
+				) : (
+					<div
+						style={{
+							position: "relative",
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							padding: `${spacing[4]} ${spacing[3]}`,
+							borderBottom: `1px solid ${colors.slate[700]}`,
+						}}
+					>
+						<Logo variant="wordmark" onDark height={28} />
+						<button
+							type="button"
+							aria-label="Collapse sidebar"
+							onClick={() => setState("collapsed")}
+							style={{
+								position: "absolute",
+								top: spacing[2],
+								right: spacing[2],
+								background: "none",
+								border: "none",
+								cursor: "pointer",
+								color: colors.slate[400],
+								padding: 2,
+								display: "flex",
+								alignItems: "center",
+							}}
+						>
+							<ChevronLeft size={14} />
+						</button>
+					</div>
+				)}
 				<NavBody collapsed={collapsed} />
-				{!collapsed && <HistoryRail onSelect={onHistorySelect} />}
-				<BottomRail collapsed={collapsed} />
 			</nav>
 		</>
 	);

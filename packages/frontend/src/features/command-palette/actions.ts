@@ -38,21 +38,22 @@ export const defaultActions: Action[] = [
 		},
 	},
 	{
-		id: "nav-chat",
-		name: "Ask a Question",
-		keywords: "chat ask question natural language nl search query",
-		section: "Tools",
+		id: "nav-intelligence",
+		name: "Ask Hughes",
+		keywords:
+			"ask question intelligence nl natural language search chat data",
+		section: "Intelligence",
 		perform: () => {
-			window.location.href = "/chat";
+			window.location.href = "/intelligence";
 		},
 	},
 	{
-		id: "help",
-		name: "Help & Documentation",
-		keywords: "help docs documentation support",
-		section: "Tools",
+		id: "nav-data-sources",
+		name: "Sources & Freshness",
+		keywords: "data sources freshness reconciliation trust caveats origence symitar",
+		section: "Data",
 		perform: () => {
-			window.location.href = "/chat";
+			window.location.href = "/data/sources";
 		},
 	},
 ];

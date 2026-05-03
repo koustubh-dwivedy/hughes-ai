@@ -13,9 +13,9 @@ function renderAt(path: string) {
 }
 
 describe("SideNav", () => {
-	it("renders 5 nav links", () => {
+	it("renders 6 nav links (1 intelligence + 4 dashboards + 1 data)", () => {
 		renderAt("/dashboards/executive");
-		expect(screen.getAllByRole("link")).toHaveLength(5);
+		expect(screen.getAllByRole("link")).toHaveLength(6);
 	});
 
 	it("marks Executive Summary active at /dashboards/executive", () => {
@@ -25,15 +25,21 @@ describe("SideNav", () => {
 		).toHaveAttribute("aria-current", "page");
 	});
 
-	it("marks Chat active at /chat", () => {
-		renderAt("/chat");
-		expect(screen.getByRole("link", { name: "Chat" })).toHaveAttribute(
-			"aria-current",
-			"page",
-		);
+	it("marks Data Intelligence active at /intelligence", () => {
+		renderAt("/intelligence");
+		expect(
+			screen.getByRole("link", { name: "Data Intelligence" }),
+		).toHaveAttribute("aria-current", "page");
 		expect(
 			screen.getByRole("link", { name: "Executive Summary" }),
 		).not.toHaveAttribute("aria-current");
+	});
+
+	it("marks Sources & Freshness active at /data/sources", () => {
+		renderAt("/data/sources");
+		expect(
+			screen.getByRole("link", { name: "Sources & Freshness" }),
+		).toHaveAttribute("aria-current", "page");
 	});
 
 	it("marks Deposit Portfolio active at /dashboards/deposits", () => {
@@ -65,9 +71,9 @@ describe("SideNav", () => {
 		).not.toHaveAttribute("aria-current");
 	});
 
-	it("shows Hughes AI wordmark", () => {
+	it("shows the Hughes AI logo", () => {
 		renderAt("/dashboards/executive");
-		expect(screen.getByText("Hughes AI")).toBeInTheDocument();
+		expect(screen.getByAltText("Hughes AI")).toBeInTheDocument();
 	});
 
 	it("renders nav with accessible label", () => {

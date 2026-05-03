@@ -11,12 +11,15 @@ export const colors = {
 		800: "#1e293b",
 		900: "#0f172a",
 	},
+	// "indigo" key kept for compatibility — palette is now monochrome gray
+	// so the app reads as black & white. Renaming would touch ~17 files;
+	// remapping the values switches them all at once.
 	indigo: {
-		50: "#eef2ff",
-		100: "#e0e7ff",
-		500: "#6366f1",
-		600: "#4f46e5",
-		700: "#4338ca",
+		50: "#fafafa",
+		100: "#f5f5f5",
+		500: "#737373",
+		600: "#404040",
+		700: "#262626",
 	},
 	white: "#ffffff",
 } as const;

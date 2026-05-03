@@ -11,17 +11,21 @@ type Shade = readonly [
 	string,
 ];
 
+// Brand palette is intentionally a neutral gray ramp: the product wordmark
+// is monochrome (logo PNG) and the rest of the chrome should follow. Using
+// a grayscale ramp keeps Mantine's primary color machinery (filled/light/
+// hover variants) producing readable on-page accents without any purple.
 export const brand: Shade = [
-	"#eef2ff", // 0 → 50
-	"#e0e7ff", // 1 → 100
-	"#c7d2fe", // 2 → 200
-	"#a5b4fc", // 3 → 300
-	"#818cf8", // 4 → 400
-	"#6366f1", // 5 → 500
-	"#4f46e5", // 6 → 600  (primary)
-	"#4338ca", // 7 → 700
-	"#3730a3", // 8 → 800
-	"#312e81", // 9 → 900
+	"#fafafa", // 0 → 50
+	"#f5f5f5", // 1 → 100
+	"#e5e5e5", // 2 → 200
+	"#d4d4d4", // 3 → 300
+	"#a3a3a3", // 4 → 400
+	"#737373", // 5 → 500
+	"#404040", // 6 → 600 (primary)
+	"#262626", // 7 → 700
+	"#171717", // 8 → 800
+	"#0a0a0a", // 9 → 900
 ];
 
 export const neutral: Shade = [

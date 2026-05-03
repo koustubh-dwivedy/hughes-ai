@@ -4,9 +4,10 @@ import {
 	createBrowserRouter,
 } from "react-router-dom";
 import AppLayout from "./app/AppLayout";
-import ChatPage from "./pages/ChatPage";
+import DataSourcesPage from "./pages/DataSourcesPage";
 import DepositsPage from "./pages/DepositsPage";
 import ExecutiveSummaryPage from "./pages/ExecutiveSummaryPage";
+import IntelligencePage from "./pages/IntelligencePage";
 import OfficersPage from "./pages/OfficersPage";
 import PastDuePage from "./pages/PastDuePage";
 import { DashboardContextProvider } from "./shared/context/DashboardContext";
@@ -27,7 +28,9 @@ const router = createBrowserRouter([
 			{ path: "/dashboards/deposits", element: <DepositsPage /> },
 			{ path: "/dashboards/past-due", element: <PastDuePage /> },
 			{ path: "/dashboards/officer-branch", element: <OfficersPage /> },
-			{ path: "/chat", element: <ChatPage /> },
+			{ path: "/intelligence", element: <IntelligencePage /> },
+			{ path: "/chat", element: <Navigate to="/intelligence" replace /> },
+			{ path: "/data/sources", element: <DataSourcesPage /> },
 		],
 	},
 ]);

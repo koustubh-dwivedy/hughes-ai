@@ -57,7 +57,7 @@ afterEach(() => {
 });
 
 describe("OfficerBranch — product labels", () => {
-	it("maps c_and_i slug to C&I in loan mix", async () => {
+	it("maps c_and_i slug to Commercial Lending in loan mix", async () => {
 		vi.spyOn(api, "getOfficerBranch").mockResolvedValue({
 			...ENVELOPE,
 			data: {
@@ -69,11 +69,13 @@ describe("OfficerBranch — product labels", () => {
 		});
 		renderPage();
 		await waitFor(() =>
-			expect(screen.getAllByText("C&I").length).toBeGreaterThan(0),
+			expect(screen.getAllByText("Commercial Lending").length).toBeGreaterThan(
+				0,
+			),
 		);
 	});
 
-	it("maps cre slug to Commercial RE", async () => {
+	it("maps cre slug to Commercial Real Estate", async () => {
 		vi.spyOn(api, "getOfficerBranch").mockResolvedValue({
 			...ENVELOPE,
 			data: {
@@ -83,7 +85,9 @@ describe("OfficerBranch — product labels", () => {
 		});
 		renderPage();
 		await waitFor(() =>
-			expect(screen.getAllByText("Commercial RE").length).toBeGreaterThan(0),
+			expect(
+				screen.getAllByText("Commercial Real Estate").length,
+			).toBeGreaterThan(0),
 		);
 	});
 });

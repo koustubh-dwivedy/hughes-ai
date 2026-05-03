@@ -67,12 +67,11 @@ describe("SideNav active indication", () => {
 		).toHaveAttribute("aria-current", "page");
 	});
 
-	it("marks Chat active at /chat", () => {
-		renderAt("/chat");
-		expect(screen.getByRole("link", { name: /Chat/i })).toHaveAttribute(
-			"aria-current",
-			"page",
-		);
+	it("marks Data Intelligence active at /intelligence", () => {
+		renderAt("/intelligence");
+		expect(
+			screen.getByRole("link", { name: /Data Intelligence/i }),
+		).toHaveAttribute("aria-current", "page");
 	});
 
 	it("does not mark Executive Summary active when at /dashboards/deposits", () => {

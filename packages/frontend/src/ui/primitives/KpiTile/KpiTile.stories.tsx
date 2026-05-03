@@ -10,10 +10,6 @@ export default meta;
 
 type Story = StoryObj<typeof KpiTile>;
 
-const sparklineData = Array.from({ length: 24 }, (_, i) => ({
-	value: Math.sin(i / 3) * 10 + 20,
-}));
-
 export const Default: Story = {
 	args: {
 		label: "Total Loans",
@@ -25,27 +21,30 @@ export const WithDeltaPositive: Story = {
 	args: {
 		label: "Total Loans",
 		value: "$42.5M",
-		delta: "↑ 4.2%",
+		delta: "↑ $1.4M",
+		deltaLabel: "MoM",
 		deltaPositive: true,
 	},
 };
 
 export const WithDeltaNegative: Story = {
 	args: {
-		label: "Delinquency Rate",
-		value: "3.8%",
-		delta: "↓ 1.8%",
+		label: "Past Due Ratio",
+		value: "1.8%",
+		delta: "↑ 0.3 pp",
+		deltaLabel: "MoM",
 		deltaPositive: false,
 	},
 };
 
-export const WithSparkline: Story = {
+export const WithContext: Story = {
 	args: {
-		label: "Loan Balance Trend",
+		label: "Total Loans",
 		value: "$42.5M",
-		delta: "↑ 2.1%",
+		delta: "↑ $1.4M",
+		deltaLabel: "MoM",
 		deltaPositive: true,
-		sparkline: sparklineData,
+		context: "Fastest growth in six months",
 	},
 };
 
@@ -59,12 +58,13 @@ export const WithIcon: Story = {
 
 export const WithInfoTooltip: Story = {
 	args: {
-		label: "Approval Rate",
-		value: "78.3%",
-		delta: "↑ 1.2%",
+		label: "Past Due Ratio",
+		value: "1.4%",
+		delta: "↓ 0.1 pp",
+		deltaLabel: "MoM",
 		deltaPositive: true,
 		infoTooltip:
-			"Percentage of loan applications approved in the current period",
+			"Share of loan balance 30+ days late. Industry healthy band: under 1.5%.",
 	},
 };
 
@@ -72,7 +72,8 @@ export const Clickable: Story = {
 	args: {
 		label: "Total Loans",
 		value: "$42.5M",
-		delta: "↑ 4.2%",
+		delta: "↑ $1.4M",
+		deltaLabel: "MoM",
 		deltaPositive: true,
 		onClick: () => undefined,
 	},
@@ -88,13 +89,14 @@ export const Loading: Story = {
 
 export const AllFeatures: Story = {
 	args: {
-		label: "Portfolio Balance",
+		label: "Total Loans",
 		value: "$142.5M",
-		delta: "↑ 4.2%",
+		delta: "↑ $1.4M",
+		deltaLabel: "MoM",
 		deltaPositive: true,
-		sparkline: sparklineData,
+		context: "Fastest growth in six months",
 		icon: "💼",
-		infoTooltip: "Total outstanding loan portfolio balance across all products",
+		infoTooltip: "Outstanding loan balance across all active accounts.",
 		onClick: () => undefined,
 	},
 };

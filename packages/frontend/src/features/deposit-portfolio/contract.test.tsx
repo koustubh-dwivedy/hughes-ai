@@ -81,7 +81,9 @@ describe("DepositPortfolio — contract", () => {
 	it("pins MTD delta sign as ↑ for positive change (no $- regression)", async () => {
 		vi.spyOn(api, "getDepositPortfolio").mockResolvedValue(ENVELOPE);
 		renderPage();
-		await waitFor(() => screen.getByText(/↑\s\$800K/));
+		await waitFor(() =>
+			expect(screen.getAllByText(/↑\s\$800K/).length).toBeGreaterThan(0),
+		);
 		// Critical regression guard: never produce $-N format
 		const all = document.body.textContent ?? "";
 		expect(all).not.toMatch(/\$-/);

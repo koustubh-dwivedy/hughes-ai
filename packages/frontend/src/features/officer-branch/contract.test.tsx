@@ -70,15 +70,17 @@ describe("OfficerBranch — contract", () => {
 		expect(screen.getByText("$13.1K")).toBeInTheDocument();
 	});
 
-	it("translates product slugs (c_and_i → C&I, cre → Commercial RE)", () => {
+	it("translates product slugs (c_and_i → Commercial Lending, cre → Commercial Real Estate)", () => {
 		vi.mocked(useOfficerBranch).mockReturnValue({
 			data: FIXTURE,
 			loading: false,
 			isError: false,
 		});
 		renderPage();
-		expect(screen.getAllByText("C&I").length).toBeGreaterThan(0);
-		expect(screen.getAllByText("Commercial RE").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("Commercial Lending").length).toBeGreaterThan(0);
+		expect(
+			screen.getAllByText("Commercial Real Estate").length,
+		).toBeGreaterThan(0);
 		// Raw slugs must never reach the DOM
 		const all = document.body.textContent ?? "";
 		expect(all).not.toContain("c_and_i");

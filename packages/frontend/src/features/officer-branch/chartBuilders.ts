@@ -2,8 +2,8 @@ import type { OfficerBranchData } from "../../shared/api/dashboardApi";
 import { formatCurrency } from "../../shared/utils/format";
 
 const PRODUCT_LABELS: Record<string, string> = {
-	c_and_i: "C&I",
-	cre: "Commercial RE",
+	c_and_i: "Commercial Lending",
+	cre: "Commercial Real Estate",
 };
 
 export function productLabel(slug: string): string {

@@ -1,26 +1,18 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { DashboardContextProvider } from "../../shared/context/DashboardContext";
 import { renderWithProviders } from "../../test/test-utils";
 import AppHeader from "./AppHeader";
 
-function renderHeader(initialPath = "/") {
+function renderHeader() {
 	return renderWithProviders(
-		<MemoryRouter initialEntries={[initialPath]}>
-			<DashboardContextProvider>
-				<AppHeader />
-			</DashboardContextProvider>
+		<MemoryRouter>
+			<AppHeader />
 		</MemoryRouter>,
 	);
 }
 
 describe("AppHeader", () => {
-	it("renders the workspace badge", () => {
-		renderHeader();
-		expect(screen.getByText("Hughes AI")).toBeInTheDocument();
-	});
-
 	it("renders the search trigger with ⌘K hint", () => {
 		renderHeader();
 		expect(
@@ -29,37 +21,29 @@ describe("AppHeader", () => {
 		expect(screen.getByText("⌘K")).toBeInTheDocument();
 	});
 
-	it("renders the user menu button", () => {
+	it("does not render the Hughes AI logo (single logo lives in the sidebar)", () => {
+		renderHeader();
+		expect(screen.queryByAltText("Hughes AI")).not.toBeInTheDocument();
+	});
+
+	it("does not render a user menu button", () => {
 		renderHeader();
 		expect(
-			screen.getByRole("button", { name: "User menu" }),
-		).toBeInTheDocument();
+			screen.queryByRole("button", { name: "User menu" }),
+		).not.toBeInTheDocument();
 	});
 
-	it("shows 'Select date' when no as-of-date in URL", () => {
-		renderHeader();
-		expect(screen.getByText(/Select date/)).toBeInTheDocument();
-	});
-
-	it("shows as-of-date when URL has as_of_date param", () => {
-		renderHeader("/?as_of_date=2026-04-30");
-		expect(screen.getByText(/2026-04-30/)).toBeInTheDocument();
-	});
-
-	it("date picker button is accessible", () => {
+	it("does not render a date picker", () => {
 		renderHeader();
 		expect(
-			screen.getByRole("button", { name: "Select as-of date" }),
-		).toBeInTheDocument();
+			screen.queryByRole("button", { name: "Select as-of date" }),
+		).not.toBeInTheDocument();
 	});
 
-	it("clicking date picker opens preset popover", async () => {
+	it("renders the workspace name in the header", () => {
 		renderHeader();
-		fireEvent.click(screen.getByRole("button", { name: "Select as-of date" }));
-		await waitFor(() => {
-			expect(screen.getByText("Today")).toBeInTheDocument();
-		});
-		expect(screen.getByText("Start of Month")).toBeInTheDocument();
-		expect(screen.getByText("Last Month")).toBeInTheDocument();
+		expect(
+			screen.getByText("Cascade Federal Credit Union"),
+		).toBeInTheDocument();
 	});
 });

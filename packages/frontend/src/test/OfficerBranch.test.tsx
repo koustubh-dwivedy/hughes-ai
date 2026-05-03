@@ -137,7 +137,7 @@ describe("OfficerBranch", () => {
 		mockHook({ data: fixture });
 		renderInRouter();
 		expect(
-			screen.getByRole("figure", { name: "Watchlist Trend (13 mo.)" }),
+			screen.getByRole("figure", { name: "Loans under watch" }),
 		).toBeInTheDocument();
 	});
 

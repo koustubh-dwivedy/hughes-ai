@@ -65,13 +65,13 @@ describe("ExecutiveSummary — contract", () => {
 		renderPage();
 		await waitFor(() => screen.getByText("$42.5M"));
 		// Loans cluster
-		expect(screen.getByText("Total Loans")).toBeInTheDocument();
+		expect(screen.getAllByText("Total Loans").length).toBeGreaterThan(0);
 		expect(screen.getByText("$42.5M")).toBeInTheDocument();
 		// Deposits cluster
-		expect(screen.getByText("Total Deposits")).toBeInTheDocument();
+		expect(screen.getAllByText("Total Deposits").length).toBeGreaterThan(0);
 		expect(screen.getByText("$35.2M")).toBeInTheDocument();
 		// Risk cluster — 0.023 ratio MUST render as 2.3% (not raw)
-		expect(screen.getByText("Past Due Ratio")).toBeInTheDocument();
+		expect(screen.getByText("Past Due Loans")).toBeInTheDocument();
 		expect(screen.getByText("2.3%")).toBeInTheDocument();
 	});
 
