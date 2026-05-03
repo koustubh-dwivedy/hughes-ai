@@ -70,7 +70,11 @@ function tileFromDef(id: string, fallback: string, value: string): KpiTileSpec {
 function buildKpiTiles(d: OfficerBranchData | null): KpiTileSpec[] {
 	if (!d) return [];
 	return [
-		tileFromDef("total_loans_balance", "Total Loans", formatCurrency(d.total_loans)),
+		tileFromDef(
+			"total_loans_balance",
+			"Total Loans",
+			formatCurrency(d.total_loans),
+		),
 		tileFromDef(
 			"account_count",
 			"Account Count",
@@ -112,6 +116,7 @@ function KpiRow({
 	);
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: dashboard render — conditional sections (loading/error/tab data) are intrinsic
 export default function OfficerBranch() {
 	const { asOfDate } = useDashboardContext();
 	const [searchParams, setSearchParams] = useSearchParams();

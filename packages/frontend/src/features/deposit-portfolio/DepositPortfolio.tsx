@@ -103,6 +103,7 @@ function buildKpiTiles(d: DepositPortfolioData) {
 	];
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: dashboard render — conditional sections (loading/error/empty) are intrinsic
 export default function DepositPortfolio() {
 	const { asOfDate } = useDashboardContext();
 	const { data, loading, isError } = useDepositPortfolio({ asOfDate });
@@ -186,9 +187,7 @@ export default function DepositPortfolio() {
 					title="Deposit Mix by Product"
 					subtitle="What share of deposits sits in each account type"
 					loading={loading}
-					footer={
-						!loading && <InsightCard {...depositMixInsight(mixSlices)} />
-					}
+					footer={!loading && <InsightCard {...depositMixInsight(mixSlices)} />}
 				>
 					<Donut data={mixSlices} centerLabel={centerLabel} loading={loading} />
 				</ChartCard>

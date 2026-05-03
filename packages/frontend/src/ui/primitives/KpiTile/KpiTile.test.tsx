@@ -1,6 +1,9 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { renderWithProviders as render, screen } from "../../../test/test-utils";
+import {
+	renderWithProviders as render,
+	screen,
+} from "../../../test/test-utils";
 import KpiTile from "./KpiTile";
 
 describe("KpiTile v2", () => {

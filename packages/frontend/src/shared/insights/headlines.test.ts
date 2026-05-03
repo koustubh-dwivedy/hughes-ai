@@ -133,7 +133,9 @@ describe("officerBranchHeadline", () => {
 		total_loans: 40_000_000,
 		account_count: 1_200,
 		avg_loan_balance: 33_333,
-		top_25_borrowers: [{ member_name: "M1", balance: 1_500_000, share_pct: 3.75 }],
+		top_25_borrowers: [
+			{ member_name: "M1", balance: 1_500_000, share_pct: 3.75 },
+		],
 		loan_mix_donut: [
 			{ product: "Auto", balance: 22_000_000, share_pct: 0.55 },
 			{ product: "Mortgage", balance: 12_000_000, share_pct: 0.3 },

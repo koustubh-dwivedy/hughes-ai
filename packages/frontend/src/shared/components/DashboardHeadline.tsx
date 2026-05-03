@@ -1,5 +1,5 @@
-import type { Headline } from "../insights/headlines";
 import { colors, radii, spacing, typography } from "../../theme/tokens";
+import type { Headline } from "../insights/headlines";
 
 const TONE_BG: Record<Headline["tone"], string> = {
 	success: colors.slate[50],
@@ -28,7 +28,9 @@ interface DashboardHeadlineProps {
 	headline: Headline;
 }
 
-export default function DashboardHeadline({ headline }: DashboardHeadlineProps) {
+export default function DashboardHeadline({
+	headline,
+}: DashboardHeadlineProps) {
 	return (
 		<section
 			aria-label="Dashboard headline"

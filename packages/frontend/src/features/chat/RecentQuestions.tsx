@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { useGetHistoryListQuery } from "../history/api";
 import { colors, radii, spacing, typography } from "../../theme/tokens";
+import { useGetHistoryListQuery } from "../history/api";
 
 interface RecentQuestionsProps {
 	limit?: number;

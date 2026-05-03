@@ -63,13 +63,7 @@ function HeaderRow({ label, icon, infoTooltip }: HeaderRowProps) {
 			)}
 			{labelEl}
 			{infoTooltip !== undefined && (
-				<Tooltip
-					label={infoTooltip}
-					multiline
-					w={300}
-					withArrow
-					position="top"
-				>
+				<Tooltip label={infoTooltip} multiline w={300} withArrow position="top">
 					<span
 						aria-label={infoTooltip}
 						role="img"

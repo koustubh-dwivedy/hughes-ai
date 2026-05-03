@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import Logo from "../AppHeader/Logo";
 import { colors, spacing } from "../../theme/tokens";
+import Logo from "../AppHeader/Logo";
 import NavItem from "./NavItem";
 import { DASHBOARDS, DATA, INTELLIGENCE, SECTION_LABEL } from "./constants";
 import type { CollapseState, SideNavProps } from "./types";

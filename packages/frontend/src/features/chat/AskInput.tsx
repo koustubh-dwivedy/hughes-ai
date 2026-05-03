@@ -73,10 +73,12 @@ export default function AskInput({ onSubmit, loading, onOpenHistory }: Props) {
 				disabled={loading || value.trim() === ""}
 				style={{
 					padding: `${spacing[2]} ${spacing[4]}`,
-					backgroundColor: loading || value.trim() === ""
-						? colors.slate[200]
-						: colors.indigo[600],
-					color: loading || value.trim() === "" ? colors.slate[400] : colors.white,
+					backgroundColor:
+						loading || value.trim() === ""
+							? colors.slate[200]
+							: colors.indigo[600],
+					color:
+						loading || value.trim() === "" ? colors.slate[400] : colors.white,
 					border: "none",
 					borderRadius: radii.md,
 					fontSize: typography.size.sm,

@@ -35,9 +35,7 @@ export interface DelinquencyTrendPoint {
 	"90+": number;
 }
 
-export function pastDueTrendInsight(
-	series: DelinquencyTrendPoint[],
-): Insight {
+export function pastDueTrendInsight(series: DelinquencyTrendPoint[]): Insight {
 	if (series.length < 2) return NEUTRAL;
 	const last = series[series.length - 1];
 	const prev = series[series.length - 2];
@@ -46,8 +44,7 @@ export function pastDueTrendInsight(
 	if (prevTotal === 0) return NEUTRAL;
 	const change = (lastTotal - prevTotal) / prevTotal;
 
-	const ninetyShare =
-		lastTotal === 0 ? 0 : (last["90+"] / lastTotal) * 100;
+	const ninetyShare = lastTotal === 0 ? 0 : (last["90+"] / lastTotal) * 100;
 	const bullets: string[] = [];
 	let tone: InsightTone = "info";
 
@@ -126,7 +123,7 @@ export function depositMixInsight(slices: MixSlice[]): Insight {
 
 	if (topShare > 50) {
 		bullets.push(
-			`Concentration risk: more than half of deposits sit in one product.`,
+			"Concentration risk: more than half of deposits sit in one product.",
 		);
 		tone = "warn";
 	} else if (sorted.length >= 3) {
@@ -160,7 +157,7 @@ export function officerLoadInsight(officers: OfficerRow[]): Insight {
 		share > 40 ? "warn" : share > 25 ? "info" : "neutral";
 	if (share > 40) {
 		bullets.push(
-			`Single-officer concentration above 40% — consider load-balancing or coaching.`,
+			"Single-officer concentration above 40% — consider load-balancing or coaching.",
 		);
 	}
 	return { bullets, tone };
@@ -191,7 +188,7 @@ export function loanRateSpreadInsight(series: ComboPoint[]): Insight {
 	let tone: InsightTone = "info";
 	if (last.line < 2) {
 		bullets.push(
-			`Spread under 200 bps — net interest margin is thin, watch funding costs.`,
+			"Spread under 200 bps — net interest margin is thin, watch funding costs.",
 		);
 		tone = "warn";
 	} else if (direction === "expanding") {
@@ -220,7 +217,9 @@ export function watchlistTrendInsight(points: WatchlistPoint[]): Insight {
 		bullets.push(`Up ${delta} over the period — earlier-stage risk is rising.`);
 		tone = "warn";
 	} else if (delta < 0) {
-		bullets.push(`Down ${Math.abs(delta)} — fewer loans need close monitoring.`);
+		bullets.push(
+			`Down ${Math.abs(delta)} — fewer loans need close monitoring.`,
+		);
 		tone = "success";
 	}
 	return { bullets, tone };
@@ -250,7 +249,9 @@ export function changeByProductInsight(bars: WaterfallBar[]): Insight {
 		);
 	}
 	if (bullets.length === 0) {
-		bullets.push("No standout movers — book changes were balanced across products.");
+		bullets.push(
+			"No standout movers — book changes were balanced across products.",
+		);
 	}
 	const tone: InsightTone =
 		bottom.value < -1 ? "warn" : top.value > 1 ? "success" : "info";

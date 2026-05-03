@@ -11,12 +11,12 @@ import type {
 	PastDueData,
 } from "../api/dashboardApi";
 import {
+	type HeadlineCalloutTone,
+	type HeadlineTone,
 	dirArrow,
 	fmtMoney,
 	fmtPct,
 	productLabel,
-	type HeadlineCalloutTone,
-	type HeadlineTone,
 } from "./headlineUtils";
 
 export interface HeadlineCallout {
@@ -37,6 +37,7 @@ function overallTone(callouts: HeadlineCallout[]): HeadlineTone {
 
 // ── Executive Summary ────────────────────────────────────────────────────────
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: narrative generator — branching is the point of the rule, splitting would scatter the logic
 export function executiveHeadline(d: ExecutiveSummaryData): Headline {
 	const ratioPct = d.blended_past_due_ratio * 100;
 	const ratioPriorPct =
@@ -46,14 +47,11 @@ export function executiveHeadline(d: ExecutiveSummaryData): Headline {
 			: ratioPct;
 	const ratioDeltaPp = ratioPct - ratioPriorPct;
 
-	const lede =
-		`Loans ${dirArrow(d.monthly_loan_growth)} ${fmtMoney(Math.abs(d.monthly_loan_growth))} MoM, ` +
-		`deposits ${dirArrow(d.monthly_deposit_growth)} ${fmtMoney(Math.abs(d.monthly_deposit_growth))}. ` +
-		`Past-due ratio at ${fmtPct(ratioPct)} ` +
-		(ratioDeltaPp >= 0
+	const lede = `Loans ${dirArrow(d.monthly_loan_growth)} ${fmtMoney(Math.abs(d.monthly_loan_growth))} MoM, deposits ${dirArrow(d.monthly_deposit_growth)} ${fmtMoney(Math.abs(d.monthly_deposit_growth))}. Past-due ratio at ${fmtPct(ratioPct)} ${
+		ratioDeltaPp >= 0
 			? `(↑ ${fmtPct(Math.abs(ratioDeltaPp), 2)} pp)`
-			: `(↓ ${fmtPct(Math.abs(ratioDeltaPp), 2)} pp)`) +
-		".";
+			: `(↓ ${fmtPct(Math.abs(ratioDeltaPp), 2)} pp)`
+	}.`;
 
 	const callouts: HeadlineCallout[] = [];
 
@@ -103,6 +101,7 @@ export function executiveHeadline(d: ExecutiveSummaryData): Headline {
 
 // ── Deposit Portfolio ────────────────────────────────────────────────────────
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: narrative generator — branching is the point of the rule
 export function depositsHeadline(d: DepositPortfolioData): Headline {
 	const lede =
 		`${fmtMoney(d.total_deposits)} on deposit across ${d.account_count.toLocaleString()} accounts. ` +
@@ -160,6 +159,7 @@ export function depositsHeadline(d: DepositPortfolioData): Headline {
 
 // ── Past Due ─────────────────────────────────────────────────────────────────
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: narrative generator — branching is the point of the rule
 export function pastDueHeadline(d: PastDueData): Headline {
 	const trend = d.past_due_ratio_trend;
 	const lastRatio = trend.length > 0 ? trend[trend.length - 1].ratio * 100 : 0;
@@ -202,9 +202,7 @@ export function pastDueHeadline(d: PastDueData): Headline {
 
 	if (d.delinquency_trend_13_months.length > 0) {
 		const last =
-			d.delinquency_trend_13_months[
-				d.delinquency_trend_13_months.length - 1
-			];
+			d.delinquency_trend_13_months[d.delinquency_trend_13_months.length - 1];
 		const total = last.bucket_30_59 + last.bucket_60_89 + last.bucket_90_plus;
 		const ninetyShare = total === 0 ? 0 : (last.bucket_90_plus / total) * 100;
 		callouts.push({
@@ -235,6 +233,7 @@ export function pastDueHeadline(d: PastDueData): Headline {
 
 // ── Officer / Branch ─────────────────────────────────────────────────────────
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: narrative generator — branching is the point of the rule
 export function officerBranchHeadline(d: OfficerBranchData): Headline {
 	const lede =
 		`${fmtMoney(d.total_loans)} on book across ${d.account_count.toLocaleString()} loan accounts. ` +

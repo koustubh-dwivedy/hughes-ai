@@ -32,7 +32,8 @@ export const GLOSSARY: Record<string, MetricDef> = {
 	},
 	mtd_deposit_growth: {
 		short: "MTD Deposit Growth",
-		tooltip: "Month-to-date net change in deposits. Positive = deposits are inflowing.",
+		tooltip:
+			"Month-to-date net change in deposits. Positive = deposits are inflowing.",
 	},
 	ytd_deposit_growth: {
 		short: "YTD Deposit Growth",

@@ -14,11 +14,7 @@ export default function WatchlistTrend({
 	);
 	return (
 		<div style={{ marginBottom: spacing[6] }}>
-			<LineTrend
-				data={points}
-				title="Loans under watch"
-				seriesLabel="Count"
-			/>
+			<LineTrend data={points} title="Loans under watch" seriesLabel="Count" />
 			<div style={{ marginTop: spacing[3] }}>
 				<InsightCard {...insight} />
 			</div>

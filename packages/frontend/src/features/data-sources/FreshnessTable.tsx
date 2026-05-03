@@ -23,9 +23,7 @@ function FreshnessRow({ surface, label }: { surface: string; label: string }) {
 	return (
 		<tr>
 			<td style={cellStyle}>{label}</td>
-			<td style={cellStyle}>
-				{isLoading ? "…" : (latest ?? "—")}
-			</td>
+			<td style={cellStyle}>{isLoading ? "…" : (latest ?? "—")}</td>
 			<td style={{ ...cellStyle, textAlign: "right" as const }}>
 				{isLoading ? "…" : total}
 			</td>
@@ -66,7 +64,9 @@ export default function FreshnessTable() {
 			<table style={{ width: "100%", borderCollapse: "collapse" }}>
 				<thead>
 					<tr>
-						<th style={{ ...headStyle, textAlign: "left" as const }}>Surface</th>
+						<th style={{ ...headStyle, textAlign: "left" as const }}>
+							Surface
+						</th>
 						<th style={{ ...headStyle, textAlign: "left" as const }}>
 							Latest month
 						</th>

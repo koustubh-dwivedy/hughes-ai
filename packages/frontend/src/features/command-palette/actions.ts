@@ -40,8 +40,7 @@ export const defaultActions: Action[] = [
 	{
 		id: "nav-intelligence",
 		name: "Ask Hughes",
-		keywords:
-			"ask question intelligence nl natural language search chat data",
+		keywords: "ask question intelligence nl natural language search chat data",
 		section: "Intelligence",
 		perform: () => {
 			window.location.href = "/intelligence";
@@ -50,7 +49,8 @@ export const defaultActions: Action[] = [
 	{
 		id: "nav-data-sources",
 		name: "Sources & Freshness",
-		keywords: "data sources freshness reconciliation trust caveats origence symitar",
+		keywords:
+			"data sources freshness reconciliation trust caveats origence symitar",
 		section: "Data",
 		perform: () => {
 			window.location.href = "/data/sources";

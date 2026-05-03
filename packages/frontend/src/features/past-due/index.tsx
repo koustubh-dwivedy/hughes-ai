@@ -115,6 +115,7 @@ function buildKpiTiles(d: PastDueData) {
 	];
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: dashboard render — conditional sections (loading/error) are intrinsic
 export default function PastDue() {
 	const { asOfDate } = useDashboardContext();
 	const { data, loading, isError } = usePastDue({ asOfDate });
@@ -178,9 +179,7 @@ export default function PastDue() {
 					subtitle="Who carries the most overdue book this month"
 					loading={loading}
 					footer={
-						!loading && (
-							<InsightCard {...officerLoadInsight(officerBarData)} />
-						)
+						!loading && <InsightCard {...officerLoadInsight(officerBarData)} />
 					}
 				>
 					<StackedBar

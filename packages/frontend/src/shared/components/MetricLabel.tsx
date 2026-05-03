@@ -1,5 +1,5 @@
-import Tooltip from "../../ui/primitives/Tooltip";
 import { colors, spacing, typography } from "../../theme/tokens";
+import Tooltip from "../../ui/primitives/Tooltip";
 import { metricDef } from "../insights/glossary";
 
 interface MetricLabelProps {
@@ -58,13 +58,7 @@ export default function MetricLabel({
 	if (!tooltip) return content;
 
 	return (
-		<Tooltip
-			label={tooltip}
-			multiline
-			w={280}
-			withArrow
-			position="top"
-		>
+		<Tooltip label={tooltip} multiline w={280} withArrow position="top">
 			{content}
 		</Tooltip>
 	);
