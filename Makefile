@@ -1,4 +1,4 @@
-.PHONY: up down dev migrate seed lint lint-fix typecheck test eval eval-full
+.PHONY: up down dev migrate seed lint lint-fix typecheck test audit eval eval-full
 
 up:
 	docker compose up -d
@@ -28,6 +28,14 @@ dbt-build:
 
 dbt-test:
 	cd packages/dbt-models && uv run dbt test --select staging marts --profiles-dir .
+
+# HUG-166: hard-gate audit. Cross-system reconciliation, logical
+# invariants, regulatory closure, statistical bands.
+# Run after `make seed && make dbt-build`.
+audit:
+	cd packages/dbt-models && uv run dbt test --profiles-dir .
+	uv run pytest tests/audit/ -v
+	uv run python scripts/audit_data_model.py
 
 lint:
 	uv run ruff check .

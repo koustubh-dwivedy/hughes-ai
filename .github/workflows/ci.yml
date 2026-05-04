@@ -169,12 +169,18 @@ jobs:
           psql $DATABASE_URL -f migrations/009_deposit_history.sql
           psql $DATABASE_URL -f migrations/010_readonly_grants.sql
           psql $DATABASE_URL -f migrations/011_history_kind_column.sql
+          psql $DATABASE_URL -f migrations/012_data_model_revamp.sql
       - name: Seed synthetic data
         run: uv run python scripts/seed.py --profile small_cu
       - name: Build and test marts
         run: |
           cd packages/dbt-models
+          uv run dbt seed --profiles-dir .
           uv run dbt build --select +marts --profiles-dir .
+      - name: Data model audit (HUG-166)
+        run: |
+          uv run pytest tests/audit/ -v
+          uv run python scripts/audit_data_model.py
       - name: Run integration tests
         run: |
           set +e
@@ -231,6 +237,7 @@ jobs:
           psql $DATABASE_URL -f migrations/001_lending_schema.sql
           psql $DATABASE_URL -f migrations/002_query_history.sql
           psql $DATABASE_URL -f migrations/011_history_kind_column.sql
+          psql $DATABASE_URL -f migrations/012_data_model_revamp.sql
       - name: Start API server
         run: |
           uv run uvicorn api.main:app --host 127.0.0.1 --port 8000 &

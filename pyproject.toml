@@ -13,8 +13,9 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "T20", "S", "C90"]
 # T20 = flake8-print: bans print() — use structlog.get_logger() instead
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101"]           # assert is idiomatic in pytest
+"tests/**/*.py" = ["S101", "S608"]
 "packages/*/tests/**/*.py" = ["S101"]
+"scripts/audit_data_model.py" = ["T201"]
 
 [tool.mypy]
 python_version = "3.12"
