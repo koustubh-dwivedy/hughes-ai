@@ -1,0 +1,48 @@
+version: 2
+
+semantic_models:
+  - name: cecl_allowance
+    description: CECL allowance roll-forward by month and segment.
+    model: ref('fct_cecl_allowance_rollforward')
+    defaults:
+      agg_time_dimension: period_end_month
+    primary_entity: cecl_allowance_grain
+    entities:
+      - name: cecl_segment
+        type: foreign
+        expr: cecl_segment_code
+    dimensions:
+      - name: period_end_month
+        type: time
+        type_params:
+          time_granularity: month
+    measures:
+      - name: cecl_beginning_balance
+        agg: sum
+        expr: beginning_balance
+      - name: cecl_charge_offs
+        agg: sum
+        expr: charge_offs
+      - name: cecl_recoveries
+        agg: sum
+        expr: recoveries
+      - name: cecl_net_charge_offs
+        agg: sum
+        expr: net_charge_offs
+      - name: cecl_provision_expense
+        agg: sum
+        expr: provision_expense
+      - name: cecl_ending_balance
+        agg: sum
+        expr: ending_balance
+
+  - name: cecl_segments
+    description: CECL segment dimension with DPD-band loss rates.
+    model: ref('dim_cecl_segment')
+    entities:
+      - name: cecl_segment
+        type: primary
+        expr: segment_code
+    dimensions:
+      - name: segment_label
+        type: categorical

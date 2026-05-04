@@ -1,0 +1,54 @@
+version: 2
+
+semantic_models:
+  - name: executive_kpis
+    description: Pre-computed monthly executive KPIs (one row per month).
+    model: ref('fct_executive_kpis')
+    defaults:
+      agg_time_dimension: as_of_month
+    entities:
+      - name: kpi_month
+        type: primary
+        expr: row_id
+    dimensions:
+      - name: as_of_month
+        type: time
+        type_params:
+          time_granularity: month
+    measures:
+      - name: total_loans_balance
+        agg: max
+        expr: total_loans_balance
+      - name: total_deposits_balance
+        agg: max
+        expr: total_deposits_balance
+      - name: loan_to_deposit_ratio
+        agg: max
+        expr: loan_to_deposit_ratio
+      - name: core_deposit_ratio
+        agg: max
+        expr: core_deposit_ratio
+      - name: blended_past_due_ratio
+        agg: max
+        expr: blended_past_due_ratio
+      - name: monthly_loan_growth
+        agg: max
+        expr: monthly_loan_growth
+      - name: monthly_deposit_growth
+        agg: max
+        expr: monthly_deposit_growth
+      - name: ytd_loan_growth
+        agg: max
+        expr: ytd_loan_growth
+      - name: ytd_deposit_growth
+        agg: max
+        expr: ytd_deposit_growth
+      - name: weighted_avg_loan_rate_kpi
+        agg: max
+        expr: weighted_avg_loan_rate
+      - name: weighted_avg_deposit_rate_kpi
+        agg: max
+        expr: weighted_avg_deposit_rate
+      - name: rate_spread
+        agg: max
+        expr: rate_spread

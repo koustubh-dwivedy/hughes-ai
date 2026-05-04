@@ -1,0 +1,64 @@
+version: 2
+
+semantic_models:
+  - name: deposits_monthly
+    description: Monthly rollup of deposit portfolio by product + branch.
+    model: ref('fct_deposits_monthly')
+    defaults:
+      agg_time_dimension: as_of_month
+    primary_entity: deposits_monthly_grain
+    entities:
+      - name: deposit_product
+        type: foreign
+        expr: deposit_product_id
+      - name: branch
+        type: foreign
+        expr: branch_id
+    dimensions:
+      - name: as_of_month
+        type: time
+        type_params:
+          time_granularity: month
+      - name: is_core_deposit
+        type: categorical
+        expr: is_core_deposit::TEXT
+    measures:
+      - name: account_count
+        agg: sum
+        expr: account_count
+      - name: total_deposit_balance
+        agg: sum
+        expr: total_balance
+      - name: avg_deposit_balance
+        agg: average
+        expr: avg_balance
+      - name: deposit_mtd_change
+        agg: sum
+        expr: mtd_change
+      - name: deposit_ytd_change
+        agg: sum
+        expr: ytd_change
+      - name: opened_count
+        agg: sum
+        expr: opened_count
+      - name: closed_count
+        agg: sum
+        expr: closed_count
+
+  - name: deposit_products
+    description: Share product dimension with NCUA tagging.
+    model: ref('dim_deposit_product')
+    entities:
+      - name: deposit_product
+        type: primary
+        expr: deposit_product_id
+    dimensions:
+      - name: product_name
+        type: categorical
+      - name: deposit_category
+        type: categorical
+      - name: is_core_deposit
+        type: categorical
+        expr: is_core_deposit::TEXT
+      - name: ncua_5300_line_code
+        type: categorical

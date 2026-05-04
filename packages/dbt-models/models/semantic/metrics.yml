@@ -1,0 +1,290 @@
+version: 2
+
+# Translation of every metric in packages/nl-engine/context/metrics.yaml
+# into MetricFlow form. Categories used:
+#   simple     — sum/count/avg of a measure
+#   ratio      — numerator measure / denominator measure
+#   derived    — formula combining other metrics
+#   cumulative — running totals (MTD/YTD)
+
+metrics:
+  # ---------------- Origence application metrics ----------------
+  - name: origination_volume
+    description: Count of loan applications submitted in the period.
+    label: Origination Volume
+    type: simple
+    type_params:
+      measure: application_count
+
+  - name: requested_amount_total
+    description: Sum of requested loan amounts across applications.
+    label: Requested Amount Total
+    type: simple
+    type_params:
+      measure: requested_amount_total
+
+  - name: funded_count
+    description: Number of applications that progressed to funded.
+    label: Funded Count
+    type: simple
+    type_params:
+      measure: funded_count
+
+  - name: funded_amount_total
+    description: Total dollar value of loans funded.
+    label: Funded Amount Total
+    type: simple
+    type_params:
+      measure: funded_amount_total
+
+  - name: avg_loan_amount
+    description: Mean funded loan amount.
+    label: Average Loan Amount
+    type: ratio
+    type_params:
+      numerator: funded_amount_total
+      denominator: funded_count
+
+  - name: approval_rate
+    description: Funded count divided by application count (proxy for approval rate).
+    label: Approval Rate
+    type: ratio
+    type_params:
+      numerator: funded_count
+      denominator: origination_volume
+
+  - name: funding_rate
+    description: Funded count divided by total applications (same as approval rate
+      under our synthetic data).
+    label: Funding Rate
+    type: ratio
+    type_params:
+      numerator: funded_count
+      denominator: origination_volume
+
+  # ---------------- Loan portfolio metrics ----------------
+  - name: total_loans
+    description: Total loan portfolio balance (sum of monthly snapshots).
+    label: Total Loans
+    type: simple
+    type_params:
+      measure: total_loan_balance
+
+  - name: portfolio_balance
+    description: Synonym for total_loans; kept for grounding-language familiarity.
+    label: Portfolio Balance
+    type: simple
+    type_params:
+      measure: total_loan_balance
+
+  - name: loan_count
+    description: Count of loans in the portfolio for the period.
+    label: Loan Count
+    type: simple
+    type_params:
+      measure: loan_count
+
+  - name: weighted_avg_loan_rate
+    description: Balance-weighted average loan rate (uses pre-computed mart column).
+    label: Weighted Avg Loan Rate
+    type: simple
+    type_params:
+      measure: weighted_avg_loan_rate
+
+  - name: top_n_borrowers
+    description: Per-loan balance for use in top-N borrower listings (no aggregation
+      — grain is loan + snapshot).
+    label: Top N Borrowers
+    type: simple
+    type_params:
+      measure: loan_balance_snapshot
+
+  - name: single_loan_customers
+    description: Count of customers with exactly one loan.
+    label: Single Loan Customers
+    type: simple
+    type_params:
+      measure: single_loan_customer_count
+
+  # ---------------- Deposit portfolio metrics ----------------
+  - name: total_deposits
+    description: Total deposit balance.
+    label: Total Deposits
+    type: simple
+    type_params:
+      measure: total_deposit_balance
+
+  - name: avg_balance_per_customer
+    description: Average deposit account balance.
+    label: Average Balance per Customer
+    type: simple
+    type_params:
+      measure: avg_deposit_balance
+
+  - name: top_n_deposits
+    description: Per-account deposit balance for top-N depositor listings.
+    label: Top N Deposits
+    type: simple
+    type_params:
+      measure: total_deposit_balance
+
+  - name: deposits_by_product
+    description: Total deposits, sliceable by deposit_product.
+    label: Deposits by Product
+    type: simple
+    type_params:
+      measure: total_deposit_balance
+
+  - name: deposits_by_branch
+    description: Total deposits, sliceable by branch.
+    label: Deposits by Branch
+    type: simple
+    type_params:
+      measure: total_deposit_balance
+
+  - name: mtd_deposit_change
+    description: Month-to-date change in deposit balance.
+    label: MTD Deposit Change
+    type: simple
+    type_params:
+      measure: deposit_mtd_change
+
+  - name: ytd_deposit_change
+    description: Year-to-date change in deposit balance.
+    label: YTD Deposit Change
+    type: simple
+    type_params:
+      measure: deposit_ytd_change
+
+  - name: monthly_growth_loans
+    description: Monthly loan growth (dollar) — from executive KPI mart.
+    label: Monthly Growth — Loans
+    type: simple
+    type_params:
+      measure: monthly_loan_growth
+
+  - name: monthly_growth_deposits
+    description: Monthly deposit growth (dollar) — from executive KPI mart.
+    label: Monthly Growth — Deposits
+    type: simple
+    type_params:
+      measure: monthly_deposit_growth
+
+  # ---------------- Delinquency / risk metrics ----------------
+  - name: delinquent_balance
+    description: Outstanding balance on delinquent loans.
+    label: Delinquent Balance
+    type: simple
+    type_params:
+      measure: delinquent_balance
+
+  - name: delinquency_rate
+    description: Delinquent balance divided by total loan balance.
+    label: Delinquency Rate
+    type: ratio
+    type_params:
+      numerator: delinquent_balance
+      denominator: total_loans
+
+  - name: past_due_ratio
+    description: Past-due loan balance share — from pre-computed executive KPI.
+    label: Past Due Ratio
+    type: simple
+    type_params:
+      measure: blended_past_due_ratio
+
+  - name: past_due_loan_count
+    description: Number of loans currently past due.
+    label: Past Due Loan Count
+    type: simple
+    type_params:
+      measure: past_due_loan_count
+
+  - name: nonaccrual_balance
+    description: Outstanding balance on non-accrual (90+ DPD) loans.
+    label: Nonaccrual Balance
+    type: simple
+    type_params:
+      measure: delinquent_balance
+
+  - name: nonperforming_loan_balance
+    description: Synonym for delinquent loan balance.
+    label: Non-Performing Loan Balance
+    type: simple
+    type_params:
+      measure: delinquent_balance
+
+  - name: delinquency_aging_distribution
+    description: Delinquent balance, sliced by delinquency_bucket dimension.
+    label: Delinquency Aging Distribution
+    type: simple
+    type_params:
+      measure: delinquent_balance
+
+  # ---------------- Watchlist / lifecycle ----------------
+  - name: watchlist_count
+    description: Count of loan-lifecycle 'renewed' or 'paid_off' events as a watchlist proxy.
+    label: Watchlist Count
+    type: simple
+    type_params:
+      measure: lifecycle_event_count
+
+  # ---------------- Cross-portfolio ratios (executive KPI source) ----------------
+  - name: loan_to_deposit_ratio
+    description: Total loans / total deposits — from pre-computed exec KPI.
+    label: Loan-to-Deposit Ratio
+    type: simple
+    type_params:
+      measure: loan_to_deposit_ratio
+
+  - name: core_deposit_ratio
+    description: Core deposits / total deposits — from pre-computed exec KPI.
+    label: Core Deposit Ratio
+    type: simple
+    type_params:
+      measure: core_deposit_ratio
+
+  - name: rate_spread
+    description: Weighted-avg loan rate minus weighted-avg deposit rate.
+    label: Rate Spread
+    type: simple
+    type_params:
+      measure: rate_spread
+
+  # ---------------- Member 360 metrics ----------------
+  - name: household_balance
+    description: Household-level deposit balance — placeholder mapping to total_deposit_balance.
+    label: Household Balance
+    type: simple
+    type_params:
+      measure: total_deposit_balance
+
+  # ---------------- Dealer concentration ----------------
+  - name: dealer_concentration_pct
+    description: Loan balance share by dealer (slice-by dealer_id on the loans semantic model).
+    label: Dealer Concentration
+    type: simple
+    type_params:
+      measure: total_loan_balance
+
+  # ---------------- NCUA + CECL metrics ----------------
+  - name: ncua_total_loans
+    description: NCUA 5300 line 386 — total loans outstanding.
+    label: NCUA Total Loans
+    type: simple
+    type_params:
+      measure: total_loan_balance
+
+  - name: cecl_allowance_balance
+    description: CECL allowance ending balance.
+    label: CECL Allowance Balance
+    type: simple
+    type_params:
+      measure: cecl_ending_balance
+
+  - name: cecl_provision_ytd
+    description: Year-to-date CECL provision expense.
+    label: CECL Provision YTD
+    type: simple
+    type_params:
+      measure: cecl_provision_expense

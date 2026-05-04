@@ -1,0 +1,28 @@
+version: 2
+
+semantic_models:
+  - name: loan_lifecycle_events
+    description: Loan lifecycle events (new / active / renewed / paid_off) by month.
+    model: ref('fct_loan_lifecycle_events')
+    defaults:
+      agg_time_dimension: event_month
+    entities:
+      - name: event
+        type: primary
+        expr: event_id
+    dimensions:
+      - name: event_month
+        type: time
+        type_params:
+          time_granularity: month
+      - name: event_type
+        type: categorical
+      - name: product_type
+        type: categorical
+    measures:
+      - name: lifecycle_event_count
+        agg: sum
+        expr: loan_count
+      - name: lifecycle_event_amount
+        agg: sum
+        expr: total_amount

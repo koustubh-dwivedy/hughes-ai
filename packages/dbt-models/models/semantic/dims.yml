@@ -1,0 +1,90 @@
+version: 2
+
+semantic_models:
+  # ===================================================================
+  # Member dimension (row-level + joins)
+  # ===================================================================
+  - name: members
+    description: Member dimension; supports row-level lookups.
+    model: ref('dim_member')
+    entities:
+      - name: member
+        type: primary
+        expr: member_id
+    dimensions:
+      - name: full_name
+        type: categorical
+      - name: home_branch_name
+        type: categorical
+      - name: home_branch_region
+        type: categorical
+      - name: joined_at
+        type: time
+        type_params:
+          time_granularity: day
+
+  # ===================================================================
+  # Dealer dimension
+  # ===================================================================
+  - name: dealers
+    description: Auto dealer dimension (Origence indirect channel).
+    model: ref('dim_dealer')
+    entities:
+      - name: dealer
+        type: primary
+        expr: dealer_id
+    dimensions:
+      - name: dealer_name
+        type: categorical
+      - name: dealer_type
+        type: categorical
+      - name: address_city
+        type: categorical
+      - name: address_state
+        type: categorical
+      - name: markup_tier
+        type: categorical
+      - name: is_active
+        type: categorical
+        expr: is_active::TEXT
+
+  # ===================================================================
+  # Officer dimension
+  # ===================================================================
+  - name: officers
+    description: Loan officer dimension.
+    model: ref('dim_officer')
+    entities:
+      - name: officer
+        type: primary
+        expr: officer_id
+    dimensions:
+      - name: officer_name
+        type: categorical
+      - name: officer_branch
+        type: categorical
+        expr: branch_name
+      - name: status
+        type: categorical
+
+  # ===================================================================
+  # Household dimension
+  # ===================================================================
+  - name: households
+    description: Household dimension with member-count + type.
+    model: ref('dim_household')
+    entities:
+      - name: household
+        type: primary
+        expr: household_id
+    dimensions:
+      - name: household_name
+        type: categorical
+      - name: household_type
+        type: categorical
+      - name: total_members
+        type: categorical
+        expr: total_members::TEXT
+      - name: is_active
+        type: categorical
+        expr: is_active::TEXT

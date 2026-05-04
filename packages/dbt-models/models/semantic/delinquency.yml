@@ -1,0 +1,33 @@
+version: 2
+
+semantic_models:
+  - name: delinquency_monthly
+    description: Monthly delinquency rollup by officer + branch + DPD bucket.
+    model: ref('fct_delinquency_monthly')
+    defaults:
+      agg_time_dimension: as_of_month
+    primary_entity: delinquency_monthly_grain
+    entities:
+      - name: officer
+        type: foreign
+        expr: officer_id
+      - name: branch
+        type: foreign
+        expr: branch_id
+    dimensions:
+      - name: as_of_month
+        type: time
+        type_params:
+          time_granularity: month
+      - name: delinquency_bucket
+        type: categorical
+    measures:
+      - name: delinquent_loan_count
+        agg: sum
+        expr: loan_count
+      - name: delinquent_balance
+        agg: sum
+        expr: balance
+      - name: past_due_loan_count
+        agg: sum
+        expr: past_due_loan_count

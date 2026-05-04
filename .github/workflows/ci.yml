@@ -178,6 +178,10 @@ jobs:
           cd packages/dbt-models
           uv run dbt seed --profiles-dir .
           uv run dbt build --profiles-dir .
+      - name: MetricFlow validate-configs (HUG-174)
+        run: |
+          cd packages/dbt-models
+          uv run mf validate-configs --skip-dw
       - name: Data model audit (HUG-166)
         run: |
           uv run pytest tests/audit/ -v

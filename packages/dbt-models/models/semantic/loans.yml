@@ -1,0 +1,111 @@
+version: 2
+
+semantic_models:
+  # ===================================================================
+  # Aggregated loan portfolio (monthly grain)
+  # ===================================================================
+  - name: loans_monthly
+    description: Monthly rollup of loan portfolio by product, branch, officer.
+    model: ref('fct_loans_monthly')
+    defaults:
+      agg_time_dimension: as_of_month
+    primary_entity: loans_monthly_grain
+    entities:
+      - name: branch
+        type: foreign
+        expr: branch_id
+      - name: officer
+        type: foreign
+        expr: officer_id
+    dimensions:
+      - name: as_of_month
+        type: time
+        type_params:
+          time_granularity: month
+      - name: product_type
+        type: categorical
+    measures:
+      - name: loan_count
+        agg: sum
+        expr: loan_count
+      - name: total_loan_balance
+        agg: sum
+        expr: total_balance
+      - name: avg_loan_balance
+        agg: average
+        expr: avg_balance
+      - name: weighted_avg_loan_rate
+        agg: average
+        expr: weighted_avg_rate
+      - name: single_loan_customer_count
+        agg: sum
+        expr: single_loan_customer_count
+
+  # ===================================================================
+  # Per-loan snapshot grain (joins to dim_loan via loan_id)
+  # ===================================================================
+  - name: loan_performance
+    description: Monthly per-loan balance + DPD snapshots.
+    model: ref('fct_loan_performance')
+    defaults:
+      agg_time_dimension: snapshot_date
+    primary_entity: loan_perf_grain
+    entities:
+      - name: loan
+        type: foreign
+        expr: loan_id
+    dimensions:
+      - name: snapshot_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: delinquency_bucket
+        type: categorical
+      - name: is_delinquent
+        type: categorical
+        expr: is_delinquent::TEXT
+    measures:
+      - name: loan_balance_snapshot
+        agg: sum
+        expr: balance
+      - name: days_past_due_max
+        agg: max
+        expr: days_past_due
+
+  # ===================================================================
+  # Loan dimension: row-level attributes (no measures)
+  # ===================================================================
+  - name: loans
+    description: Loan dimension with product, channel, branch, dealer, NCUA tags.
+    model: ref('dim_loan')
+    entities:
+      - name: loan
+        type: primary
+        expr: loan_id
+      - name: dealer
+        type: foreign
+        expr: dealer_id
+    dimensions:
+      - name: product_type
+        type: categorical
+      - name: channel
+        type: categorical
+      - name: branch_name
+        type: categorical
+      - name: branch_region
+        type: categorical
+      - name: rate_type
+        type: categorical
+      - name: status
+        type: categorical
+      - name: term_months
+        type: categorical
+        expr: term_months::TEXT
+      - name: ncua_5300_line_code
+        type: categorical
+      - name: cecl_segment_code
+        type: categorical
+      - name: originated_at
+        type: time
+        type_params:
+          time_granularity: day
