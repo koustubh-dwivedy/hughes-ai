@@ -18,14 +18,19 @@ _REPO = Path(__file__).parents[1]
 _CACHE_DIR = _REPO / ".synth_cache"
 _PROFILES_DIR = _REPO / "packages" / "synth-data" / "profiles"
 _SRC_FILES = [
+    "packages/synth-data/profiles/products.yaml",
     "packages/synth-data/src/synth_data/generators/origence.py",
     "packages/synth-data/src/synth_data/generators/symitar.py",
+    "packages/synth-data/src/synth_data/generators/symitar_amortize.py",
     "packages/synth-data/src/synth_data/generators/symitar_standalone.py",
     "packages/synth-data/src/synth_data/generators/lifecycle.py",
     "packages/synth-data/src/synth_data/generators/members.py",
     "packages/synth-data/src/synth_data/generators/officers.py",
     "packages/synth-data/src/synth_data/generators/watchlist.py",
     "packages/synth-data/src/synth_data/generators/deposits.py",
+    "packages/synth-data/src/synth_data/generators/dealers.py",
+    "packages/synth-data/src/synth_data/generators/households.py",
+    "packages/synth-data/src/synth_data/generators/cards.py",
     "packages/synth-data/src/synth_data/reconciliation.py",
 ]
 
@@ -66,7 +71,9 @@ def _run(profile_name: str, force: bool) -> None:
     from synth_data.generators.members import assign_member_id, generate_members
     from synth_data.generators.origence import generate_origence_data
     from synth_data.generators.symitar import (
-        BRANCH_NAMES, REGIONS, generate_symitar_data,
+        BRANCH_NAMES,
+        REGIONS,
+        generate_symitar_data,
     )
     from synth_data.generators.symitar_types import BranchRow
     from synth_data.generators.watchlist import generate_watchlist
