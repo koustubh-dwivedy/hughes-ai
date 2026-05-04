@@ -24,6 +24,8 @@ SELECT
     source.term_months::INT              AS term_months,
     source.maturity_at::TIMESTAMPTZ      AS maturity_at,
     source.status::TEXT                  AS status,
+    source.dealer_id::TEXT               AS dealer_id,
+    source.dealer_reserve_amount::NUMERIC AS dealer_reserve_amount,
     source.created_at::TIMESTAMPTZ       AS created_at
 FROM source
 INNER JOIN branches

@@ -119,3 +119,95 @@ sources:
               - not_null
               - accepted_values:
                   values: [matched, unmatched, ambiguous]
+
+      # ---- HUG-163: new tables from the data-model revamp ----
+
+      - name: dealers
+        description: Auto-lending dealer relationships (Origence indirect)
+        columns:
+          - name: dealer_id
+            tests: [not_null, unique]
+          - name: name
+            tests: [not_null]
+          - name: dealer_type
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [auto_franchise, auto_independent]
+          - name: markup_tier
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [standard, premium, aggressive]
+
+      - name: households
+        description: Member households (Member 360)
+        columns:
+          - name: household_id
+            tests: [not_null, unique]
+          - name: primary_member_id
+            tests: [not_null]
+          - name: formed_at
+            tests: [not_null]
+
+      - name: household_members
+        description: Bridge — members to households with role
+        columns:
+          - name: household_member_id
+            tests: [not_null, unique]
+          - name: household_id
+            tests: [not_null]
+          - name: member_id
+            tests: [not_null]
+          - name: role
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [primary, joint, dependent]
+
+      - name: account_owners
+        description: Bridge — members to loans/deposit accounts with role
+        columns:
+          - name: owner_id
+            tests: [not_null, unique]
+          - name: owner_account_id
+            tests: [not_null]
+          - name: member_id
+            tests: [not_null]
+          - name: owner_kind
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [loan, deposit]
+          - name: role
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [primary, joint, pod_beneficiary, authorized_signer]
+
+      - name: card_balances
+        description: Monthly snapshots of credit-card balances + limits
+        columns:
+          - name: balance_id
+            tests: [not_null, unique]
+          - name: loan_id
+            tests: [not_null]
+          - name: snapshot_date
+            tests: [not_null]
+          - name: credit_limit
+            tests: [not_null]
+
+      - name: card_transactions
+        description: Credit-card transaction ledger
+        columns:
+          - name: transaction_id
+            tests: [not_null, unique]
+          - name: loan_id
+            tests: [not_null]
+          - name: occurred_at
+            tests: [not_null]
+          - name: txn_type
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [purchase, payment, cash_advance, fee, interest_accrual]

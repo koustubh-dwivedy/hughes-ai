@@ -1,0 +1,5 @@
+segment_code,segment_label,expected_loss_rate_current,loss_rate_30_59,loss_rate_60_89,loss_rate_90_plus,qualitative_factors_notes
+consumer_auto,Consumer — Auto,0.0040,0.04,0.18,0.55,Calibrated to 2024 NCUA aggregates for small CUs
+real_estate_1st,Real Estate — 1st Lien,0.0010,0.01,0.05,0.20,Owner-occupied residential mortgages
+real_estate_junior,Real Estate — Junior Lien (HELOC + 2nd),0.0025,0.02,0.10,0.40,HELOC + closed-end 2nd lien combined
+credit_card,Credit Card,0.0150,0.10,0.30,0.85,Unsecured revolving credit

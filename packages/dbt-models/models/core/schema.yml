@@ -48,12 +48,21 @@ models:
         data_tests: [not_null]
 
   - name: dim_loan
-    description: Loan dimension with product, channel, branch, and term attributes
+    description: Loan dimension with product, channel, branch, dealer, NCUA + CECL tags
     columns:
       - name: loan_id
         data_tests: [not_null, unique]
       - name: product_type
-        data_tests: [not_null]
+        data_tests:
+          - not_null
+          - accepted_values:
+              values:
+                - auto_direct
+                - auto_indirect
+                - first_mortgage
+                - heloc
+                - closed_end_2nd
+                - credit_card
       - name: rate_type
         data_tests:
           - not_null
@@ -64,6 +73,10 @@ models:
           - not_null
           - accepted_values:
               values: [current, delinquent, charged_off, paid_off]
+      - name: ncua_5300_line_code
+        data_tests: [not_null]
+      - name: cecl_segment_code
+        data_tests: [not_null]
 
   - name: dim_calendar
     description: Daily calendar covering 2022-07-01 to 2025-06-30 with fiscal year and month-end flags
@@ -109,7 +122,7 @@ models:
               values: [active, departed]
 
   - name: dim_deposit_product
-    description: Deposit product dimension — 5 products with core/non-core category
+    description: Deposit product dimension — 5 products with core/non-core category + NCUA line code
     columns:
       - name: deposit_product_id
         data_tests: [not_null, unique]
@@ -120,3 +133,77 @@ models:
           - not_null
           - accepted_values:
               values: [Core, Non-Core]
+      - name: ncua_5300_line_code
+        data_tests: [not_null]
+
+  # ---- HUG-163: new entities (data-model revamp) ----
+
+  - name: dim_dealer
+    description: Auto-lending dealer dimension (Origence indirect)
+    columns:
+      - name: dealer_id
+        data_tests: [not_null, unique]
+      - name: dealer_name
+        data_tests: [not_null]
+      - name: dealer_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [auto_franchise, auto_independent]
+      - name: markup_tier
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [standard, premium, aggressive]
+
+  - name: dim_household
+    description: Household dimension with member counts + household type
+    columns:
+      - name: household_id
+        data_tests: [not_null, unique]
+      - name: primary_member_id
+        data_tests: [not_null]
+      - name: household_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [single, paired, multi_generation]
+
+  - name: bridge_household_member
+    description: Member-to-household bridge (one row per active or historical relationship)
+    columns:
+      - name: household_member_id
+        data_tests: [not_null, unique]
+      - name: household_id
+        data_tests: [not_null]
+      - name: member_id
+        data_tests: [not_null]
+      - name: role
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [primary, joint, dependent]
+
+  - name: bridge_account_owner
+    description: Member-to-account-or-loan bridge with role (primary / joint / POD / authorized)
+    columns:
+      - name: owner_id
+        data_tests: [not_null, unique]
+      - name: owner_kind
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [loan, deposit]
+      - name: role
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [primary, joint, pod_beneficiary, authorized_signer]
+
+  - name: dim_cecl_segment
+    description: CECL allowance segment with DPD-band loss rates (calibrated to 2024 NCUA aggregates)
+    columns:
+      - name: segment_code
+        data_tests: [not_null, unique]
+      - name: segment_label
+        data_tests: [not_null]
