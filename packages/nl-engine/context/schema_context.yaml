@@ -19,8 +19,12 @@ tables:
         example: "m-00142"
       - name: product_type
         type: TEXT
-        description: Loan product category (e.g. auto, personal, mortgage)
-        example: "auto"
+        description: >
+          Loan product code (post-HUG-160 revamp). One of: auto_direct,
+          auto_indirect (dealer-channel), first_mortgage, heloc,
+          closed_end_2nd, credit_card. Auto-Indirect is the only product
+          with a non-NULL dealer_id.
+        example: "auto_indirect"
       - name: channel
         type: TEXT
         description: Application submission channel (branch, online, mobile, dealer, broker)
@@ -131,8 +135,8 @@ tables:
         example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
       - name: product_type
         type: TEXT
-        description: Loan product category (auto, personal, mortgage, etc.)
-        example: "auto"
+        description: Loan product code; one of auto_direct, auto_indirect, first_mortgage, heloc, closed_end_2nd, credit_card
+        example: "first_mortgage"
       - name: channel
         type: TEXT
         description: >
@@ -351,8 +355,8 @@ tables:
         example: "2024-03-01"
       - name: product_type
         type: TEXT
-        description: Loan product category (auto, personal, mortgage, etc.)
-        example: "auto"
+        description: Loan product code; one of auto_direct, auto_indirect, first_mortgage, heloc, closed_end_2nd, credit_card
+        example: "first_mortgage"
       - name: branch_id
         type: INT
         description: Branch identifier — joins to branches table
@@ -498,7 +502,7 @@ tables:
         example: "2024-03-01"
       - name: product_type
         type: TEXT
-        description: Loan product category (auto, personal, mortgage, etc.)
+        description: Loan product code; one of auto_direct, auto_indirect, first_mortgage, heloc, closed_end_2nd, credit_card
         example: "personal"
       - name: event_type
         type: TEXT
@@ -574,3 +578,153 @@ tables:
         type: TEXT
         description: as_of_month cast to TEXT (surrogate key)
         example: "2024-03-01"
+
+  # =====================================================================
+  # HUG-165: new tables from the data-model revamp (HUG-160 epic)
+  # =====================================================================
+
+  - name: dim_dealer
+    description: >
+      Auto-lending dealer dimension (Origence indirect channel). 25 rows.
+      Pareto-distributed — top 5 dealers receive ~60% of indirect bookings.
+      Joined to dim_loan via dealer_id (NOT NULL only on auto_indirect loans).
+    columns:
+      - name: dealer_id
+        type: TEXT
+        description: Dealer identifier; NOT NULL on auto_indirect loans, NULL otherwise
+        example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      - name: dealer_name
+        type: TEXT
+        description: Trade name of the dealer
+        example: "Maple Auto"
+      - name: dealer_type
+        type: TEXT
+        description: "Channel type: auto_franchise (OEM authorized) or auto_independent"
+        example: "auto_franchise"
+      - name: markup_tier
+        type: TEXT
+        description: "Pricing tier: standard | premium | aggressive — drives dealer reserve rate"
+        example: "standard"
+      - name: is_active
+        type: BOOLEAN
+        description: True when active_until is NULL (dealer still onboarded)
+        example: "true"
+
+  - name: dim_household
+    description: >
+      Household dimension. One row per household (single, paired, or
+      multi_generation). Each member belongs to exactly one household via
+      bridge_household_member. Use for true household-balance analytics.
+    columns:
+      - name: household_id
+        type: TEXT
+        description: Unique household identifier
+        example: "11111111-2222-3333-4444-555555555555"
+      - name: primary_member_id
+        type: TEXT
+        description: member_id of the primary household contact
+        example: "m-00142"
+      - name: household_type
+        type: TEXT
+        description: "single (1 member), paired (2), or multi_generation (3+)"
+        example: "paired"
+      - name: total_members
+        type: INT
+        description: Count of currently-active household members
+        example: "2"
+
+  - name: bridge_account_owner
+    description: >
+      Member-to-account bridge with role. Use for joint ownership analysis.
+      One row per (member, loan-or-deposit-account, role). owner_kind
+      distinguishes loan vs. deposit; owner_account_id is the loan_id or
+      deposit account_id.
+    columns:
+      - name: owner_kind
+        type: TEXT
+        description: "'loan' or 'deposit' — distinguishes loan vs. share account"
+        example: "deposit"
+      - name: owner_account_id
+        type: TEXT
+        description: loan_id (when owner_kind='loan') or deposit account_id
+        example: "abc-123"
+      - name: member_id
+        type: TEXT
+        description: Member who owns the account in this role
+        example: "m-00142"
+      - name: role
+        type: TEXT
+        description: "primary | joint | pod_beneficiary | authorized_signer"
+        example: "joint"
+      - name: is_current
+        type: BOOLEAN
+        description: True when until_at is NULL (relationship still active)
+        example: "true"
+
+  - name: fct_call_report
+    description: >
+      NCUA 5300 quarterly line items rolled up from dim_loan + dim_deposit_product
+      + the CECL roll-forward. One row per (period_end_quarter × line_code).
+      Use for regulatory totals; cross-checks must reconcile to dim_loan /
+      deposit_accounts within $1.
+    columns:
+      - name: period_end_quarter
+        type: DATE
+        description: Last day of the calendar quarter (Mar 31, Jun 30, Sep 30, Dec 31)
+        example: "2025-12-31"
+      - name: ncua_5300_line_code
+        type: TEXT
+        description: NCUA 5300 line item identifier (e.g., '386' for Total Loans)
+        example: "386"
+      - name: schedule
+        type: TEXT
+        description: "5300 schedule: CB (loans/shares), CL (allowance), CI (income), RC (assets)"
+        example: "CB"
+      - name: label
+        type: TEXT
+        description: Human-readable line item description
+        example: "Total Loans Outstanding"
+      - name: line_value
+        type: NUMERIC
+        description: Dollar value reported on this line for the quarter
+        example: "42500000.00"
+
+  - name: fct_cecl_allowance_rollforward
+    description: >
+      CECL allowance roll-forward by month and segment. Closure invariant:
+      ending_balance(t) = beginning_balance(t) - net_charge_offs(t) +
+      provision_expense(t) (zero tolerance). Loss rates calibrated to 2024
+      NCUA aggregates. Use for ALLL / coverage analytics.
+    columns:
+      - name: period_end_month
+        type: DATE
+        description: Month-start date (always day 1)
+        example: "2025-12-01"
+      - name: cecl_segment_code
+        type: TEXT
+        description: "Segment: consumer_auto | real_estate_1st | real_estate_junior | credit_card"
+        example: "consumer_auto"
+      - name: beginning_balance
+        type: NUMERIC
+        description: Allowance at start of month
+        example: "1250000.00"
+      - name: charge_offs
+        type: NUMERIC
+        description: Principal charged off during the month
+        example: "45000.00"
+      - name: recoveries
+        type: NUMERIC
+        description: Recoveries on previously charged-off principal (~20% of prior charge-offs)
+        example: "9000.00"
+      - name: net_charge_offs
+        type: NUMERIC
+        description: charge_offs minus recoveries
+        example: "36000.00"
+      - name: provision_expense
+        type: NUMERIC
+        description: Period P&L expense; the plug that closes the roll-forward
+        example: "62000.00"
+      - name: ending_balance
+        type: NUMERIC
+        description: Allowance at end of month (equals expected loss)
+        example: "1276000.00"

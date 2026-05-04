@@ -351,3 +351,94 @@ examples:
       monthly_loan_growth and monthly_deposit_growth are dollar changes vs prior
       month — NULL for the earliest month. rate_spread is a decimal; multiply
       by 100 for basis-point display.
+
+  # ========================================================================
+  # HUG-165: examples for new domains (households, dealers, NCUA, CECL)
+  # ========================================================================
+
+  - question: "What is our top-5 dealer concentration in indirect auto?"
+    sql: |
+      WITH dealer_totals AS (
+          SELECT
+              d.dealer_name,
+              SUM(perf.balance) AS dealer_balance
+          FROM fct_loan_performance perf
+          INNER JOIN dim_loan loan USING (loan_id)
+          INNER JOIN dim_dealer d ON loan.dealer_id = d.dealer_id
+          WHERE loan.product_type = 'auto_indirect'
+            AND perf.snapshot_date = (
+                SELECT MAX(snapshot_date) FROM fct_loan_performance
+            )
+          GROUP BY d.dealer_name
+      ),
+      ranked AS (
+          SELECT *, RANK() OVER (ORDER BY dealer_balance DESC) AS rnk
+          FROM dealer_totals
+      ),
+      total AS (
+          SELECT SUM(dealer_balance) AS portfolio_balance FROM dealer_totals
+      )
+      SELECT
+          ROUND(SUM(CASE WHEN rnk <= 5 THEN dealer_balance ELSE 0 END)
+                / total.portfolio_balance * 100, 2) AS top5_concentration_pct
+      FROM ranked, total
+      GROUP BY total.portfolio_balance
+    notes: >
+      Dealer concentration > 60% is a regulatory flag. Only auto_indirect
+      loans contribute (others have NULL dealer_id).
+
+  - question: "What is the total balance held by households over $250,000?"
+    sql: |
+      SELECT
+          h.household_id,
+          h.household_name,
+          h.household_type,
+          ROUND(SUM(da.current_balance)::NUMERIC, 2) AS household_balance
+      FROM dim_household h
+      INNER JOIN bridge_household_member hm USING (household_id)
+      INNER JOIN bridge_account_owner ao
+          ON ao.member_id = hm.member_id
+         AND ao.owner_kind = 'deposit'
+         AND ao.role = 'primary'
+      INNER JOIN deposit_accounts da ON da.account_id = ao.owner_account_id
+      WHERE da.closed_at IS NULL
+      GROUP BY h.household_id, h.household_name, h.household_type
+      HAVING SUM(da.current_balance) > 250000
+      ORDER BY household_balance DESC
+    notes: >
+      Restrict to role='primary' to avoid double-counting joint accounts.
+      Filter closed_at IS NULL to exclude closed accounts.
+
+  - question: "Show CECL allowance balance and provision by segment for the latest month"
+    sql: |
+      SELECT
+          seg.segment_label,
+          ROUND(roll.beginning_balance::NUMERIC, 0) AS beginning_balance,
+          ROUND(roll.charge_offs::NUMERIC, 0)       AS charge_offs,
+          ROUND(roll.recoveries::NUMERIC, 0)        AS recoveries,
+          ROUND(roll.provision_expense::NUMERIC, 0) AS provision_expense,
+          ROUND(roll.ending_balance::NUMERIC, 0)    AS ending_balance
+      FROM fct_cecl_allowance_rollforward roll
+      INNER JOIN dim_cecl_segment seg
+          ON roll.cecl_segment_code = seg.segment_code
+      WHERE roll.period_end_month = (
+          SELECT MAX(period_end_month) FROM fct_cecl_allowance_rollforward
+      )
+      ORDER BY ending_balance DESC
+    notes: >
+      The roll-forward closes arithmetically: ending = beginning -
+      net_charge_offs + provision (zero tolerance, audited).
+
+  - question: "What was our NCUA 5300 line 386 (Total Loans) for the most recent quarter?"
+    sql: |
+      SELECT
+          period_end_quarter,
+          ROUND(line_value::NUMERIC, 0) AS total_loans
+      FROM fct_call_report
+      WHERE ncua_5300_line_code = '386'
+        AND period_end_quarter = (
+            SELECT MAX(period_end_quarter) FROM fct_call_report
+        )
+    notes: >
+      NCUA 5300 line 386 reconciles to SUM(dim_loan.balance) WHERE
+      status != 'paid_off' within $1 (audited in tests/audit/).

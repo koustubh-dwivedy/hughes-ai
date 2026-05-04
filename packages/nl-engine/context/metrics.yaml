@@ -471,3 +471,87 @@ metrics:
       - "How much is in the 90+ day bucket vs 30-59?"
       - "Show delinquency aging distribution this month"
       - "What percentage of past-due balance is in the 90+ bucket?"
+
+  # =====================================================================
+  # HUG-165: new metrics from the data-model revamp
+  # =====================================================================
+
+  - name: household_balance
+    label: Household Balance
+    description: >
+      Total deposit balance held by all members of a household. Joins
+      bridge_account_owner (member→account) with deposit_accounts then
+      sums by household_id. Use for true household-level wealth analytics
+      — single-account-balance metrics under-represent the financial
+      relationship the CU has with a member.
+    formula_plain_english: >
+      Sum of current_balance across all deposit_accounts whose owners
+      (via bridge_account_owner) are members of the same household.
+    caveats: >
+      Joint owners would be double-counted if you sum naively across
+      account_owners — use DISTINCT account_id or filter on role='primary'.
+    related_questions:
+      - "What is the total household balance for the top 10 households?"
+      - "How does household balance differ from member balance?"
+      - "Which households hold over $250,000?"
+
+  - name: dealer_concentration_pct
+    label: Dealer Concentration %
+    description: >
+      Share of indirect-auto loan balance booked through the top-N
+      dealers. A high concentration (>60% in top 5) is a counterparty
+      risk flag for examiners.
+    formula_plain_english: >
+      For top N dealers ranked by SUM(balance) on auto_indirect loans
+      / total auto_indirect balance.
+    caveats: >
+      Only auto_indirect loans contribute. Direct auto and other products
+      have NULL dealer_id and must be excluded.
+    related_questions:
+      - "What is our top-5 dealer concentration in indirect auto?"
+      - "Which dealer originated the most loans this year?"
+      - "How concentrated is our indirect-auto portfolio?"
+
+  - name: ncua_total_loans
+    label: Total Loans (NCUA 5300 line 386)
+    description: >
+      Total loans outstanding as reported on NCUA 5300 Schedule CB line 386.
+      Reconciles to SUM(dim_loan.balance) WHERE status != 'paid_off' to
+      within $1.
+    formula_plain_english: >
+      SUM(line_value) FROM fct_call_report WHERE ncua_5300_line_code = '386'.
+    caveats: >
+      Only quarter-end values exist. Off-quarter dates have no row.
+    related_questions:
+      - "What is our total loans outstanding for the latest quarter?"
+      - "Show NCUA 5300 line 386 by quarter for the past 2 years"
+
+  - name: cecl_allowance_balance
+    label: CECL Allowance Balance
+    description: >
+      Period-end allowance for credit losses, by segment. From
+      fct_cecl_allowance_rollforward.ending_balance.
+    formula_plain_english: >
+      Latest ending_balance per cecl_segment_code, summed for portfolio total.
+    caveats: >
+      Synthetic CECL uses a simplified DPD-band loss-rate model. Not
+      a true CECL implementation — flagged in docs/metrics.md.
+    related_questions:
+      - "What is our CECL allowance balance this month?"
+      - "How much did we provision in the latest quarter?"
+      - "Show CECL allowance by segment"
+
+  - name: cecl_provision_ytd
+    label: CECL Provision YTD
+    description: >
+      Year-to-date provision-for-credit-losses expense (P&L hit). Sum of
+      provision_expense across all months in the current fiscal year.
+    formula_plain_english: >
+      SUM(provision_expense) FROM fct_cecl_allowance_rollforward
+      WHERE period_end_month BETWEEN fiscal-year start AND latest month.
+    caveats: >
+      Fiscal year is July–June at this CU. Use dim_calendar.fiscal_year
+      to align.
+    related_questions:
+      - "What is our YTD provision for credit losses?"
+      - "How much have we set aside for CECL this fiscal year?"
