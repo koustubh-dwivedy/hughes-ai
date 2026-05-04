@@ -1,7 +1,7 @@
 from synth_data.config import SynthProfile
 from synth_data.generators.members import assign_member_id, generate_members
-from synth_data.generators.origence import generate_origence_data
-from synth_data.generators.symitar import generate_symitar_data
+
+from tests.unit._synth_helpers import origence_for, symitar_for
 
 _PROFILE = SynthProfile(
     seed=42,
@@ -31,8 +31,8 @@ def test_members_count_matches_profile() -> None:
 
 
 def test_all_booked_loans_member_ids_in_members() -> None:
-    origence = generate_origence_data(_PROFILE)
-    symitar = generate_symitar_data(origence, _PROFILE)
+    origence = origence_for(_PROFILE)
+    symitar = symitar_for(_PROFILE, origence)
     branch_names = [b.branch_name for b in symitar.branches]
     members = generate_members(_PROFILE, branch_names)
     for loan in symitar.booked_loans:

@@ -2,8 +2,8 @@ from collections import defaultdict
 
 from synth_data.config import SynthProfile
 from synth_data.generators.officers import generate_officers
-from synth_data.generators.origence import generate_origence_data
-from synth_data.generators.symitar import generate_symitar_data
+
+from tests.unit._synth_helpers import origence_for, symitar_for
 
 _PROFILE = SynthProfile(
     seed=42,
@@ -18,8 +18,8 @@ _BRANCHES = [
 
 
 def test_all_booked_loans_have_officer_id() -> None:
-    origence = generate_origence_data(_PROFILE)
-    symitar = generate_symitar_data(origence, _PROFILE)
+    origence = origence_for(_PROFILE)
+    symitar = symitar_for(_PROFILE, origence)
     missing = [loan.loan_id for loan in symitar.booked_loans if loan.officer_id is None]
     assert not missing, f"{len(missing)} booked_loans have no officer_id"
 
@@ -37,8 +37,8 @@ def test_every_branch_has_at_least_3_active_officers() -> None:
 
 
 def test_departed_officers_still_own_loans() -> None:
-    origence = generate_origence_data(_PROFILE)
-    symitar = generate_symitar_data(origence, _PROFILE)
+    origence = origence_for(_PROFILE)
+    symitar = symitar_for(_PROFILE, origence)
     departed_ids = {o.officer_id for o in symitar.officers if o.status == "departed"}
     assert departed_ids, "no departed officers generated"
     loan_officer_ids = {loan.officer_id for loan in symitar.booked_loans}

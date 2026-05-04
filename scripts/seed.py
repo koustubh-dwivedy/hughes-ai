@@ -58,11 +58,17 @@ def _apply_grants(database_url: str) -> None:
 
 
 def _run(profile_name: str, force: bool) -> None:
-    from synth_data.config import load_profile
+    from synth_data.config import load_product_catalog, load_profile
+    from synth_data.generators.cards import generate_card_data
+    from synth_data.generators.dealers import generate_dealers
     from synth_data.generators.deposits import generate_deposits
+    from synth_data.generators.households import generate_households
     from synth_data.generators.members import assign_member_id, generate_members
     from synth_data.generators.origence import generate_origence_data
-    from synth_data.generators.symitar import generate_symitar_data
+    from synth_data.generators.symitar import (
+        BRANCH_NAMES, REGIONS, generate_symitar_data,
+    )
+    from synth_data.generators.symitar_types import BranchRow
     from synth_data.generators.watchlist import generate_watchlist
     from synth_data.loaders.postgres import load_postgres
     from synth_data.reconciliation import reconcile
@@ -80,23 +86,33 @@ def _run(profile_name: str, force: bool) -> None:
         sys.exit(1)
 
     profile = load_profile(profile_name)
-    log.info("loaded profile", profile=profile_name)
+    catalog = load_product_catalog()
+    log.info("loaded profile + catalog", profile=profile_name)
 
-    origence = generate_origence_data(profile)
+    branches = [
+        BranchRow(branch_name=BRANCH_NAMES[i], region=REGIONS[i % len(REGIONS)])
+        for i in range(profile.branch_count)
+    ]
+    branch_names = [b.branch_name for b in branches]
+    members = generate_members(profile, branch_names)
+    log.info("generated members", count=len(members))
+
+    dealers = generate_dealers(profile)
+    log.info("generated dealers", count=len(dealers))
+
+    origence = generate_origence_data(profile, catalog, members)
     log.info("generated origence data",
              applications=len(origence.applications),
              funding_events=len(origence.funding_events))
 
-    symitar = generate_symitar_data(origence, profile)
+    symitar = generate_symitar_data(origence, profile, catalog, dealers=dealers)
     log.info("generated symitar data",
              booked_loans=len(symitar.booked_loans),
              loan_balances=len(symitar.loan_balances))
 
-    branch_names = [b.branch_name for b in symitar.branches]
-    members = generate_members(profile, branch_names)
     for loan in symitar.booked_loans:
-        loan.member_id = assign_member_id(loan.loan_id, members)
-    log.info("generated members", count=len(members))
+        if loan.application_id is None:
+            loan.member_id = assign_member_id(loan.loan_id, members)
 
     watchlist = generate_watchlist(
         np.random.default_rng(profile.seed + 30), symitar.booked_loans,
@@ -107,6 +123,18 @@ def _run(profile_name: str, force: bool) -> None:
     deposits = generate_deposits(profile, members, branch_names)
     log.info("generated deposits",
              products=len(deposits.products), accounts=len(deposits.accounts))
+
+    households = generate_households(
+        profile, members, deposits.accounts, symitar.booked_loans,
+    )
+    log.info("generated households",
+             households=len(households.households),
+             account_owners=len(households.account_owners))
+
+    cards = generate_card_data(profile, symitar.booked_loans)
+    log.info("generated cards",
+             balances=len(cards.balances),
+             transactions=len(cards.transactions))
 
     recon_rows = reconcile(origence, symitar)
     counts = {mt: sum(1 for r in recon_rows if r.match_type == mt)
@@ -125,6 +153,7 @@ def _run(profile_name: str, force: bool) -> None:
         origence, symitar, database_url,
         members=members, recon_rows=recon_rows,
         watchlist=watchlist, deposits=deposits,
+        dealers=dealers, households=households, cards=cards,
     )
     _apply_grants(database_url)
 

@@ -34,6 +34,8 @@ class BookedLoanRow:
     status: str
     officer_id: str | None = None
     is_nonaccrual: bool = False
+    dealer_id: str | None = None                 # populated only for auto_indirect
+    dealer_reserve_amount: Decimal | None = None # dealer markup retained
 
 
 @dataclass

@@ -1,8 +1,9 @@
 import numpy as np
 from synth_data.config import SynthProfile
-from synth_data.generators.origence import generate_origence_data
-from synth_data.generators.symitar import _dpd_bucket, generate_symitar_data
+from synth_data.generators.symitar import _dpd_bucket
 from synth_data.generators.watchlist import generate_watchlist
+
+from tests.unit._synth_helpers import origence_for, symitar_for
 
 _PROFILE = SynthProfile(
     seed=42,
@@ -37,8 +38,8 @@ def test_dpd_bucket_property_all_integers_0_to_365() -> None:
 
 
 def test_bucket_contract_matches_generated_snapshots() -> None:
-    origence = generate_origence_data(_PROFILE)
-    symitar = generate_symitar_data(origence, _PROFILE)
+    origence = origence_for(_PROFILE)
+    symitar = symitar_for(_PROFILE, origence)
     for row in symitar.delinquency_snapshots:
         expected = _dpd_bucket(row.days_past_due)
         assert row.delinquency_bucket == expected, (
@@ -48,16 +49,16 @@ def test_bucket_contract_matches_generated_snapshots() -> None:
 
 
 def test_both_new_buckets_appear_in_snapshots() -> None:
-    origence = generate_origence_data(_PROFILE)
-    symitar = generate_symitar_data(origence, _PROFILE)
+    origence = origence_for(_PROFILE)
+    symitar = symitar_for(_PROFILE, origence)
     buckets = {r.delinquency_bucket for r in symitar.delinquency_snapshots}
     assert "1-14" in buckets, "no '1-14' bucket rows generated"
     assert "15-29" in buckets, "no '15-29' bucket rows generated"
 
 
 def test_is_nonaccrual_derivation() -> None:
-    origence = generate_origence_data(_PROFILE)
-    symitar = generate_symitar_data(origence, _PROFILE)
+    origence = origence_for(_PROFILE)
+    symitar = symitar_for(_PROFILE, origence)
     snap_dpd = {}
     for row in symitar.delinquency_snapshots:
         snap_dpd[row.loan_id] = max(snap_dpd.get(row.loan_id, 0), row.days_past_due)
@@ -71,8 +72,8 @@ def test_is_nonaccrual_derivation() -> None:
 
 
 def test_nonaccrual_loans_not_current() -> None:
-    origence = generate_origence_data(_PROFILE)
-    symitar = generate_symitar_data(origence, _PROFILE)
+    origence = origence_for(_PROFILE)
+    symitar = symitar_for(_PROFILE, origence)
     bad = [
         loan for loan in symitar.booked_loans
         if loan.is_nonaccrual and loan.status == "current"
@@ -81,8 +82,8 @@ def test_nonaccrual_loans_not_current() -> None:
 
 
 def test_watchlist_coverage_3_to_5_percent() -> None:
-    origence = generate_origence_data(_PROFILE)
-    symitar = generate_symitar_data(origence, _PROFILE)
+    origence = origence_for(_PROFILE)
+    symitar = symitar_for(_PROFILE, origence)
     rng = np.random.default_rng(_PROFILE.seed + 30)
     wl = generate_watchlist(rng, symitar.booked_loans)
     active_count = sum(

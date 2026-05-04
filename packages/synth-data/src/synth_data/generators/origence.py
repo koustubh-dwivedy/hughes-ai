@@ -1,3 +1,11 @@
+"""Origence Connect LOS synthetic generator.
+
+Replaces the legacy hard-coded 8-product taxonomy with the new 6-product
+catalog loaded from packages/synth-data/profiles/products.yaml. Member IDs
+on applications now reference real members from the members table — no
+more disjoint UUID generation.
+"""
+
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -6,56 +14,8 @@ from typing import Any
 
 import numpy as np
 
-from synth_data.config import SynthProfile
-
-PRODUCT_TYPES = [
-    "cre", "c_and_i", "residential", "auto",
-    "construction", "home_equity", "consumer", "ppp",
-]
-_PRODUCT_MIX = [0.06, 0.07, 0.26, 0.28, 0.04, 0.10, 0.15, 0.04]
-
-PRODUCT_SPECS: dict[str, dict[str, Any]] = {
-    "cre": {
-        "rate": (0.060, 0.090),
-        "terms": [60, 84, 120, 180, 240, 300],
-        "amount": (500_000, 5_000_000),
-    },
-    "c_and_i": {
-        "rate": (0.050, 0.080),
-        "terms": [36, 48, 60, 84, 120],
-        "amount": (100_000, 2_000_000),
-    },
-    "residential": {
-        "rate": (0.030, 0.070),
-        "terms": [180, 240, 360],
-        "amount": (100_000, 700_000),
-    },
-    "auto": {
-        "rate": (0.040, 0.100),
-        "terms": [36, 48, 60, 72, 84],
-        "amount": (15_000, 60_000),
-    },
-    "construction": {
-        "rate": (0.060, 0.090),
-        "terms": [12, 18, 24],
-        "amount": (200_000, 3_000_000),
-    },
-    "home_equity": {
-        "rate": (0.040, 0.080),
-        "terms": [60, 84, 120, 180],
-        "amount": (20_000, 150_000),
-    },
-    "consumer": {
-        "rate": (0.080, 0.180),
-        "terms": [12, 24, 36, 48, 60],
-        "amount": (1_000, 25_000),
-    },
-    "ppp": {
-        "rate": (0.010, 0.010),
-        "terms": [24, 60],
-        "amount": (5_000, 150_000),
-    },
-}
+from synth_data.config import LoanProductSpec, ProductCatalog, SynthProfile
+from synth_data.generators.members import MemberRow
 
 CHANNELS = ["branch", "online", "mobile", "indirect", "call_center"]
 DECLINE_REASONS = ["credit_score", "dti_ratio", "incomplete_docs", "policy"]
@@ -113,7 +73,7 @@ class OrigenceData:
 @dataclass
 class _Arrays:
     app_uuids: list[str]
-    member_uuids: list[str]
+    member_picks: Any
     pt_idxs: Any
     ch_idxs: Any
     amounts: list[int]
@@ -134,19 +94,32 @@ def _gen_uuids(rng: np.random.Generator, n: int) -> list[str]:
     return [str(uuid.UUID(bytes=bytes(row))) for row in raw]
 
 
+def _channel_for_product(rng: np.random.Generator, product: LoanProductSpec) -> str:
+    """Auto-Indirect always books through 'indirect' (dealer); others draw freely."""
+    if product.code == "auto_indirect":
+        return "indirect"
+    # Non-indirect products avoid the 'indirect' channel.
+    non_indirect = [c for c in CHANNELS if c != "indirect"]
+    return non_indirect[int(rng.integers(0, len(non_indirect)))]
+
+
 def _sample_by_product(
-    rng: np.random.Generator, pt_idxs: Any
+    rng: np.random.Generator,
+    pt_idxs: Any,
+    products: list[LoanProductSpec],
 ) -> tuple[list[int], list[float], list[int]]:
     amounts: list[int] = []
     rates: list[float] = []
     terms: list[int] = []
     for idx in pt_idxs:
-        spec = PRODUCT_SPECS[PRODUCT_TYPES[int(idx)]]
-        lo, hi = spec["amount"]
-        amounts.append(int(rng.integers(lo // 500, hi // 500 + 1)) * 500)
-        r_lo, r_hi = spec["rate"]
+        spec = products[int(idx)]
+        lo, hi = spec.amount_range
+        # Round to nearest $500 for non-card; cards round to $100 (credit limits)
+        step = 100 if spec.code == "credit_card" else 500
+        amounts.append(int(rng.integers(lo // step, hi // step + 1)) * step)
+        r_lo, r_hi = spec.rate_range
         rates.append(float(rng.uniform(r_lo, r_hi)) if r_lo < r_hi else r_lo)
-        terms.append(int(rng.choice(spec["terms"])))
+        terms.append(int(rng.choice(spec.term_months)))
     return amounts, rates, terms
 
 
@@ -167,12 +140,19 @@ def _assign_statuses(
     return list(np.select(conditions, choices, default="funded"))
 
 
-def _pre_generate(rng: np.random.Generator, n: int, max_days_ago: int = 730) -> _Arrays:
-    pt_idxs = rng.choice(len(PRODUCT_TYPES), n, p=_PRODUCT_MIX)
-    amounts, appr_rates, term_idxs = _sample_by_product(rng, pt_idxs)
+def _pre_generate(
+    rng: np.random.Generator,
+    n: int,
+    products: list[LoanProductSpec],
+    member_count: int,
+    max_days_ago: int = 730,
+) -> _Arrays:
+    mix = np.array([p.mix for p in products])
+    pt_idxs = rng.choice(len(products), n, p=mix)
+    amounts, appr_rates, term_idxs = _sample_by_product(rng, pt_idxs, products)
     return _Arrays(
         app_uuids=_gen_uuids(rng, n),
-        member_uuids=_gen_uuids(rng, n),
+        member_picks=rng.integers(0, member_count, n),
         pt_idxs=pt_idxs,
         ch_idxs=rng.integers(0, len(CHANNELS), n),
         amounts=amounts,
@@ -233,48 +213,71 @@ def _append_decision(
         ))
 
 
-def generate_origence_data(profile: SynthProfile) -> OrigenceData:
+def _build_one_app(
+    i: int,
+    rng: np.random.Generator,
+    arr: _Arrays,
+    members: list[MemberRow],
+    products: list[LoanProductSpec],
+    status: str,
+    applications: list[ApplicationRow],
+    stages: list[StageRow],
+    approvals: list[ApprovalRow],
+    funding_events: list[FundingEventRow],
+) -> None:
+    app_id = arr.app_uuids[i]
+    applied_at = _REF_DATE - timedelta(days=int(arr.days_ago[i]))
+    product = products[int(arr.pt_idxs[i])]
+    applications.append(ApplicationRow(
+        application_id=app_id,
+        member_id=members[int(arr.member_picks[i])].member_id,
+        product_type_name=product.code,
+        channel_name=_channel_for_product(rng, product),
+        requested_amount=Decimal(str(arr.amounts[i])),
+        applied_at=applied_at,
+        status=status,
+    ))
+    sub_exit = applied_at + timedelta(hours=int(arr.stage_hrs[i, 0]))
+    stages.append(StageRow(app_id, "submitted", applied_at, sub_exit))
+    if status == "withdrawn":
+        return
+    uw_exit = sub_exit + timedelta(days=int(arr.stage_days[i, 0]))
+    stages.append(StageRow(app_id, "underwriting", sub_exit, uw_exit))
+    dec_exit = uw_exit + timedelta(hours=int(arr.stage_hrs[i, 1]))
+    stages.append(StageRow(app_id, "decision", uw_exit, dec_exit))
+    decided_at = applied_at + timedelta(days=int(arr.appr_days[i]))
+    _append_decision(
+        i, app_id, decided_at, dec_exit, status, arr,
+        approvals, stages, funding_events,
+    )
+
+
+def generate_origence_data(
+    profile: SynthProfile,
+    catalog: ProductCatalog,
+    members: list[MemberRow],
+) -> OrigenceData:
     rng = np.random.default_rng(profile.seed)
     n = profile.applications
-    arr = _pre_generate(rng, n, max_days_ago=profile.history_months * 31)
+    products = catalog.loan_products
+    arr = _pre_generate(
+        rng, n, products, member_count=len(members),
+        max_days_ago=profile.history_months * 31,
+    )
     statuses = _assign_statuses(
         arr.status_r, profile.approval_rate, profile.funding_rate,
     )
-
     applications: list[ApplicationRow] = []
     stages: list[StageRow] = []
     approvals: list[ApprovalRow] = []
     funding_events: list[FundingEventRow] = []
-
     for i in range(n):
-        app_id = arr.app_uuids[i]
-        applied_at = _REF_DATE - timedelta(days=int(arr.days_ago[i]))
-        status = statuses[i]
-        applications.append(ApplicationRow(
-            application_id=app_id,
-            member_id=arr.member_uuids[i],
-            product_type_name=PRODUCT_TYPES[int(arr.pt_idxs[i])],
-            channel_name=CHANNELS[int(arr.ch_idxs[i])],
-            requested_amount=Decimal(str(arr.amounts[i])),
-            applied_at=applied_at,
-            status=status,
-        ))
-        sub_exit = applied_at + timedelta(hours=int(arr.stage_hrs[i, 0]))
-        stages.append(StageRow(app_id, "submitted", applied_at, sub_exit))
-        if status == "withdrawn":
-            continue
-        uw_exit = sub_exit + timedelta(days=int(arr.stage_days[i, 0]))
-        stages.append(StageRow(app_id, "underwriting", sub_exit, uw_exit))
-        dec_exit = uw_exit + timedelta(hours=int(arr.stage_hrs[i, 1]))
-        stages.append(StageRow(app_id, "decision", uw_exit, dec_exit))
-        decided_at = applied_at + timedelta(days=int(arr.appr_days[i]))
-        _append_decision(
-            i, app_id, decided_at, dec_exit, status, arr,
-            approvals, stages, funding_events,
+        _build_one_app(
+            i, rng, arr, members, products, statuses[i],
+            applications, stages, approvals, funding_events,
         )
-
     return OrigenceData(
-        product_types=PRODUCT_TYPES,
+        product_types=[p.code for p in products],
         channels=CHANNELS,
         applications=applications,
         stages=stages,
