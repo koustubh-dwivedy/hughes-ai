@@ -12,7 +12,7 @@ import os
 
 import psycopg
 import pytest
-from api.repo import metricflow as mf
+from nl_engine.repo import metricflow as mf
 
 _TOLERANCE_DOLLARS = 1.0
 
