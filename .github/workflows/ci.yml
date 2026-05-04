@@ -73,7 +73,7 @@ jobs:
         with:
           enable-caching: true
       - run: uv sync
-      - name: Run unit tests
+      - name: Run unit tests (top-level)
         run: |
           set +e
           uv run pytest tests/ --ignore=tests/structural/ --ignore=tests/integration/ -v
@@ -81,6 +81,17 @@ jobs:
           set -e
           if [ $EXIT -eq 5 ]; then echo "No unit tests yet — skipping"; exit 0; fi
           exit $EXIT
+      - name: Run package unit tests (nl-engine)
+        run: |
+          uv run pytest packages/nl-engine/tests/ -v \
+            --ignore=packages/nl-engine/tests/test_engine.py \
+            --deselect packages/nl-engine/tests/test_clarification.py::test_caveats_injected_in_full_pipeline
+      - name: Run package unit tests (api, in-memory only)
+        run: |
+          uv run pytest packages/api/tests/ -v \
+            --ignore=packages/api/tests/test_threads_repo.py \
+            --ignore=packages/api/tests/test_threads_route.py \
+            --deselect packages/api/tests/test_routes.py::test_get_history_returns_list
 
   structural-test:
     name: Structural Tests
@@ -194,6 +205,9 @@ jobs:
           set -e
           if [ $EXIT -eq 4 ] || [ $EXIT -eq 5 ]; then echo "No integration tests yet — skipping"; exit 0; fi
           exit $EXIT
+      - name: Run package integration tests (DB-backed)
+        run: |
+          uv run pytest packages/api/tests/test_threads_repo.py packages/api/tests/test_threads_route.py -v
 
   e2e-test:
     name: E2E Tests
