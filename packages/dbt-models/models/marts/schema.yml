@@ -175,3 +175,34 @@ models:
         data_tests: [not_null]
       - name: rate_spread
         data_tests: [not_null]
+
+  - name: fct_call_report
+    description: NCUA 5300 quarterly line items aggregated from dim_loan + dim_deposit_product + CECL roll-forward
+    columns:
+      - name: period_end_quarter
+        data_tests: [not_null]
+      - name: ncua_5300_line_code
+        data_tests: [not_null]
+      - name: schedule
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [CB, CL, CI, RC]
+      - name: line_value
+        data_tests: [not_null]
+
+  - name: fct_cecl_allowance_rollforward
+    description: CECL allowance roll-forward by month and segment with arithmetic closure invariant
+    columns:
+      - name: period_end_month
+        data_tests: [not_null]
+      - name: cecl_segment_code
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_cecl_segment')
+              field: segment_code
+      - name: beginning_balance
+        data_tests: [not_null]
+      - name: ending_balance
+        data_tests: [not_null]
