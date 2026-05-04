@@ -181,11 +181,11 @@ def generate_card_data(
         for mo in range(1, months_active + 1):
             snap = _snapshot_date(loan.originated_at, mo)
             month_start = datetime(snap.year, snap.month, 1, tzinfo=UTC)
-            running_bal, month_txns = _gen_month(
-                rng, loan.loan_id, month_start, credit_limit, running_bal,
-                txns_per_month, apr,
-            )
-            transactions.extend(month_txns)
+            # HUG-169: snapshot_date represents START-of-period state, so
+            # save the balance BEFORE simulating that month's activity.
+            # This makes balance(t) - balance(t-1) close exactly against
+            # the sum of transactions in [t-1, t), matching NCUA + audit
+            # convention.
             balances.append(CardBalanceRow(
                 balance_id=_new_uuid(rng),
                 loan_id=loan.loan_id,
@@ -193,5 +193,10 @@ def generate_card_data(
                 balance=Decimal(str(round(running_bal, 2))),
                 credit_limit=Decimal(str(round(credit_limit, 2))),
             ))
+            running_bal, month_txns = _gen_month(
+                rng, loan.loan_id, month_start, credit_limit, running_bal,
+                txns_per_month, apr,
+            )
+            transactions.extend(month_txns)
 
     return CardData(balances=balances, transactions=transactions)

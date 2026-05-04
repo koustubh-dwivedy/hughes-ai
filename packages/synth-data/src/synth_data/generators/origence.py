@@ -6,8 +6,8 @@ on applications now reference real members from the members table — no
 more disjoint UUID generation.
 """
 
+import bisect
 import uuid
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -16,77 +16,24 @@ import numpy as np
 
 from synth_data.config import LoanProductSpec, ProductCatalog, SynthProfile
 from synth_data.generators.members import MemberRow
+from synth_data.generators.origence_types import (
+    ApplicationRow,
+    ApprovalRow,
+    FundingEventRow,
+    OrigenceData,
+    StageRow,
+    _Arrays,
+)
+
+__all__ = [
+    "ApplicationRow", "StageRow", "ApprovalRow", "FundingEventRow",
+    "OrigenceData", "CHANNELS", "DECLINE_REASONS", "generate_origence_data",
+]
 
 CHANNELS = ["branch", "online", "mobile", "indirect", "call_center"]
 DECLINE_REASONS = ["credit_score", "dti_ratio", "incomplete_docs", "policy"]
 
 _REF_DATE = datetime(2026, 4, 1, tzinfo=UTC)
-
-
-@dataclass
-class ApplicationRow:
-    application_id: str
-    member_id: str
-    product_type_name: str
-    channel_name: str
-    requested_amount: Decimal
-    applied_at: datetime
-    status: str
-
-
-@dataclass
-class StageRow:
-    application_id: str
-    stage_name: str
-    entered_at: datetime
-    exited_at: datetime | None
-
-
-@dataclass
-class ApprovalRow:
-    application_id: str
-    decision: str
-    decided_at: datetime
-    approved_amount: Decimal | None
-    rate: Decimal | None
-    term_months: int | None
-    decline_reason: str | None
-
-
-@dataclass
-class FundingEventRow:
-    application_id: str
-    funded_at: datetime
-    funded_amount: Decimal
-
-
-@dataclass
-class OrigenceData:
-    product_types: list[str]
-    channels: list[str]
-    applications: list[ApplicationRow]
-    stages: list[StageRow]
-    approvals: list[ApprovalRow]
-    funding_events: list[FundingEventRow]
-
-
-@dataclass
-class _Arrays:
-    app_uuids: list[str]
-    member_picks: Any
-    pt_idxs: Any
-    ch_idxs: Any
-    amounts: list[int]
-    days_ago: Any
-    status_r: Any
-    stage_hrs: Any
-    stage_days: Any
-    appr_days: Any
-    appr_factors: Any
-    appr_rates: list[float]
-    term_idxs: list[int]
-    decline_idxs: Any
-    fund_days: Any
 
 
 def _gen_uuids(rng: np.random.Generator, n: int) -> list[str]:
@@ -213,6 +160,24 @@ def _append_decision(
         ))
 
 
+def _pick_eligible_member(
+    members_sorted: list[MemberRow],
+    joined_at_keys: list[datetime],
+    applied_at: datetime,
+    raw_pick: int,
+) -> MemberRow:
+    """Pick a member who joined on or before applied_at (HUG-168). Members
+    are pre-sorted by joined_at; we bisect_right to find how many qualify
+    and pick within that prefix using the deterministic raw_pick % count.
+    Falls back to the earliest-joining member if no one qualifies (would
+    only happen if applied_at predates every member, which the synth
+    profile prevents)."""
+    eligible_count = bisect.bisect_right(joined_at_keys, applied_at)
+    if eligible_count == 0:
+        return members_sorted[0]
+    return members_sorted[raw_pick % eligible_count]
+
+
 def _build_one_app(
     i: int,
     rng: np.random.Generator,
@@ -224,13 +189,18 @@ def _build_one_app(
     stages: list[StageRow],
     approvals: list[ApprovalRow],
     funding_events: list[FundingEventRow],
+    members_sorted: list[MemberRow],
+    joined_at_keys: list[datetime],
 ) -> None:
     app_id = arr.app_uuids[i]
     applied_at = _REF_DATE - timedelta(days=int(arr.days_ago[i]))
     product = products[int(arr.pt_idxs[i])]
+    chosen_member = _pick_eligible_member(
+        members_sorted, joined_at_keys, applied_at, int(arr.member_picks[i]),
+    )
     applications.append(ApplicationRow(
         application_id=app_id,
-        member_id=members[int(arr.member_picks[i])].member_id,
+        member_id=chosen_member.member_id,
         product_type_name=product.code,
         channel_name=_channel_for_product(rng, product),
         requested_amount=Decimal(str(arr.amounts[i])),
@@ -271,10 +241,13 @@ def generate_origence_data(
     stages: list[StageRow] = []
     approvals: list[ApprovalRow] = []
     funding_events: list[FundingEventRow] = []
+    members_sorted = sorted(members, key=lambda m: m.joined_at)
+    joined_at_keys = [m.joined_at for m in members_sorted]
     for i in range(n):
         _build_one_app(
             i, rng, arr, members, products, statuses[i],
             applications, stages, approvals, funding_events,
+            members_sorted, joined_at_keys,
         )
     return OrigenceData(
         product_types=[p.code for p in products],
