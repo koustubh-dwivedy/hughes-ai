@@ -11,7 +11,7 @@ import csv
 import json
 import logging
 import shutil
-import subprocess
+import subprocess  # nosec B404 — `mf` CLI is the documented integration path
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -58,7 +58,7 @@ def _mf_command() -> str:
 def _run(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     """Run `mf` with the given args. Raises MetricFlowError on non-zero exit."""
     cmd = [_mf_command(), *args]
-    proc = subprocess.run(  # noqa: S603 — mf path is resolved + args are typed
+    proc = subprocess.run(  # noqa: S603  # nosec B603 — mf path resolved, args typed
         cmd,
         cwd=str(cwd or _DBT_PROJECT_DIR),
         capture_output=True,
