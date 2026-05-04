@@ -36,8 +36,10 @@ jobs:
       - run: uv sync
       - name: Apply schema migrations
         run: |
-          psql $DATABASE_URL -f migrations/001_lending_schema.sql
-          psql $DATABASE_URL -f migrations/002_query_history.sql
+          for f in migrations/*.sql; do
+            echo "→ $f"
+            psql $DATABASE_URL -f "$f"
+          done
       - name: Seed database
         run: uv run python scripts/seed.py --profile small_cu
       - name: Build dbt models
