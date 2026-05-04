@@ -689,6 +689,37 @@ tables:
         description: Dollar value reported on this line for the quarter
         example: "42500000.00"
 
+  - name: dim_cecl_segment
+    description: >
+      CECL segment dimension. 4 rows: consumer_auto, real_estate_1st,
+      real_estate_junior, credit_card. Carries the DPD-band loss rates
+      used to compute expected allowance.
+    columns:
+      - name: segment_code
+        type: TEXT
+        description: "Segment id: consumer_auto | real_estate_1st | real_estate_junior | credit_card"
+        example: "consumer_auto"
+      - name: segment_label
+        type: TEXT
+        description: Human-readable segment name
+        example: "Consumer — Auto"
+      - name: expected_loss_rate_current
+        type: NUMERIC
+        description: Annualized expected loss rate on current loans (decimal)
+        example: "0.0040"
+      - name: loss_rate_30_59
+        type: NUMERIC
+        description: Loss rate on 30-59 DPD loans
+        example: "0.04"
+      - name: loss_rate_60_89
+        type: NUMERIC
+        description: Loss rate on 60-89 DPD loans
+        example: "0.18"
+      - name: loss_rate_90_plus
+        type: NUMERIC
+        description: Loss rate on 90+ DPD loans
+        example: "0.55"
+
   - name: fct_cecl_allowance_rollforward
     description: >
       CECL allowance roll-forward by month and segment. Closure invariant:
