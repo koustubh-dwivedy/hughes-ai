@@ -1,0 +1,120 @@
+# New CU-realistic product taxonomy.
+# Loaded by synth-data; replaces the hard-coded PRODUCT_TYPES list in
+# generators/origence.py. Mix percentages must sum to 1.0 (validated in config.py).
+
+loan_products:
+  - code: auto_direct
+    label: "Auto — Direct"
+    mix: 0.22
+    rate_range: [0.055, 0.110]
+    term_months: [36, 48, 60, 72, 84]
+    amount_range: [10000, 60000]
+    ncua_5300_line_code: "396_direct"   # Auto Loans (direct)
+    cecl_segment: consumer_auto
+
+  - code: auto_indirect
+    label: "Auto — Indirect (Dealer)"
+    mix: 0.26
+    rate_range: [0.060, 0.130]
+    term_months: [48, 60, 72, 84]
+    amount_range: [12000, 65000]
+    ncua_5300_line_code: "396_indirect" # Auto Loans (indirect)
+    cecl_segment: consumer_auto
+    requires_dealer: true                # only product with dealer_id NOT NULL
+
+  - code: first_mortgage
+    label: "First Mortgage"
+    mix: 0.20
+    rate_range: [0.045, 0.080]
+    term_months: [180, 240, 360]
+    amount_range: [120000, 750000]
+    ncua_5300_line_code: "703a"          # 1st-lien residential RE
+    cecl_segment: real_estate_1st
+
+  - code: heloc
+    label: "Home Equity Line of Credit"
+    mix: 0.10
+    rate_range: [0.070, 0.120]            # variable, prime + spread
+    term_months: [120, 180, 240]          # draw period typical 10y
+    amount_range: [25000, 200000]
+    ncua_5300_line_code: "703b_revolving" # HELOC revolving
+    cecl_segment: real_estate_junior
+    is_revolving: true
+
+  - code: closed_end_2nd
+    label: "Closed-End 2nd Lien"
+    mix: 0.06
+    rate_range: [0.065, 0.110]
+    term_months: [60, 84, 120, 180]
+    amount_range: [20000, 150000]
+    ncua_5300_line_code: "703b_closed"    # Closed-end 2nd-lien residential
+    cecl_segment: real_estate_junior
+
+  - code: credit_card
+    label: "Credit Card"
+    mix: 0.16
+    rate_range: [0.110, 0.220]
+    term_months: [0]                      # revolving — no term; placeholder 0
+    amount_range: [500, 25000]            # credit limit, not balance
+    ncua_5300_line_code: "396a"           # Unsecured credit card loans
+    cecl_segment: credit_card
+    is_revolving: true
+
+# Deposit (share) products — unchanged from current model, only NCUA tags added.
+share_products:
+  - code: demand
+    label: "Share Draft (Checking)"
+    is_core: true
+    ncua_5300_line_code: "902"            # Share drafts
+
+  - code: savings
+    label: "Regular Share"
+    is_core: true
+    ncua_5300_line_code: "903"            # Regular shares
+
+  - code: money_market
+    label: "Money Market Share"
+    is_core: true
+    ncua_5300_line_code: "911"            # Money market shares
+
+  - code: interest_bearing
+    label: "Interest-Bearing Share"
+    is_core: false
+    ncua_5300_line_code: "912"            # Other shares
+
+  - code: time_deposit
+    label: "Share Certificate (CD)"
+    is_core: false
+    ncua_5300_line_code: "908"            # Share certificates
+
+# CECL allowance segments — used by the CECL roll-forward fact.
+# Loss-rate bands are annualized expected losses by DPD bucket. Calibrated to
+# 2024 NCUA quarterly aggregates for small CUs (< $500M assets).
+cecl_segments:
+  - code: consumer_auto
+    label: "Consumer — Auto"
+    expected_loss_rate_current: 0.0040
+    loss_rate_30_59: 0.04
+    loss_rate_60_89: 0.18
+    loss_rate_90_plus: 0.55
+
+  - code: real_estate_1st
+    label: "Real Estate — 1st Lien"
+    expected_loss_rate_current: 0.0010
+    loss_rate_30_59: 0.01
+    loss_rate_60_89: 0.05
+    loss_rate_90_plus: 0.20
+
+  - code: real_estate_junior
+    label: "Real Estate — Junior Lien (HELOC + 2nd)"
+    expected_loss_rate_current: 0.0025
+    loss_rate_30_59: 0.02
+    loss_rate_60_89: 0.10
+    loss_rate_90_plus: 0.40
+
+  - code: credit_card
+    label: "Credit Card"
+    expected_loss_rate_current: 0.0150
+    loss_rate_30_59: 0.10
+    loss_rate_60_89: 0.30
+    loss_rate_90_plus: 0.85

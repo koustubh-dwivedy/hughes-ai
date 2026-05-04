@@ -1,0 +1,25 @@
+line_code,schedule,label,description,formula_notes
+386,CB,Total Loans Outstanding,Sum of all loans on the books at quarter end,SUM(dim_loan.balance) WHERE status != 'paid_off'
+396_direct,CB,Auto Loans — Direct,Direct (non-dealer) auto loans outstanding,SUM where product_type = 'auto_direct'
+396_indirect,CB,Auto Loans — Indirect,Auto loans originated through a dealer (Origence),SUM where product_type = 'auto_indirect'
+396a,CB,Unsecured Credit Card Loans,Outstanding credit card balances,SUM where product_type = 'credit_card'
+703a,CB,Real Estate Loans — 1st Lien,Closed-end 1st lien residential mortgages,SUM where product_type = 'first_mortgage'
+703b_revolving,CB,Real Estate Loans — Junior Revolving,Open-end home equity lines (HELOCs),SUM where product_type = 'heloc'
+703b_closed,CB,Real Estate Loans — Junior Closed-End,Closed-end junior-lien real estate loans,SUM where product_type = 'closed_end_2nd'
+541,CB,Delinquent Loans 60+ DPD,Loans past due 60 days or more,SUM(balance) where days_past_due >= 60
+551,CL,Provision for Loan Losses,Period expense recorded against P&L for expected credit losses,SUM(fct_cecl_allowance_rollforward.provision_expense)
+550,CL,Allowance for Credit Losses — Beginning,Beginning balance of CECL allowance for the period,SUM(fct_cecl_allowance_rollforward.beginning_balance)
+550c,CL,Allowance for Credit Losses — Ending,Ending balance of CECL allowance for the period,SUM(fct_cecl_allowance_rollforward.ending_balance)
+550a,CL,Recoveries on Charged-Off Loans,Recoveries of previously charged-off principal,SUM(fct_cecl_allowance_rollforward.recoveries)
+550b,CL,Loans Charged Off,Principal written off during the period,SUM(fct_cecl_allowance_rollforward.charge_offs)
+902,CB,Share Drafts,Share-draft (checking) account balances,SUM where deposit_product = 'demand'
+903,CB,Regular Shares,Regular share (savings) account balances,SUM where deposit_product = 'savings'
+908,CB,Share Certificates,Share certificate (CD) balances,SUM where deposit_product = 'time_deposit'
+911,CB,Money Market Shares,Money market share account balances,SUM where deposit_product = 'money_market'
+912,CB,Other Shares,Other interest-bearing shares,SUM where deposit_product = 'interest_bearing'
+018,CB,Total Shares & Deposits,Total of all share categories,SUM(deposit_account.current_balance) WHERE status != 'closed'
+010,RC,Total Assets,Sum of all earning assets and cash,Total Loans + Investments + Cash + Other Assets
+997,RC,Total Net Worth,Regulatory net worth (capital + reserves + undivided earnings),Configured as 9.5% of total assets in synth model
+997a,RC,Net Worth Ratio,Net worth divided by total assets,997 / 010
+350,CI,Total Interest Income,Interest earned on loans + investments,SUM(payments.interest) for the period
+661,CI,Interest Income on Loans,Interest earned on loan portfolio,SUM(payments.interest)
