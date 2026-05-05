@@ -9,7 +9,7 @@ import os
 import sys
 from pathlib import Path
 
-import yaml
+from nl_engine.benchmarks.schema import Question, load_questions
 from nl_engine.context_loader import load_all
 from nl_engine.engine import AnswerResponse, ClarificationResponse, ask
 
@@ -82,23 +82,17 @@ def _keyword_frac(expected: list[str], sql: str) -> float:
 
 
 def _score(
-    q: dict[str, object],
+    q: Question,
     result: AnswerResponse | ClarificationResponse,
 ) -> dict[str, object]:
-    qtype = str(q["question_type"])
-    tables_raw = q.get("expected_tables")
-    keywords_raw = q.get("expected_keywords")
-    expected_tables: set[str] = (
-        {str(t) for t in tables_raw} if isinstance(tables_raw, list) else set()
-    )
-    expected_keywords: list[str] = (
-        [str(k) for k in keywords_raw] if isinstance(keywords_raw, list) else []
-    )
+    qtype = q.question_type
+    expected_tables: set[str] = set(q.expected_tables)
+    expected_keywords: list[str] = list(q.expected_keywords)
 
     if qtype == "ambiguous":
         correct = isinstance(result, ClarificationResponse)
         return {
-            "question": q["question"],
+            "question": q.question,
             "question_type": qtype,
             "correct": correct,
             "sql_valid": None,
@@ -108,7 +102,7 @@ def _score(
 
     if isinstance(result, ClarificationResponse):
         return {
-            "question": q["question"],
+            "question": q.question,
             "question_type": qtype,
             "correct": False,
             "sql_valid": False,
@@ -122,7 +116,7 @@ def _score(
     kw_frac = _keyword_frac(expected_keywords, sql)
     correct = sql_valid and jaccard >= PASS_THRESHOLD and kw_frac >= PASS_THRESHOLD
     return {
-        "question": q["question"],
+        "question": q.question,
         "question_type": qtype,
         "correct": correct,
         "sql_valid": sql_valid,
@@ -134,21 +128,20 @@ def _score(
 def run(fail_under: float, full: bool = False) -> int:
     db_url = os.environ["DATABASE_URL"]
     ctx = load_all()
-    raw = yaml.safe_load(QUESTIONS_FILE.read_text())
-    questions: list[dict[str, object]] = raw["questions"]
+    qf = load_questions(QUESTIONS_FILE)
+    questions: list[Question] = qf.questions
     if not full:
-        questions = [q for q in questions
-                     if str(q.get("question_type", "")) not in _LEGACY_TYPES]
+        questions = [q for q in questions if q.question_type not in _LEGACY_TYPES]
     cache = _load_cache()
 
     results: list[dict[str, object]] = []
     for q in questions:
-        key = _cache_key(str(q["question"]), db_url)
+        key = _cache_key(q.question, db_url)
         if key in cache:
             result: AnswerResponse | ClarificationResponse = _deserialize(cache[key])
         else:
             try:
-                result = ask(str(q["question"]), db_url, ctx)
+                result = ask(q.question, db_url, ctx)
             except Exception as exc:  # noqa: BLE001
                 result = AnswerResponse(
                     sql="", explanation=str(exc),
