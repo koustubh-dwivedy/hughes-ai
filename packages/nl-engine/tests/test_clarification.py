@@ -174,13 +174,17 @@ def test_caveats_injected_in_full_pipeline(
 
     monkeypatch.setattr(
         "nl_engine.engine._call_llm",
-        lambda *_a, **_kw: {
-            "sql": valid_sql,
-            "explanation": "ok",
-            "tables_used": ["fct_loan_originations"],
-            "assumptions": [],
-            "caveats": [],
-        },
+        lambda *_a, **_kw: (
+            {
+                "sql": valid_sql,
+                "explanation": "ok",
+                "tables_used": ["fct_loan_originations"],
+                "assumptions": [],
+                "caveats": [],
+            },
+            42,
+            "qwen/qwen3-32b",
+        ),
     )
     monkeypatch.setattr(
         "nl_engine.engine.execute_sql", lambda *_a, **_kw: ([], [])

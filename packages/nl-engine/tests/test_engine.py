@@ -1,4 +1,9 @@
-"""Unit tests for engine.py — google-genai client monkeypatched throughout."""
+"""Unit tests for nl_engine.engine — Groq client mocked throughout (HUG-183).
+
+The engine's `_call_llm` returns a 3-tuple `(parsed_dict, token_count, model_name)`;
+mocks must respect that shape. The full pipeline tests stub `_call_llm` with a
+lambda that returns the tuple, NOT just the dict.
+"""
 
 import json
 from unittest.mock import MagicMock, patch
@@ -18,6 +23,8 @@ _VALID_LLM_RESPONSE: dict[str, object] = {
     "assumptions": [],
     "caveats": ["Only funded loans are included."],
 }
+
+_VALID_LLM_TUPLE = (_VALID_LLM_RESPONSE, 100, "qwen/qwen3-32b")
 
 
 def _make_ctx() -> AllContext:
@@ -55,18 +62,12 @@ def _make_ctx() -> AllContext:
     )
 
 
-def _mock_llm_response(payload: dict[str, object]) -> MagicMock:
-    resp = MagicMock()
-    resp.text = json.dumps(payload)
-    return resp
-
-
 def test_ask_returns_answer_response(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = _make_ctx()
     mock_rows: list[dict[str, object]] = [{"loan_id": "abc"}]
 
     monkeypatch.setattr(
-        "nl_engine.engine._call_llm", lambda *_a, **_kw: _VALID_LLM_RESPONSE
+        "nl_engine.engine._call_llm", lambda *_a, **_kw: _VALID_LLM_TUPLE
     )
     monkeypatch.setattr(
         "nl_engine.engine.execute_sql",
@@ -95,7 +96,7 @@ def test_ask_sql_validated(monkeypatch: pytest.MonkeyPatch) -> None:
         validated_sqls.append(sql)
 
     monkeypatch.setattr(
-        "nl_engine.engine._call_llm", lambda *_a, **_kw: _VALID_LLM_RESPONSE
+        "nl_engine.engine._call_llm", lambda *_a, **_kw: _VALID_LLM_TUPLE
     )
     monkeypatch.setattr("nl_engine.engine.validate_sql", capture_validate)
     monkeypatch.setattr(
@@ -110,7 +111,10 @@ def test_ask_sql_validated(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_invalid_llm_sql_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = _make_ctx()
-    dangerous = dict(_VALID_LLM_RESPONSE, sql="DROP TABLE fct_loan_originations")
+    dangerous_response = dict(
+        _VALID_LLM_RESPONSE, sql="DROP TABLE fct_loan_originations"
+    )
+    dangerous_tuple = (dangerous_response, 50, "qwen/qwen3-32b")
     execute_called = False
 
     def fake_execute(
@@ -121,7 +125,7 @@ def test_invalid_llm_sql_raises(monkeypatch: pytest.MonkeyPatch) -> None:
         return [], []
 
     monkeypatch.setattr(
-        "nl_engine.engine._call_llm", lambda *_a, **_kw: dangerous
+        "nl_engine.engine._call_llm", lambda *_a, **_kw: dangerous_tuple
     )
     monkeypatch.setattr("nl_engine.engine.execute_sql", fake_execute)
 
@@ -132,12 +136,18 @@ def test_invalid_llm_sql_raises(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_llm_json_parse_error_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = MagicMock(text="not-json{{")
-
+    """Bad JSON from Groq surfaces as JSONDecodeError, not silently corrupted."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    fake_response = MagicMock()
+    fake_response.choices = [MagicMock()]
+    fake_response.choices[0].message.content = "not-json{{"
+    fake_response.usage = None
+    fake_response.model = "qwen/qwen3-32b"
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = fake_response
     with (
-        patch("nl_engine.engine.genai.Client", return_value=mock_client),
-        patch.dict("os.environ", {"GOOGLE_API_KEY": "test-key"}),
+        patch("nl_engine.engine.Groq", return_value=fake_client),
+        patch("nl_engine.engine.ChatCompletion", new=type(fake_response)),
         pytest.raises(json.JSONDecodeError),
     ):
         _call_llm("system", "question")

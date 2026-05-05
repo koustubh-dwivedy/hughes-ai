@@ -82,10 +82,7 @@ jobs:
           if [ $EXIT -eq 5 ]; then echo "No unit tests yet — skipping"; exit 0; fi
           exit $EXIT
       - name: Run package unit tests (nl-engine)
-        run: |
-          uv run pytest packages/nl-engine/tests/ -v \
-            --ignore=packages/nl-engine/tests/test_engine.py \
-            --deselect packages/nl-engine/tests/test_clarification.py::test_caveats_injected_in_full_pipeline
+        run: uv run pytest packages/nl-engine/tests/ -v
       - name: Run package unit tests (api, in-memory only)
         run: |
           uv run pytest packages/api/tests/ -v \

@@ -23,7 +23,7 @@ from api.routes import (
 )
 
 # Source the repo-root .env so a plain `uvicorn api.main:app` finds
-# DATABASE_URL, CEREBRAS_API_KEY, etc. without the caller having to
+# DATABASE_URL, GROQ_API_KEY, etc. without the caller having to
 # pre-source them. Path: packages/api/src/api/main.py → 4 levels up.
 load_dotenv(Path(__file__).resolve().parents[4] / ".env")
 

@@ -10,7 +10,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from api.repo import threads as threads_repo
 from api.services.agent_runner import stream_user_turn
-from api.services.llm import CerebrasChatModel
+from api.services.llm import make_agent_llm
 from api.types.threads_api import (
     CreateThreadRequest,
     CreateThreadResponse,
@@ -101,4 +101,4 @@ def _get_llm(request: Request) -> Any:
     override = getattr(request.app.state, "agent_llm", None)
     if override is not None:
         return override
-    return CerebrasChatModel()
+    return make_agent_llm()

@@ -1,14 +1,18 @@
-"""NL→SQL pipeline: question → context → Qwen 3 (Cerebras) → validate → execute."""
+"""NL→SQL pipeline: question → context → Qwen 3 32B (Groq) → validate → execute.
+
+Per ADR-0004, every Groq call site MUST pass `reasoning_format="hidden"`
+or Qwen 3's chain-of-thought leaks into the JSON-mode response and
+breaks downstream parsing. Enforced by the unit test
+`test_engine_passes_reasoning_hidden_kwarg`.
+"""
 
 import json
 import os
-import time
 from dataclasses import dataclass
+from typing import Literal
 
-from cerebras.cloud.sdk import Cerebras, RateLimitError
-from cerebras.cloud.sdk.types.chat.chat_completion import (
-    ChatCompletionResponse,
-)
+from groq import Groq
+from groq.types.chat.chat_completion import ChatCompletion
 
 from nl_engine.context_loader import AllContext
 from nl_engine.context_selector import ContextSelector, SelectedContext
@@ -16,13 +20,13 @@ from nl_engine.executor import execute_sql
 from nl_engine.sql_validator import validate_sql
 from nl_engine.telemetry import get_tracer, span_stage
 
-_MODEL = "qwen-3-235b-a22b-instruct-2507"
-_MODEL_FALLBACK = "llama3.1-8b"
-
-# 5 requests per minute — enforce a minimum gap between calls (13s gives
-# ~4.6 req/min, leaving headroom for calls made outside this process)
-_MIN_CALL_GAP = 13.0
-_last_call_time: float = 0.0
+# Locked by ADR-0004 — `qwen/qwen3-32b` on Groq. Documented escalation
+# (qwen/qwen3-235b-a22b-instruct-2507) only enters as a per-category
+# fallback in HUG-190 if eval shows it's needed; do not pre-route.
+_MODEL = "qwen/qwen3-32b"
+# `reasoning_format="hidden"` is non-negotiable — see module docstring.
+# Typed Literal so the Groq SDK's overload accepts it without a cast.
+_REASONING_FORMAT: Literal["hidden"] = "hidden"
 
 _ROLE = (
     "You are a read-only SQL analyst for a credit union lending analytics "
@@ -126,23 +130,16 @@ def _inject_metric_caveats(
     return answer
 
 
-def _rate_limit_wait() -> None:
-    """Enforce a minimum gap between calls to stay within 5 req/min."""
-    global _last_call_time
-    gap = time.monotonic() - _last_call_time
-    if gap < _MIN_CALL_GAP:
-        time.sleep(_MIN_CALL_GAP - gap)
-    _last_call_time = time.monotonic()
-
-
 @span_stage("select_context")
 def _select_context(selector: ContextSelector, question: str) -> SelectedContext:
     return selector.select(question)
 
 
 def _create(
-    client: Cerebras, model: str, system_prompt: str, question: str
-) -> ChatCompletionResponse:
+    client: Groq, model: str, system_prompt: str, question: str
+) -> ChatCompletion:
+    """Single Groq chat-completion call. `reasoning_format="hidden"` is
+    pinned here so every code path inherits it; see ADR-0004."""
     raw = client.chat.completions.create(
         model=model,
         messages=[
@@ -150,8 +147,9 @@ def _create(
             {"role": "user", "content": question},
         ],
         response_format={"type": "json_object"},
+        reasoning_format=_REASONING_FORMAT,
     )
-    if not isinstance(raw, ChatCompletionResponse):
+    if not isinstance(raw, ChatCompletion):
         raise ValueError(f"Unexpected response type: {type(raw)}")
     return raw
 
@@ -160,29 +158,14 @@ def _create(
 def _call_llm(
     system_prompt: str, question: str
 ) -> tuple[dict[str, object], int | None, str]:
-    _rate_limit_wait()
-    api_key = os.environ.get("CEREBRAS_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "CEREBRAS_API_KEY is not set. Source .env or export the key "
+            "GROQ_API_KEY is not set. Source .env or export the key "
             "before starting the API server."
         )
-    client = Cerebras(api_key=api_key)
-    # Primary: Qwen 235B. On RateLimitError fall back to llama3.1-8b,
-    # then retry the fallback twice (60s, 120s) if the queue is still full.
-    try:
-        response = _create(client, _MODEL, system_prompt, question)
-    except RateLimitError:
-        for wait in [0, 60, 120]:
-            if wait:
-                time.sleep(wait)
-            try:
-                response = _create(client, _MODEL_FALLBACK, system_prompt, question)
-                break
-            except RateLimitError:
-                continue
-        else:
-            raise ValueError("LLM unavailable after fallback retries")
+    client = Groq(api_key=api_key)
+    response = _create(client, _MODEL, system_prompt, question)
     text = response.choices[0].message.content
     if text is None:
         raise ValueError("Empty LLM response")
