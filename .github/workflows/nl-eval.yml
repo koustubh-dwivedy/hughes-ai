@@ -4,9 +4,21 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - 'migrations/**'
       - 'packages/nl-engine/**'
+      - 'packages/dbt-models/**'
+      - 'packages/synth-data/**'
       - 'scripts/eval.py'
+      - 'scripts/eval_grader.py'
       - 'scripts/run-nl-eval.sh'
+      - '.github/workflows/nl-eval.yml'
+
+# Successive pushes on the same branch cancel any in-flight eval — a
+# 30-min benchmark stacked behind another 30-min benchmark is wasted
+# Groq quota.
+concurrency:
+  group: nl-eval-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   nl-eval:
@@ -14,7 +26,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        # pgvector image so migration 001's `CREATE EXTENSION vector`
+        # actually installs (matches ci.yml — see HUG-184).
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: cubidev
           POSTGRES_PASSWORD: localdev
