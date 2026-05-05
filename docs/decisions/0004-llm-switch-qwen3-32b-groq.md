@@ -78,3 +78,48 @@ Groq supports OpenAI-style strict `response_format={"type": "json_schema", ...}`
 - LangChain Groq integration — https://docs.langchain.com/oss/python/integrations/chat/groq
 - `langchain-groq` PyPI — https://pypi.org/project/langchain-groq/
 - ADR-0003 (the predecessor) — `docs/decisions/0003-data-intelligence-v2.md`
+
+---
+
+## Amendment 2026-05-05 — multi-provider factory + Gemma 4 31B fallback (HUG-196)
+
+### What changed
+
+The single hardcoded `ChatGroq(...)` construction in `api/services/llm.py:make_agent_llm()` (and the duplicate in `nl-engine/benchmarks/run_eval.py:_make_eval_llm()`) is replaced by a typed factory at `nl_engine.llm.make_llm()` that:
+
+* Reads `LLM_PROVIDER` env var (default `groq`) to pick the primary provider.
+* Optionally wraps the primary in a `FallbackChatModel` when `LLM_FALLBACK_PROVIDER` is set, falling through on rate-limit-shaped exceptions (HTTP 429 / TPD / TPM / quota strings).
+* Supports two providers today: `groq` (Qwen 3 32B, this ADR's primary) and `google` (Google AI Studio Gemma 4 31B).
+
+ADR-0004's invariants — `temperature=0`, `reasoning_format="hidden"` on Groq — are preserved exactly as before, now enforced inside `nl_engine/llm/providers/groq.py` (the single source of truth for them).
+
+### Why the fallback is necessary
+
+Groq dev tier's TPD limit is 500,000 tokens/day on Qwen 3 32B. During the Surface 1 retirement chain (HUG-187 + HUG-178 spike + earlier eval iterations) we hit the limit twice in a single day. The eval phase ahead (HUG-190 re-baseline + iteration loops) will routinely re-hit it. Without a fallback, every quota exhaustion is calendar-blocking on Groq's rolling-window reset.
+
+Adding Gemma 4 31B as a manual / automatic fallback eliminates the calendar dependency without changing the production default. Net: HUG-190 / HUG-195 / HUG-178b iteration loops can proceed continuously; primary provider still defaults to Groq Qwen 3 32B per this ADR's original decision.
+
+### Why Gemma 4 31B specifically
+
+* **Open weights, free tier on Google AI Studio.** Same cost profile as Groq dev tier.
+* **Size parity with Qwen 3 32B (31B vs 32B).** Capability gap unlikely to be a blocker on per-question accuracy.
+* **`langchain-google-genai`'s `bind_tools()` works** — verified at HUG-196 implementation: tool calls are returned in the standard LangChain shape (`name`, `args`, `id`), so the LangGraph agent's tool-routing works identically through the fallback path.
+* **`generateContent` API method supports system instructions** — important for the agent's preamble + tool-aware system prompt.
+
+### Constraints any future fallback provider must satisfy
+
+* Implement `langchain_core.language_models.BaseChatModel` (so `bind_tools()` and `invoke()` work).
+* Tool calls return in LangChain's standard tuple-or-dict shape (`name`, `args`, `id`).
+* Surface rate-limit errors with HTTP 429 status OR a token/quota substring, so `FallbackChatModel`'s detection rule catches them.
+* Support free-text (no tool) generation for paths like the OpenUI DSL spike.
+
+### What's NOT in this amendment
+
+* Cost-based or latency-based provider routing — purely manual switch + automatic-on-quota.
+* Changing the default provider — Groq Qwen 3 32B remains the production default.
+* Adding a third provider (Anthropic, OpenAI). The architecture supports it; tickets file as needed.
+* Per-call provider override via the agent state — manipulation is at process / env-var level only.
+
+### Operational footnote — Gemma 4 31B response shape
+
+Gemma 4 31B's response `content` is a structured list of blocks (one `thinking` block + one `text` block by default). The agent code already inspects `tool_calls` directly rather than `content`, so tool routing is unaffected. For text-only paths (like the OpenUI DSL spike, HUG-195) consumers should `str()`-cast or extract the text block. Documented in `nl_engine/llm/providers/google.py`.
