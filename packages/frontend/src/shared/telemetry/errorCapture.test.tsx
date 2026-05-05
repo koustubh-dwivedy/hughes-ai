@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react";
+import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ErrorBoundary from "../../ui/primitives/ErrorBoundary";
 import * as telemetry from "./client";
@@ -84,7 +85,7 @@ describe("installGlobalErrorHandlers", () => {
 	});
 });
 
-function Boom(): JSX.Element {
+function Boom(): React.JSX.Element {
 	throw new Error("render failure");
 }
 

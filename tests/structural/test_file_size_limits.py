@@ -6,10 +6,13 @@ MAX_FILE_LINES = 300
 MAX_FUNCTION_LINES = 50
 
 
+_EXCLUDED_DIRS = frozenset({"__pycache__", "node_modules"})
+
+
 def _py_files() -> list[Path]:
     return [
         p for p in PACKAGES_ROOT.rglob("*.py")
-        if "__pycache__" not in p.parts
+        if not (_EXCLUDED_DIRS & set(p.parts))
     ]
 
 
