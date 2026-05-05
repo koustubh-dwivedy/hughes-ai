@@ -985,3 +985,526 @@ questions:
   - as_of_month
   - ORDER BY
   question_type: executive_kpi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HUG-187 — Curated must-pass set (24 questions)
+#
+# These are the questions whose failures embarrass us in front of a CFO. They
+# ARE the gating signal for the agent path's accuracy. HUG-188's grader scores
+# them via row-set match against `ground_truth_rows`.
+#
+# All ground_truth_rows below were captured by running the SQL against the
+# `small_cu` seed (deterministic, seed=42) on 2026-05-05. Latest as_of_month
+# in the seed is 2026-04-01 — used as the literal anchor in all SQL to avoid
+# CURRENT_DATE drift across seed regens.
+#
+# Every entry must satisfy `tests/integration/test_must_pass_ground_truth.py`:
+#   1. id / source / expected_metric populated.
+#   2. ground_truth_sql executes against the seeded DB.
+#   3. ground_truth_rows matches the SQL result via rowset_match (1% tol on floats).
+#
+# The single ambiguous question keeps ground_truth_sql + ground_truth_rows null;
+# it tests the agent's clarification path, not its row-set accuracy.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Executive KPIs (5) ──────────────────────────────────────────────────────
+
+- id: must-pass-001
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "What's our loan-to-deposit ratio this month?"
+  question_type: executive_kpi
+  expected_metric: loan_to_deposit_ratio
+  expected_dimensions: []
+  expected_tables: [fct_executive_kpis]
+  expected_keywords: [loan_to_deposit_ratio, as_of_month]
+  ground_truth_sql: |
+    SELECT ROUND(loan_to_deposit_ratio::numeric, 4) AS loan_to_deposit_ratio
+    FROM fct_executive_kpis
+    WHERE as_of_month = '2026-04-01'
+  ground_truth_rows:
+    - {loan_to_deposit_ratio: 0.1348}
+
+- id: must-pass-002
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "What's our total loan portfolio balance as of the latest month?"
+  question_type: executive_kpi
+  expected_metric: total_loans
+  expected_dimensions: []
+  expected_tables: [fct_executive_kpis]
+  expected_keywords: [total_loans_balance, as_of_month]
+  ground_truth_sql: |
+    SELECT ROUND(total_loans_balance::numeric, 2) AS total_loans_balance
+    FROM fct_executive_kpis
+    WHERE as_of_month = '2026-04-01'
+  ground_truth_rows:
+    - {total_loans_balance: 32064355.75}
+
+- id: must-pass-003
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "What's our total deposit balance as of the latest month?"
+  question_type: executive_kpi
+  expected_metric: total_deposits
+  expected_dimensions: []
+  expected_tables: [fct_executive_kpis]
+  expected_keywords: [total_deposits_balance, as_of_month]
+  ground_truth_sql: |
+    SELECT ROUND(total_deposits_balance::numeric, 2) AS total_deposits_balance
+    FROM fct_executive_kpis
+    WHERE as_of_month = '2026-04-01'
+  ground_truth_rows:
+    - {total_deposits_balance: 237946370.15}
+
+- id: must-pass-004
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "What's our current rate spread (loan rate minus deposit rate)?"
+  question_type: executive_kpi
+  expected_metric: rate_spread
+  expected_dimensions: []
+  expected_tables: [fct_executive_kpis]
+  expected_keywords: [rate_spread, as_of_month]
+  ground_truth_sql: |
+    SELECT ROUND(rate_spread::numeric, 4) AS rate_spread
+    FROM fct_executive_kpis
+    WHERE as_of_month = '2026-04-01'
+  ground_truth_rows:
+    - {rate_spread: 0.0419}
+
+- id: must-pass-005
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "What's our current blended past-due ratio?"
+  question_type: executive_kpi
+  expected_metric: past_due_ratio
+  expected_dimensions: []
+  expected_tables: [fct_executive_kpis]
+  expected_keywords: [blended_past_due_ratio, as_of_month]
+  ground_truth_sql: |
+    SELECT ROUND(blended_past_due_ratio::numeric, 4) AS blended_past_due_ratio
+    FROM fct_executive_kpis
+    WHERE as_of_month = '2026-04-01'
+  ground_truth_rows:
+    - {blended_past_due_ratio: 0.0977}
+
+# ── Deposit drilldowns (4) ──────────────────────────────────────────────────
+
+- id: must-pass-006
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "Show our top 5 deposit products by total balance in the latest month."
+  question_type: deposit_portfolio
+  expected_metric: deposits_by_product
+  expected_dimensions: [deposit_product]
+  expected_tables: [fct_deposits_monthly, dim_deposit_product]
+  expected_keywords: [SUM, total_balance, GROUP BY, ORDER BY, LIMIT]
+  ground_truth_sql: |
+    SELECT dp.product_name, ROUND(SUM(d.total_balance)::numeric, 2) AS total_balance
+    FROM fct_deposits_monthly d
+    JOIN dim_deposit_product dp ON dp.deposit_product_id = d.deposit_product_id
+    WHERE d.as_of_month = '2026-04-01'
+    GROUP BY dp.product_name
+    ORDER BY total_balance DESC
+    LIMIT 5
+  ground_truth_rows:
+    - {product_name: "Time Deposits",    total_balance: 110471651.85}
+    - {product_name: "Money Market",     total_balance: 71901861.99}
+    - {product_name: "Interest Bearing", total_balance: 37099071.36}
+    - {product_name: "Savings",          total_balance: 14765844.55}
+    - {product_name: "Demand",           total_balance: 3707940.40}
+
+- id: must-pass-007
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "Show deposit balance by branch as of the latest month."
+  question_type: deposit_portfolio
+  expected_metric: deposits_by_branch
+  expected_dimensions: [branch]
+  expected_tables: [fct_deposits_monthly]
+  expected_keywords: [SUM, total_balance, branch_id, GROUP BY]
+  ground_truth_sql: |
+    SELECT branch_id, ROUND(SUM(total_balance)::numeric, 2) AS total_balance
+    FROM fct_deposits_monthly
+    WHERE as_of_month = '2026-04-01'
+    GROUP BY branch_id
+    ORDER BY branch_id
+  ground_truth_rows:
+    - {branch_id: 1, total_balance: 49350280.67}
+    - {branch_id: 2, total_balance: 47296761.98}
+    - {branch_id: 3, total_balance: 46919837.34}
+    - {branch_id: 4, total_balance: 46534824.79}
+    - {branch_id: 5, total_balance: 47844665.37}
+
+- id: must-pass-008
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "What's our month-to-date deposit change for the latest month?"
+  question_type: deposit_portfolio
+  expected_metric: mtd_deposit_change
+  expected_dimensions: []
+  expected_tables: [fct_deposits_monthly]
+  expected_keywords: [SUM, mtd_change, as_of_month]
+  ground_truth_sql: |
+    SELECT ROUND(SUM(mtd_change)::numeric, 2) AS mtd_change
+    FROM fct_deposits_monthly
+    WHERE as_of_month = '2026-04-01'
+  ground_truth_rows:
+    - {mtd_change: -237659.38}
+
+- id: must-pass-009
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "Split our deposit balance between core and non-core deposits in the latest month."
+  question_type: deposit_portfolio
+  expected_metric: deposits_by_product
+  expected_dimensions: [is_core_deposit]
+  expected_tables: [fct_deposits_monthly]
+  expected_keywords: [SUM, total_balance, is_core_deposit, GROUP BY]
+  ground_truth_sql: |
+    SELECT is_core_deposit, ROUND(SUM(total_balance)::numeric, 2) AS total_balance
+    FROM fct_deposits_monthly
+    WHERE as_of_month = '2026-04-01'
+    GROUP BY is_core_deposit
+    ORDER BY is_core_deposit DESC
+  ground_truth_rows:
+    - {is_core_deposit: true,  total_balance: 90375646.94}
+    - {is_core_deposit: false, total_balance: 147570723.21}
+
+# ── Origination (4) ─────────────────────────────────────────────────────────
+
+- id: must-pass-010
+  category: metric
+  source: curated-must-pass
+  must_pass: true
+  question: "How many loans did we originate last month?"
+  question_type: origination_volume
+  expected_metric: origination_volume
+  expected_dimensions: []
+  expected_tables: [fct_loan_originations]
+  expected_keywords: [COUNT, funded_at]
+  ground_truth_sql: |
+    SELECT COUNT(*) AS origination_count
+    FROM fct_loan_originations
+    WHERE funded_at >= '2026-03-01'
+      AND funded_at <  '2026-04-01'
+  ground_truth_rows:
+    - {origination_count: 8}
+
+- id: must-pass-011
+  category: metric
+  source: curated-must-pass
+  must_pass: true
+  question: "Show originations by channel year-to-date."
+  question_type: origination_volume
+  expected_metric: origination_volume
+  expected_dimensions: [channel]
+  expected_tables: [fct_loan_originations]
+  expected_keywords: [COUNT, channel, GROUP BY, funded_at]
+  ground_truth_sql: |
+    SELECT channel, COUNT(*) AS origination_count
+    FROM fct_loan_originations
+    WHERE funded_at >= '2026-01-01'
+      AND funded_at <  '2026-05-01'
+    GROUP BY channel
+    ORDER BY origination_count DESC
+  ground_truth_rows:
+    - {channel: "indirect",    origination_count: 11}
+    - {channel: "branch",      origination_count: 9}
+    - {channel: "mobile",      origination_count: 6}
+    - {channel: "call_center", origination_count: 6}
+    - {channel: "online",      origination_count: 4}
+
+- id: must-pass-012
+  category: portfolio
+  source: curated-must-pass
+  must_pass: true
+  question: "Break down originations by product type for Q1."
+  question_type: origination_volume
+  expected_metric: origination_volume
+  expected_dimensions: [product_type]
+  expected_tables: [fct_loan_originations]
+  expected_keywords: [COUNT, product_type, GROUP BY, funded_at]
+  ground_truth_sql: |
+    SELECT product_type, COUNT(*) AS origination_count
+    FROM fct_loan_originations
+    WHERE funded_at >= '2026-01-01'
+      AND funded_at <  '2026-04-01'
+    GROUP BY product_type
+    ORDER BY origination_count DESC
+  ground_truth_rows:
+    - {product_type: "auto_indirect",  origination_count: 8}
+    - {product_type: "auto_direct",    origination_count: 7}
+    - {product_type: "first_mortgage", origination_count: 6}
+    - {product_type: "closed_end_2nd", origination_count: 4}
+    - {product_type: "credit_card",    origination_count: 3}
+    - {product_type: "heloc",          origination_count: 1}
+
+- id: must-pass-013
+  category: metric
+  source: curated-must-pass
+  must_pass: true
+  question: "What was our average funded loan amount in Q1?"
+  question_type: origination_volume
+  expected_metric: avg_loan_amount
+  expected_dimensions: []
+  expected_tables: [fct_loan_originations]
+  expected_keywords: [AVG, funded_amount, funded_at]
+  ground_truth_sql: |
+    SELECT ROUND(AVG(funded_amount)::numeric, 2) AS avg_funded_amount
+    FROM fct_loan_originations
+    WHERE funded_at >= '2026-01-01'
+      AND funded_at <  '2026-04-01'
+  ground_truth_rows:
+    - {avg_funded_amount: 92665.04}
+
+# ── Delinquency (3) ─────────────────────────────────────────────────────────
+
+- id: must-pass-014
+  category: portfolio
+  source: curated-must-pass
+  must_pass: true
+  question: "What's our delinquency rate by product type as of the latest month?"
+  question_type: delinquency_rate
+  expected_metric: delinquency_rate
+  expected_dimensions: [product_type]
+  expected_tables: [fct_loan_performance, dim_loan]
+  expected_keywords: [SUM, FILTER, is_delinquent, product_type, GROUP BY]
+  ground_truth_sql: |
+    SELECT l.product_type,
+      ROUND((SUM(p.balance) FILTER (WHERE p.is_delinquent))::numeric
+            / NULLIF(SUM(p.balance), 0)::numeric, 4) AS delinquency_rate
+    FROM fct_loan_performance p
+    JOIN dim_loan l USING (loan_id)
+    WHERE p.snapshot_date = '2026-04-01'
+    GROUP BY l.product_type
+    ORDER BY l.product_type
+  ground_truth_rows:
+    - {product_type: "auto_direct",    delinquency_rate: 0.0835}
+    - {product_type: "auto_indirect",  delinquency_rate: 0.0409}
+    - {product_type: "closed_end_2nd", delinquency_rate: 0.0560}
+    - {product_type: "first_mortgage", delinquency_rate: 0.1069}
+    - {product_type: "heloc",          delinquency_rate: 0.0973}
+
+- id: must-pass-015
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "How many loans are 30+ days past due as of the latest month?"
+  question_type: delinquency_rate
+  expected_metric: past_due_loan_count
+  expected_dimensions: []
+  expected_tables: [fct_delinquency_monthly]
+  expected_keywords: [SUM, past_due_loan_count, bucket]
+  ground_truth_sql: |
+    SELECT SUM(past_due_loan_count) AS past_due_loan_count
+    FROM fct_delinquency_monthly
+    WHERE as_of_month = '2026-04-01'
+      AND bucket IN ('30-59', '60-89', '90+')
+  ground_truth_rows:
+    - {past_due_loan_count: 18}
+
+- id: must-pass-016
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "Show the blended past-due ratio trend over the last 6 months."
+  question_type: delinquency_rate
+  expected_metric: past_due_ratio
+  expected_dimensions: [as_of_month]
+  expected_tables: [fct_executive_kpis]
+  expected_keywords: [blended_past_due_ratio, as_of_month, ORDER BY]
+  ground_truth_sql: |
+    SELECT as_of_month,
+      ROUND(blended_past_due_ratio::numeric, 4) AS blended_past_due_ratio
+    FROM fct_executive_kpis
+    WHERE as_of_month >= '2025-11-01'
+      AND as_of_month <= '2026-04-01'
+    ORDER BY as_of_month
+  ground_truth_rows:
+    - {as_of_month: "2025-11-01", blended_past_due_ratio: 0.0030}
+    - {as_of_month: "2025-12-01", blended_past_due_ratio: 0.0044}
+    - {as_of_month: "2026-01-01", blended_past_due_ratio: 0.0129}
+    - {as_of_month: "2026-02-01", blended_past_due_ratio: 0.0258}
+    - {as_of_month: "2026-03-01", blended_past_due_ratio: 0.0456}
+    - {as_of_month: "2026-04-01", blended_past_due_ratio: 0.0977}
+
+# ── Watchlist (2) ───────────────────────────────────────────────────────────
+
+- id: must-pass-017
+  category: drilldown
+  source: curated-must-pass
+  must_pass: true
+  question: "How many loans are currently on the watchlist?"
+  question_type: watchlist
+  expected_metric: watchlist_count
+  expected_dimensions: []
+  expected_tables: [watchlist]
+  expected_keywords: [COUNT, removed_at]
+  ground_truth_sql: |
+    SELECT COUNT(*) AS watchlist_count
+    FROM watchlist
+    WHERE removed_at IS NULL
+  ground_truth_rows:
+    - {watchlist_count: 7}
+
+- id: must-pass-018
+  category: dashboard
+  source: curated-must-pass
+  must_pass: true
+  question: "What's our current 90+ DPD loan balance?"
+  question_type: watchlist
+  expected_metric: nonaccrual_balance
+  expected_dimensions: []
+  expected_tables: [fct_delinquency_monthly]
+  expected_keywords: [SUM, balance, bucket]
+  ground_truth_sql: |
+    SELECT ROUND(COALESCE(SUM(balance), 0)::numeric, 2) AS nonaccrual_balance
+    FROM fct_delinquency_monthly
+    WHERE as_of_month = '2026-04-01'
+      AND bucket = '90+'
+  ground_truth_rows:
+    - {nonaccrual_balance: 765566.24}
+
+# ── Channel mix (2) ─────────────────────────────────────────────────────────
+
+- id: must-pass-019
+  category: metric
+  source: curated-must-pass
+  must_pass: true
+  question: "Show originations by channel for the most recent quarter."
+  question_type: channel_mix
+  expected_metric: origination_volume
+  expected_dimensions: [channel]
+  expected_tables: [fct_loan_originations]
+  expected_keywords: [COUNT, channel, GROUP BY, funded_at]
+  ground_truth_sql: |
+    SELECT channel, COUNT(*) AS origination_count
+    FROM fct_loan_originations
+    WHERE funded_at >= '2026-01-01'
+      AND funded_at <  '2026-04-01'
+    GROUP BY channel
+    ORDER BY origination_count DESC
+  ground_truth_rows:
+    - {channel: "branch",      origination_count: 9}
+    - {channel: "indirect",    origination_count: 8}
+    - {channel: "call_center", origination_count: 5}
+    - {channel: "mobile",      origination_count: 4}
+    - {channel: "online",      origination_count: 3}
+
+- id: must-pass-020
+  category: portfolio
+  source: curated-must-pass
+  must_pass: true
+  question: "Show our loan portfolio balance by branch in the latest month."
+  question_type: portfolio_balance
+  expected_metric: total_loans
+  expected_dimensions: [branch]
+  expected_tables: [fct_loans_monthly]
+  expected_keywords: [SUM, total_balance, branch_id, GROUP BY]
+  ground_truth_sql: |
+    SELECT branch_id, ROUND(SUM(total_balance)::numeric, 2) AS total_balance
+    FROM fct_loans_monthly
+    WHERE as_of_month = '2026-04-01'
+    GROUP BY branch_id
+    ORDER BY branch_id
+  ground_truth_rows:
+    - {branch_id: 1, total_balance: 4162702.40}
+    - {branch_id: 2, total_balance: 5436212.25}
+    - {branch_id: 3, total_balance: 5699205.85}
+    - {branch_id: 4, total_balance: 10420905.38}
+    - {branch_id: 5, total_balance: 6345329.87}
+
+# ── Portfolio composition (2) ───────────────────────────────────────────────
+
+- id: must-pass-021
+  category: portfolio
+  source: curated-must-pass
+  must_pass: true
+  question: "Show our loan mix by product type in the latest month."
+  question_type: product_mix
+  expected_metric: total_loans
+  expected_dimensions: [product_type]
+  expected_tables: [fct_loans_monthly]
+  expected_keywords: [SUM, total_balance, product_type, GROUP BY]
+  ground_truth_sql: |
+    SELECT product_type, ROUND(SUM(total_balance)::numeric, 2) AS total_balance
+    FROM fct_loans_monthly
+    WHERE as_of_month = '2026-04-01'
+    GROUP BY product_type
+    ORDER BY total_balance DESC
+  ground_truth_rows:
+    - {product_type: "first_mortgage", total_balance: 24545118.52}
+    - {product_type: "auto_indirect",  total_balance: 2100538.16}
+    - {product_type: "closed_end_2nd", total_balance: 1991041.53}
+    - {product_type: "heloc",          total_balance: 1936781.65}
+    - {product_type: "auto_direct",    total_balance: 1490875.89}
+
+- id: must-pass-022
+  category: portfolio
+  source: curated-must-pass
+  must_pass: true
+  question: "Show our portfolio balance by branch region in the latest month."
+  question_type: portfolio_balance
+  expected_metric: total_loans
+  expected_dimensions: [branch_region]
+  expected_tables: [fct_loan_performance, dim_loan]
+  expected_keywords: [SUM, balance, branch_region, GROUP BY]
+  ground_truth_sql: |
+    SELECT l.branch_region, ROUND(SUM(p.balance)::numeric, 2) AS total_balance
+    FROM fct_loan_performance p
+    JOIN dim_loan l USING (loan_id)
+    WHERE p.snapshot_date = '2026-04-01'
+    GROUP BY l.branch_region
+    ORDER BY l.branch_region
+  ground_truth_rows:
+    - {branch_region: "Central", total_balance: 4162702.40}
+    - {branch_region: "East",    total_balance: 10420905.38}
+    - {branch_region: "North",   total_balance: 5436212.25}
+    - {branch_region: "South",   total_balance: 5699205.85}
+    - {branch_region: "West",    total_balance: 6345329.87}
+
+# ── Lifecycle (1) ───────────────────────────────────────────────────────────
+
+- id: must-pass-023
+  category: drilldown
+  source: curated-must-pass
+  must_pass: true
+  question: "Show loan lifecycle event counts (new / renewed / paid_off) for the latest month."
+  question_type: lifecycle_events
+  expected_metric: origination_volume
+  expected_dimensions: [event_type]
+  expected_tables: [fct_loan_lifecycle_events]
+  expected_keywords: [SUM, loan_count, event_type, GROUP BY]
+  ground_truth_sql: |
+    SELECT event_type, SUM(loan_count) AS event_count
+    FROM fct_loan_lifecycle_events
+    WHERE as_of_month = '2026-04-01'
+    GROUP BY event_type
+    ORDER BY event_type
+  ground_truth_rows:
+    - {event_type: "new", event_count: 7}
+
+# ── Clarification (1, ambiguous — agent should clarify) ─────────────────────
+
+- id: must-pass-024
+  category: clarification
+  source: curated-must-pass
+  must_pass: true
+  question: "How are we doing this month?"
+  question_type: ambiguous
+  expected_dimensions: []
+  expected_tables: []
+  expected_keywords: []
+  ground_truth_sql: null
+  ground_truth_rows: null
