@@ -101,26 +101,24 @@ const headerCellStyle: React.CSSProperties = {
 };
 
 function parseFinalPayload(msg: ThreadMessageWire): FinalPayload {
-	// Prefer the dedicated columns when populated.
-	const direct: FinalPayload = {
-		openui_dsl: msg.openui_dsl,
-		mf_query: msg.mf_query,
-		rows: msg.rows,
-	};
-	if (direct.openui_dsl || direct.mf_query || direct.rows) return direct;
-	// Fall back to parsing the content blob (the agent's tool result).
-	if (!msg.content) return direct;
-	try {
-		const parsed = JSON.parse(msg.content) as FinalPayload;
-		return {
-			summary: parsed.summary,
-			openui_dsl: parsed.openui_dsl ?? null,
-			mf_query: parsed.mf_query ?? null,
-			rows: parsed.rows ?? null,
-		};
-	} catch {
-		return direct;
+	// `summary` only lives inside the content JSON blob — the
+	// persistence layer doesn't have a dedicated column for it. Parse
+	// the blob first so we always have access to it, then prefer the
+	// dedicated columns for the rich fields when populated.
+	let blob: FinalPayload = {};
+	if (msg.content) {
+		try {
+			blob = JSON.parse(msg.content) as FinalPayload;
+		} catch {
+			blob = {};
+		}
 	}
+	return {
+		summary: blob.summary,
+		openui_dsl: msg.openui_dsl ?? blob.openui_dsl ?? null,
+		mf_query: msg.mf_query ?? blob.mf_query ?? null,
+		rows: msg.rows ?? blob.rows ?? null,
+	};
 }
 
 function isFinalAnswerToolMessage(msg: ThreadMessageWire): boolean {
