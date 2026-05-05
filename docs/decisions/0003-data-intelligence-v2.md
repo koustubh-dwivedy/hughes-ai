@@ -116,3 +116,44 @@ know which ones matter. Folding it in as HUG-181 is a 1–2 day spike with
 - Translating dashboards to MetricFlow (they keep their typed mart endpoints)
 - Cross-thread context (each thread is isolated; no "remember what I asked
   last week")
+
+---
+
+## Amendment 2026-05-05 — Decision #6 swapped: hand-rolled ChartSpec → OpenUI
+
+### What changed
+
+Decision #6 originally specified a closed-set Pydantic `ChartSpec` (`type: 'kpi' | 'line' | 'bar' | 'stacked_bar' | 'donut' | 'table'`) rendered by a frontend `<ChartRenderer/>` switch. **That decision is replaced by OpenUI** (`@openuidev/react-lang` runtime + `@openuidev/react-ui/genui-lib`'s standard 54-component library):
+
+* Agent emits OpenUI Lang DSL into `final_answer.openui_dsl` (HUG-178 Phase B wires this).
+* Server parses + validates the DSL via a Node subprocess wrapping the OpenUI parser (HUG-178 Phase B).
+* Frontend renders via `<OpenUIRenderer dsl={...} />`, a thin wrapper around `@openuidev/react-lang`'s `<Renderer>` with an error boundary (HUG-178 Phase A — done).
+
+### Why the swap
+
+* **Capability ceiling.** The hand-rolled ChartSpec covered ~6 chart variants. OpenUI's `openuiLibrary` ships 54 typed components (Stack, Card, Table, LineChart, BarChart, PieChart, RadarChart, ScatterChart, Form/Input, Tabs, Accordion, Steps, etc.) all built on Recharts (the same lib we already use). Wider visual palette without a parallel viz stack.
+* **Validated feasibility.** The HUG-178 Day-1 spike (HUG-195's escalation evaluation, Step 1) measured **19/20 = 95% DSL validity** on must-pass questions via Gemma 4 31B + the standard `openuiLibrary`. Above the 90% threshold; first-attempt, no few-shot. Spike report attached to HUG-195.
+* **Safety profile preserved.** Zero LLM-generated executable code reaches the browser — the OpenUI parser only dispatches to registered components by name, props are Zod-validated, no `eval`, no `dangerouslySetInnerHTML`. Same constraint that motivated the original closed-set ChartSpec.
+
+### What's NOT changed
+
+* All other ADR-0003 decisions stand: `/threads` + `/threads/{id}/messages` SSE surface, server-side conversation persistence (Postgres), LangGraph + `PostgresSaver`, ReAct agent with hard step cap of 10, MetricFlow as the metric-truth substrate, no free-form SQL escape hatch in steady state.
+* The `final_answer` tool's `openui_dsl: str | None = None` field shape — already wired in HUG-176, just unused until HUG-178 Phase B turns the agent's prompt instruction on.
+* The agent's tool-calling and tool descriptions — Phase B updates the `final_answer` tool docstring and prepends a system prompt; tools themselves are unchanged.
+
+### Phasing
+
+* **HUG-178 Phase A (this commit):** scaffolding only — npm deps, `library.ts` re-export, `OpenUIRenderer.tsx` component with error boundary, `openui.py` Pydantic envelope. Production behavior unchanged because agent doesn't yet emit DSL.
+* **HUG-178 Phase B (follow-up):** agent system prompt injection, Node-subprocess DSL validator wired into `agent_runner.py`, 5-question runtime smoke test before merge, `final_answer` tool docstring update.
+
+### Rejected options (recorded)
+
+* **Stay on hand-rolled ChartSpec.** Would have shipped faster but capped the agent's visual expressiveness at 6 chart types. The HUG-195 spike demonstrated OpenUI's higher ceiling is achievable in practice; staying on ChartSpec would forfeit that without a corresponding gain.
+* **Hosted Thesys C1 API.** Vendor lock-in + paid tier; rejected at original ADR-0003 time. Re-confirmed.
+* **Per-component custom OpenUI library.** HUG-178's Day-1 spike tried a 3-component custom library and scored 5% — OpenUI's prompt template hard-codes `Root`/`Stack` as expected components, which custom libraries don't register by default. Switching to the standard library fixed the issue at zero cost. The custom-library path is rejected.
+
+### References
+
+* HUG-178 (this ticket) — the production-integration umbrella.
+* HUG-195 — the escalation evaluation that produced the 95% measurement.
+* HUG-196 — the multi-provider LLM factory (Groq + Google AI Studio) that enabled the spike to run on Gemma 4 31B without waiting for Groq quota.

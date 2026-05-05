@@ -35,7 +35,7 @@ exclude = ["packages/.*/tests/"]
 
 [tool.bandit]
 targets = ["packages"]
-exclude_dirs = [".venv", "packages/nl-engine/tests", "packages/api/tests"]
+exclude_dirs = [".venv", "packages/nl-engine/tests", "packages/api/tests", "node_modules"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
