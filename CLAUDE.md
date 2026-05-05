@@ -13,7 +13,7 @@ Hughes AI is a lending analytics demo for one synthetic credit union. Users ask 
 | Path | What it is |
 |---|---|
 | `packages/synth-data/` | Deterministic synthetic data generators (Origence + Symitar + reconciliation bridge) |
-| `packages/nl-engine/` | Context layer + NL→SQL pipeline + Qwen 3 235B (Cerebras) integration |
+| `packages/nl-engine/` | Context layer + NL→SQL pipeline + Qwen 3 32B (Groq) integration |
 | `packages/nl-engine/context/` | YAML grounding files: schema_context, metrics, rules, examples |
 | `packages/api/` | FastAPI backend: /ask, /history, /trust, /dashboards/* |
 | `packages/frontend/` | React + Vite + TypeScript single-page app |

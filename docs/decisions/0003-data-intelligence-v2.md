@@ -13,7 +13,9 @@ a single `POST /ask` returns a single answer derived from free-form, LLM-generat
 SQL grounded by ~2K lines of prose YAML
 (`packages/nl-engine/context/{schema_context,metrics,examples,rules}.yaml`). The
 LLM is **Qwen 3 235B on Cerebras** (CLAUDE.md previously said "Gemma 4 (Google AI
-Studio)" — corrected in this commit). There is no thread, no follow-up, no
+Studio)" — corrected in this commit). [_Note added 2026-05-05: this LLM choice
+is **superseded by ADR-0004**, which switches both `engine.ask` and the agent
+to Qwen 3 32B on Groq. See Decision #8 below + ADR-0004._] There is no thread, no follow-up, no
 clarification round-trip; the chart surface auto-detects line vs. table from
 the result schema (`packages/frontend/src/features/chat/messages/ResultRenderer.tsx`)
 and cannot render anything richer.
@@ -32,7 +34,7 @@ together.
 | 5 | Agent pattern | Tool-calling ReAct on top of LangGraph's `create_react_agent`, extended with: hard step cap of 10 LLM calls per turn; a typed terminal `final_answer` tool returning `{summary, chart_spec?, rows?, mf_query?}`. Tools: `list_metrics`, `lookup_metric_definition`, `mf_query` (with internal max-2 retry on validation failure), `clarify`, `render_chart_spec`, `final_answer` |
 | 6 | Charts | Closed-set Pydantic `ChartSpec` (`type: 'kpi'\|'line'\|'bar'\|'stacked_bar'\|'donut'\|'table'`, x, y[], groupBy?, format, title) → frontend `<ChartRenderer spec={spec}/>` switch into Recharts. Validated server-side before send. Vega-Lite escape hatch deferred until needed |
 | 7 | DSPy | Deferred. Build the eval set as a deliverable of HUG-180; bring DSPy in as HUG-181 follow-up once ≥50 labeled examples exist |
-| 8 | LLM | Stay on Qwen 3 235B (Cerebras). Watch the 5-req/min rate limit — multi-turn ReAct amplifies it (avg 2–3 calls/turn, capped at 10); revisit only if HUG-180 evals show it biting |
+| 8 | LLM | ~~Stay on Qwen 3 235B (Cerebras).~~ **Superseded by ADR-0004 (2026-05-05): Qwen 3 32B on Groq Cloud.** The original rationale (rate-limit risk acknowledged but accepted) was overturned by the first end-to-end eval run, which showed the 5-RPM ceiling is incompatible with multi-turn ReAct under any realistic workload. See `0004-llm-switch-qwen3-32b-groq.md`. |
 | 9 | Streaming | Server-Sent Events via `sse-starlette` for agent step-by-step progress to the frontend. No WebSocket |
 | 10 | Auth | Out of scope this epic. Use existing per-tab session header as the thread owner. Future ticket for auth + thread ACLs |
 
