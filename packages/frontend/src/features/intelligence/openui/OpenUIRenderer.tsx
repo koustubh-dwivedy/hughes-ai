@@ -17,58 +17,59 @@ import * as React from "react";
 import { library } from "./library";
 
 interface Props {
-  /** Raw OpenUI Lang DSL string emitted by the agent. */
-  dsl: string;
-  /**
-   * Optional fallback rendered when the OpenUI tree throws at runtime
-   * (parse errors are tolerated by the parser itself; this only fires
-   * on uncaught exceptions inside a registered component).
-   */
-  fallback?: React.ReactNode;
+	/** Raw OpenUI Lang DSL string emitted by the agent. */
+	dsl: string;
+	/**
+	 * Optional fallback rendered when the OpenUI tree throws at runtime
+	 * (parse errors are tolerated by the parser itself; this only fires
+	 * on uncaught exceptions inside a registered component).
+	 */
+	fallback?: React.ReactNode;
 }
 
 interface State {
-  hasError: boolean;
+	hasError: boolean;
 }
 
 /** Error boundary scoped to a single OpenUI tree. */
 class OpenUIErrorBoundary extends React.Component<
-  React.PropsWithChildren<{ fallback: React.ReactNode }>,
-  State
+	React.PropsWithChildren<{ fallback: React.ReactNode }>,
+	State
 > {
-  state: State = { hasError: false };
+	state: State = { hasError: false };
 
-  static getDerivedStateFromError(): State {
-    return { hasError: true };
-  }
+	static getDerivedStateFromError(): State {
+		return { hasError: true };
+	}
 
-  componentDidCatch(error: Error): void {
-    // Wired into the existing telemetry path in Phase B; for now,
-    // surface to console so a misbehaving DSL is visible in dev.
-    // eslint-disable-next-line no-console
-    console.error("OpenUIRenderer crashed:", error);
-  }
+	componentDidCatch(error: Error): void {
+		// Surface to console so a misbehaving DSL is visible in dev. The
+		// existing telemetry pipeline (errorCapture / reportError) is the
+		// production destination; wiring it up is HUG-179 follow-on work.
+		// biome-ignore lint/suspicious/noConsole: dev-only diagnostic until telemetry is wired.
+		console.error("OpenUIRenderer crashed:", error);
+	}
 
-  render(): React.ReactNode {
-    if (this.state.hasError) {
-      return this.props.fallback;
-    }
-    return this.props.children;
-  }
+	render(): React.ReactNode {
+		if (this.state.hasError) {
+			return this.props.fallback;
+		}
+		return this.props.children;
+	}
 }
 
 const DefaultFallback: React.FC = () => (
-  <div role="alert" aria-live="polite">
-    Could not render the assistant&apos;s structured response.
-  </div>
+	<div role="alert" aria-live="polite">
+		Could not render the assistant&apos;s structured response.
+	</div>
 );
 
 const OpenUIRenderer: React.FC<Props> = ({ dsl, fallback }) => {
-  return (
-    <OpenUIErrorBoundary fallback={fallback ?? <DefaultFallback />}>
-      <Renderer response={dsl} library={library} />
-    </OpenUIErrorBoundary>
-  );
+	return (
+		<OpenUIErrorBoundary fallback={fallback ?? <DefaultFallback />}>
+			<Renderer response={dsl} library={library} />
+		</OpenUIErrorBoundary>
+	);
 };
 
 export default OpenUIRenderer;

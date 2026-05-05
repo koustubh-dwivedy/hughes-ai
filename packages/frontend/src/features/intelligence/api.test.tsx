@@ -10,8 +10,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { Provider as ReduxProvider } from "react-redux";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SESSION_HEADER } from "../../shared/telemetry/session";
 import { createStore } from "../../shared/api/store";
+import { SESSION_HEADER } from "../../shared/telemetry/session";
 import { parseSseBuffer, usePostMessageMutation } from "./api";
 
 afterEach(() => {
@@ -77,7 +77,7 @@ describe("parseSseBuffer", () => {
 
 	it("survives blocks with unknown fields and trailing CR characters", () => {
 		const { events } = parseSseBuffer(
-			"event: step\r\nid: 1\r\ndata: {\"step\":1}\r\nfoo: bar\r\n\n",
+			'event: step\r\nid: 1\r\ndata: {"step":1}\r\nfoo: bar\r\n\n',
 		);
 		expect(events).toEqual([{ event: "step", data: '{"step":1}' }]);
 	});

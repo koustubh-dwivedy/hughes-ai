@@ -78,11 +78,7 @@ export default function ClarificationControl({ message, onSubmit }: Props) {
 	const options = payload.options ?? [];
 	if (options.length === 0) return null;
 	return (
-		<section
-			aria-label="Agent clarification"
-			role="group"
-			style={wrapperStyle}
-		>
+		<section aria-label="Agent clarification" style={wrapperStyle}>
 			<div style={questionStyle}>{question}</div>
 			<div style={optionGroupStyle}>
 				{options.map((opt) => (

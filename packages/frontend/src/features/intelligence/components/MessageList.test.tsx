@@ -54,9 +54,9 @@ function makeFinalAnswer(
 describe("MessageList", () => {
 	it("renders a user bubble with the question text", () => {
 		render(<MessageList messages={[userMsg]} />);
-		expect(
-			screen.getByLabelText("User question"),
-		).toHaveTextContent(/loan-to-deposit/i);
+		expect(screen.getByLabelText("User question")).toHaveTextContent(
+			/loan-to-deposit/i,
+		);
 	});
 
 	it("renders an assistant terminal message with summary, OpenUI tree, rows, and MF query disclosure", () => {
@@ -75,7 +75,9 @@ describe("MessageList", () => {
 			openui_dsl: 'root = TextContent("from-column")',
 		});
 		render(<MessageList messages={[msg]} />);
-		expect(screen.getByTestId("mocked-openui")).toHaveTextContent("from-column");
+		expect(screen.getByTestId("mocked-openui")).toHaveTextContent(
+			"from-column",
+		);
 	});
 
 	it("renders a clarification turn (tool message that's not final_answer) as nothing user-visible", () => {
@@ -89,8 +91,9 @@ describe("MessageList", () => {
 		const { container } = render(<MessageList messages={[clarify]} />);
 		// Clarifications are surfaced by <ClarificationControl>, not MessageList,
 		// so MessageList should drop the tool row.
-		expect(container.querySelector('[data-testid="openui-renderer"]'))
-			.toBeNull();
+		expect(
+			container.querySelector('[data-testid="openui-renderer"]'),
+		).toBeNull();
 		expect(screen.queryByText(/Which branch/)).toBeNull();
 	});
 

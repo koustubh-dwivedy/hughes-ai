@@ -13,10 +13,10 @@
  * parsing the JSON `content` blob.
  */
 
-import OpenUIRenderer from "../openui/OpenUIRenderer";
-import JsonBlock from "../../../ui/primitives/JsonBlock/JsonBlock";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import JsonBlock from "../../../ui/primitives/JsonBlock/JsonBlock";
 import type { ThreadMessageWire } from "../api";
+import OpenUIRenderer from "../openui/OpenUIRenderer";
 
 interface Props {
 	messages: ThreadMessageWire[];

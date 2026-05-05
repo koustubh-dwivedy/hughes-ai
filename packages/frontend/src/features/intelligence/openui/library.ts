@@ -12,6 +12,6 @@
  */
 
 export {
-  openuiLibrary as library,
-  openuiPromptOptions,
+	openuiLibrary as library,
+	openuiPromptOptions,
 } from "@openuidev/react-ui/genui-lib";

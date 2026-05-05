@@ -14,13 +14,13 @@
 import { skipToken } from "@reduxjs/toolkit/query";
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { colors } from "../../theme/tokens";
 import { useAppDispatch, useAppSelector } from "../../shared/api/hooks";
+import { colors } from "../../theme/tokens";
 import {
+	type ThreadMessageWire,
 	useCreateThreadMutation,
 	useGetThreadQuery,
 	usePostMessageMutation,
-	type ThreadMessageWire,
 } from "./api";
 import ClarificationControl from "./components/ClarificationControl";
 import ComposerInput from "./components/ComposerInput";
@@ -106,10 +106,7 @@ export default function IntelligencePage() {
 
 	return (
 		<div style={layoutStyle}>
-			<ThreadRail
-				currentThreadId={threadId}
-				onNewThread={handleNewThread}
-			/>
+			<ThreadRail currentThreadId={threadId} onNewThread={handleNewThread} />
 			<div style={mainStyle}>
 				<div style={conversationStyle}>
 					<MessageList messages={messages} />

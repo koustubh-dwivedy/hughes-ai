@@ -9,7 +9,7 @@
  * UI state goes to this slice.
  */
 
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
 
 /**
  * Mirrors `api.types.threads_api.StreamStep`. The wire kind is

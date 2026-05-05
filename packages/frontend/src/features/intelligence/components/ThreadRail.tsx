@@ -102,9 +102,7 @@ export default function ThreadRail({ currentThreadId, onNewThread }: Props) {
 						key={t.thread_id}
 						to={`/intelligence/${t.thread_id}`}
 						style={rowStyle(t.thread_id === currentThreadId)}
-						aria-current={
-							t.thread_id === currentThreadId ? "page" : undefined
-						}
+						aria-current={t.thread_id === currentThreadId ? "page" : undefined}
 					>
 						{formatTitle(t.thread_id, t.title)}
 					</Link>

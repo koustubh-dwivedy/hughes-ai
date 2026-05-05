@@ -12,15 +12,15 @@
  * weren't in the assistant message stream).
  */
 
-import { SESSION_HEADER, getSessionId } from "../../shared/telemetry/session";
 import { baseApi } from "../../shared/api/client";
+import { SESSION_HEADER, getSessionId } from "../../shared/telemetry/session";
 import {
+	type ThreadStreamFinal,
+	type ThreadStreamStep,
 	streamError,
 	streamFinal,
 	streamStarted,
 	streamStep,
-	type ThreadStreamFinal,
-	type ThreadStreamStep,
 } from "./threadSlice";
 
 // ── Wire types (mirror api.types.threads / api.types.threads_api) ─────────
@@ -91,6 +91,7 @@ interface ParseResult {
  * Exported so tests can exercise edge cases (split across reads, ping
  * lines, malformed blocks) without spinning up a real EventSource.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSE parser state machine — splitting it further obscures the per-line dispatch.
 export function parseSseBuffer(buffer: string): ParseResult {
 	const events: ParsedSseEvent[] = [];
 	const blocks = buffer.split("\n\n");
@@ -150,6 +151,7 @@ const slice = baseApi.injectEndpoints({
 		 * thread cache is invalidated so the persisted history refetches.
 		 */
 		postMessage: build.mutation<void, PostMessageArg>({
+			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSE custom queryFn — every branch is a soft-skip path that needs explicit handling.
 			queryFn: async ({ threadId, content, parentMessageId }, api) => {
 				api.dispatch(streamStarted());
 				const baseUrl =

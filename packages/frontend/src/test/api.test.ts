@@ -101,4 +101,3 @@ describe("dashboard fetchers", () => {
 		expect(fetchMock.mock.calls[0][0]).toBe("/api/dashboards/officer-branch");
 	});
 });
-

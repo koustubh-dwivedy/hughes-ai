@@ -3,9 +3,9 @@ import { Provider as ReduxProvider } from "react-redux";
 import { describe, expect, it } from "vitest";
 import { createStore } from "../../../shared/api/store";
 import {
+	type ThreadStreamStep,
 	streamStarted,
 	streamStep,
-	type ThreadStreamStep,
 } from "../threadSlice";
 import StepIndicator from "./StepIndicator";
 
@@ -53,7 +53,9 @@ describe("StepIndicator", () => {
 		store.dispatch(streamStep(callList));
 		store.dispatch(streamStep(callMf));
 		renderWithStore(store);
-		expect(screen.getByText(/Looking up available metrics…/)).toBeInTheDocument();
+		expect(
+			screen.getByText(/Looking up available metrics…/),
+		).toBeInTheDocument();
 		expect(screen.getByText(/Querying MetricFlow…/)).toBeInTheDocument();
 	});
 

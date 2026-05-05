@@ -61,7 +61,7 @@ export default function StepIndicator() {
 	const steps = useAppSelector((s) => s.thread.steps);
 	if (!streaming && steps.length === 0) return null;
 	return (
-		<div role="status" aria-live="polite" style={wrapperStyle}>
+		<output aria-live="polite" style={wrapperStyle}>
 			{steps.map((step) => (
 				<div key={`${step.step}-${step.kind}`}>
 					<span style={dotStyle} aria-hidden />
@@ -74,6 +74,6 @@ export default function StepIndicator() {
 					Thinking…
 				</div>
 			) : null}
-		</div>
+		</output>
 	);
 }

@@ -101,4 +101,3 @@ export function getExecutiveSummary(
 	const qs = params?.asOfDate ? `?as_of_date=${params.asOfDate}` : "";
 	return fetchJson(`${BASE}/dashboards/executive-summary${qs}`);
 }
-
