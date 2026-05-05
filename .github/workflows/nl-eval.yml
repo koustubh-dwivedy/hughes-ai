@@ -20,6 +20,12 @@ concurrency:
   group: nl-eval-${{ github.ref }}
   cancel-in-progress: true
 
+# Needed by the "Commit promotion ledger" step on main-branch pushes
+# (HUG-189). PR-CI runs from forks won't be able to push; the conditional
+# below also keeps fork PRs from attempting the commit step.
+permissions:
+  contents: write
+
 jobs:
   nl-eval:
     name: NL Accuracy Benchmark
@@ -44,6 +50,10 @@ jobs:
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history + push-back token for the ledger commit step.
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: astral-sh/setup-uv@v5
         with:
           enable-caching: true
@@ -59,4 +69,24 @@ jobs:
       - name: Build dbt models
         run: cd packages/dbt-models && uv run dbt build --profiles-dir .
       - name: Run NL eval
-        run: uv run python scripts/eval.py --full --gate must-pass=80,long-tail=65
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ] \
+              && [ "${{ github.event_name }}" = "push" ]; then
+            uv run python scripts/eval.py --full \
+              --gate must-pass=80,long-tail=65 \
+              --write-ledger \
+              --run-id "${{ github.run_id }}" \
+              --commit-sha "${{ github.sha }}"
+          else
+            uv run python scripts/eval.py --full \
+              --gate must-pass=80,long-tail=65
+          fi
+      - name: Commit promotion ledger
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add packages/nl-engine/benchmarks/.promotion-ledger.csv
+          git diff --cached --quiet || git commit -m \
+            "chore(eval): append promotion ledger row from run ${{ github.run_id }} [skip ci]"
+          git push origin main
