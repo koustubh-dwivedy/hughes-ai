@@ -23,6 +23,7 @@ from nl_engine.agent.persistence import to_canonical
 from nl_engine.agent.state import AgentState
 
 from api.repo import threads as threads_repo
+from api.services.openui_validator import validate_openui_dsl
 from api.types.threads import ThreadMessage
 from api.types.threads_api import StreamFinal, StreamStep
 
@@ -125,11 +126,18 @@ def _process_message(
         _persist_assistant(thread_id, msg, db_url)
     elif isinstance(msg, ToolMessage):
         persisted = _persist_tool(thread_id, msg, db_url)
-        if _terminal_payload(msg) is not None:
+        terminal = _terminal_payload(msg)
+        if terminal is not None:
+            dsl = terminal.get("openui_dsl")
+            openui = (
+                validate_openui_dsl(dsl) if isinstance(dsl, str) and dsl else None
+            )
             out.append(
                 {
                     "event": "final",
-                    "data": StreamFinal(message=persisted).model_dump_json(),
+                    "data": StreamFinal(
+                        message=persisted, openui=openui
+                    ).model_dump_json(),
                 }
             )
     return out

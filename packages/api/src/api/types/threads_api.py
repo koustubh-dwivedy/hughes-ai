@@ -13,6 +13,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from api.types.openui import OpenUIDslPayload
 from api.types.threads import ThreadMessage, ThreadSummary
 
 
@@ -54,6 +55,10 @@ class StreamStep(BaseModel):
 
 
 class StreamFinal(BaseModel):
-    """Terminal SSE event carrying the persisted assistant message."""
+    """Terminal SSE event carrying the persisted assistant message and,
+    when the agent emitted OpenUI Lang DSL, the validated payload (HUG-178
+    Phase B). `openui` is None when the agent's `final_answer` did not
+    populate `openui_dsl`."""
 
     message: ThreadMessage
+    openui: OpenUIDslPayload | None = None

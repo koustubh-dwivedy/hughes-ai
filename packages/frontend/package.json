@@ -15,7 +15,9 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "loki:update": "loki update",
-    "loki:test": "loki test"
+    "loki:test": "loki test",
+    "openui:prompt": "node scripts/generate-openui-prompt.mjs",
+    "openui:validate-dsl": "node scripts/validate-openui-dsl.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
