@@ -9,14 +9,25 @@ import os
 import sys
 from pathlib import Path
 
+from nl_engine.benchmarks.grader import (
+    GradeResult,
+    evaluate_gate,
+    grade,
+    parse_gate_arg,
+)
 from nl_engine.benchmarks.schema import Question, load_questions
 from nl_engine.context_loader import load_all
 from nl_engine.engine import AnswerResponse, ClarificationResponse, ask
 
 QUESTIONS_FILE = Path(__file__).parent / "questions.yaml"
 CACHE_FILE = Path(__file__).parent / ".cache" / "responses.json"
-PASS_THRESHOLD = 0.5
 
+_DEFAULT_GATE = "must-pass=80,long-tail=65"
+
+# Question types in this set are treated as "legacy" — they were authored
+# under the original eval and are kept for the long-tail / informational
+# signal. The default `make eval` invocation runs only the newer dashboard
+# question types; `--full` includes the legacy types too.
 _LEGACY_TYPES = frozenset({
     "origination_volume", "approval_rate", "funding_rate",
     "delinquency_rate", "portfolio_balance", "product_mix",
@@ -42,7 +53,13 @@ def _save_cache(cache: dict[str, dict[str, object]]) -> None:
 
 def _serialize(result: AnswerResponse | ClarificationResponse) -> dict[str, object]:
     if isinstance(result, AnswerResponse):
-        return {"type": "answer", "sql": result.sql, "tables_used": result.tables_used}
+        return {
+            "type": "answer",
+            "sql": result.sql,
+            "tables_used": result.tables_used,
+            "rows": result.rows,
+            "columns": result.columns,
+        }
     return {"type": "clarification", "question": result.question}
 
 
@@ -52,80 +69,29 @@ def _deserialize(data: dict[str, object]) -> AnswerResponse | ClarificationRespo
         tables: list[str] = (
             [str(t) for t in tables_raw] if isinstance(tables_raw, list) else []
         )
+        rows_raw = data.get("rows")
+        rows: list[dict[str, object]] = (
+            [dict(r) for r in rows_raw if isinstance(r, dict)]
+            if isinstance(rows_raw, list)
+            else []
+        )
+        cols_raw = data.get("columns")
+        columns: list[str] = (
+            [str(c) for c in cols_raw] if isinstance(cols_raw, list) else []
+        )
         return AnswerResponse(
             sql=str(data.get("sql") or ""),
             tables_used=tables,
             explanation="",
             assumptions=[],
             caveats=[],
-            rows=[],
-            columns=[],
+            rows=rows,
+            columns=columns,
         )
     return ClarificationResponse(question=str(data.get("question", "")))
 
 
-def _table_jaccard(
-    expected: set[str], actual: set[str]
-) -> float:
-    if not expected:
-        return 1.0
-    union = expected | actual
-    return len(expected & actual) / len(union) if union else 1.0
-
-
-def _keyword_frac(expected: list[str], sql: str) -> float:
-    if not expected:
-        return 1.0
-    sql_upper = sql.upper()
-    matched = sum(1 for kw in expected if kw.upper() in sql_upper)
-    return matched / len(expected)
-
-
-def _score(
-    q: Question,
-    result: AnswerResponse | ClarificationResponse,
-) -> dict[str, object]:
-    qtype = q.question_type
-    expected_tables: set[str] = set(q.expected_tables)
-    expected_keywords: list[str] = list(q.expected_keywords)
-
-    if qtype == "ambiguous":
-        correct = isinstance(result, ClarificationResponse)
-        return {
-            "question": q.question,
-            "question_type": qtype,
-            "correct": correct,
-            "sql_valid": None,
-            "table_jaccard": None,
-            "keyword_frac": None,
-        }
-
-    if isinstance(result, ClarificationResponse):
-        return {
-            "question": q.question,
-            "question_type": qtype,
-            "correct": False,
-            "sql_valid": False,
-            "table_jaccard": 0.0,
-            "keyword_frac": 0.0,
-        }
-
-    sql = result.sql or ""
-    sql_valid = bool(sql.strip())
-    jaccard = _table_jaccard(expected_tables, set(result.tables_used or []))
-    kw_frac = _keyword_frac(expected_keywords, sql)
-    correct = sql_valid and jaccard >= PASS_THRESHOLD and kw_frac >= PASS_THRESHOLD
-    return {
-        "question": q.question,
-        "question_type": qtype,
-        "correct": correct,
-        "sql_valid": sql_valid,
-        "table_jaccard": round(jaccard, 3),
-        "keyword_frac": round(kw_frac, 3),
-    }
-
-
-def run(fail_under: float, full: bool = False) -> int:
+def run(gates: dict[str, float], full: bool = False) -> int:
     db_url = os.environ["DATABASE_URL"]
     ctx = load_all()
     qf = load_questions(QUESTIONS_FILE)
@@ -134,7 +100,7 @@ def run(fail_under: float, full: bool = False) -> int:
         questions = [q for q in questions if q.question_type not in _LEGACY_TYPES]
     cache = _load_cache()
 
-    results: list[dict[str, object]] = []
+    results: list[GradeResult] = []
     for q in questions:
         key = _cache_key(q.question, db_url)
         if key in cache:
@@ -148,47 +114,44 @@ def run(fail_under: float, full: bool = False) -> int:
                     tables_used=[], assumptions=[], caveats=[], rows=[], columns=[],
                 )
             cache[key] = _serialize(result)
-        results.append(_score(q, result))
+        results.append(grade(q, result))
 
     _save_cache(cache)
+
+    exit_code, tier_summaries = evaluate_gate(results, gates)
 
     sys.path.insert(0, str(Path(__file__).parent))
     from report import print_report  # noqa: PLC0415
 
-    accuracy = print_report(results, fail_under)
-
-    if full:
-        legacy = [r for r in results if r["question_type"] in _LEGACY_TYPES]
-        if legacy:
-            leg_correct = sum(1 for r in legacy if r["correct"])
-            leg_acc = leg_correct / len(legacy) * 100
-            leg_status = "PASS" if leg_acc >= fail_under else "FAIL"
-            print(  # noqa: T201
-                f"Legacy (50q): {leg_correct}/{len(legacy)}"
-                f" ({leg_acc:.1f}%) — {leg_status}"
-            )
-            if leg_acc < fail_under:
-                return 1
-
-    return 0 if accuracy >= fail_under else 1
+    print_report(results, tier_summaries)
+    return exit_code
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run NL eval benchmark")
     parser.add_argument(
-        "--fail-under",
-        type=float,
-        default=85.0,
-        metavar="N",
-        help="Exit 1 if accuracy is below N%% (default: 85)",
+        "--gate",
+        type=str,
+        default=_DEFAULT_GATE,
+        metavar="STR",
+        help=(
+            "Tier thresholds, comma-separated 'tier=PCT'. "
+            f"Default: {_DEFAULT_GATE!r}. Must-pass below threshold blocks "
+            "the gate; long-tail below threshold warns but does not block. "
+            "Empty must-pass tier passes (does not block) — see HUG-188."
+        ),
     )
     parser.add_argument(
         "--full",
         action="store_true",
-        help="Run all 70 questions; default runs only the 20 new dashboard questions",
+        help="Run all questions; default runs only the new dashboard subset.",
     )
     args = parser.parse_args()
-    sys.exit(run(args.fail_under, args.full))
+    try:
+        gates = parse_gate_arg(args.gate)
+    except ValueError as exc:
+        parser.error(str(exc))
+    sys.exit(run(gates, args.full))
 
 
 if __name__ == "__main__":
