@@ -1,4 +1,9 @@
-"""POST /ask — NL→SQL pipeline endpoint."""
+"""POST /ask — NL→SQL pipeline endpoint.
+
+DEPRECATED — see HUG-193 for retirement gate. No new callers.
+This route stays alive only until the agent path (/threads) clears the
+promotion gate documented in HUG-193's promotion-ledger criteria.
+"""
 
 import time
 
