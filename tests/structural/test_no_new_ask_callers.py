@@ -21,6 +21,13 @@ _BACKEND_ALLOWLIST = {
     REPO_ROOT / "packages" / "api" / "src" / "api" / "routes" / "ask.py",
     REPO_ROOT / "packages" / "api" / "src" / "api" / "routes" / "history.py",
     REPO_ROOT / "packages" / "api" / "src" / "api" / "repo" / "history.py",
+    # Type-only imports of AnswerResponse / ClarificationResponse for the
+    # eval grader (HUG-188). The grader will outlive Surface 1; HUG-193
+    # will move these typed shapes out of engine.py before deletion.
+    REPO_ROOT / "packages" / "nl-engine" / "src" / "nl_engine" / "benchmarks"
+    / "grader" / "categorize.py",
+    REPO_ROOT / "packages" / "nl-engine" / "src" / "nl_engine" / "benchmarks"
+    / "grader" / "grade.py",
 }
 _BACKEND_GLOB_ALLOWLIST = (
     "**/tests/**",
