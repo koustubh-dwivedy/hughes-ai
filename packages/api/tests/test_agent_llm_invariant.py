@@ -4,6 +4,15 @@ tool-call JSON. Failing this is a silent agent accuracy regression."""
 
 from __future__ import annotations
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _set_groq_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ChatGroq's constructor validates GROQ_API_KEY is present even
+    when no call is made; set a dummy so the factory can instantiate."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+
 
 def test_make_agent_llm_pins_reasoning_format_hidden() -> None:
     from api.services.llm import make_agent_llm
