@@ -141,8 +141,19 @@ def final_answer(
 ) -> dict[str, Any]:
     """Single typed terminal for every successful turn.
 
-    `openui_dsl` stays None until HUG-178 wires the OpenUI layer;
-    downstream consumers must tolerate the field being absent.
+    Populate `openui_dsl` with valid OpenUI Lang DSL whenever a chart,
+    table, KPI tile, or stack of widgets would communicate the answer
+    better than prose alone. The system prompt lists every component
+    you may use — stay strictly within that registered library, and
+    follow the openui-lang syntax rules verbatim (every variable must
+    be reachable from `root`, positional args only, no colon syntax).
+
+    Leave `openui_dsl` as None for purely textual answers (a one-line
+    definition, a short qualitative summary). `summary` is shown in
+    every case; `openui_dsl` augments it.
+
+    `rows` and `mf_query` should be populated for any answer that
+    touched MetricFlow, regardless of whether you emit DSL.
     """
     payload = FinalAnswer(
         summary=summary,

@@ -1,4 +1,4 @@
-.PHONY: up down dev migrate seed lint lint-fix typecheck test audit eval eval-full
+.PHONY: up down dev migrate seed lint lint-fix typecheck test audit eval eval-full openui-prompt
 
 up:
 	docker compose up -d
@@ -56,3 +56,10 @@ eval:
 
 eval-full:
 	python scripts/eval.py --full
+
+# HUG-178 Phase B: regenerate the OpenUI agent system prompt artifact.
+# Re-run after bumping @openuidev/react-ui or @openuidev/lang-core.
+# Direct node invocation (skips pnpm headers that bleed into stdout).
+openui-prompt:
+	cd packages/frontend && node scripts/generate-openui-prompt.mjs \
+		> ../nl-engine/src/nl_engine/agent/openui_prompt.txt

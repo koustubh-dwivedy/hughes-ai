@@ -157,3 +157,49 @@ Decision #6 originally specified a closed-set Pydantic `ChartSpec` (`type: 'kpi'
 * HUG-178 (this ticket) — the production-integration umbrella.
 * HUG-195 — the escalation evaluation that produced the 95% measurement.
 * HUG-196 — the multi-provider LLM factory (Groq + Google AI Studio) that enabled the spike to run on Gemma 4 31B without waiting for Groq quota.
+
+---
+
+## Amendment 2026-05-05 (Phase B) — agent emits OpenUI DSL + server-side validator
+
+### What changed
+
+The HUG-178 Phase A amendment above promised a Phase B follow-up that turns the rendering substrate on. That follow-up has now landed:
+
+* **Agent system prompt.** A 20K-character OpenUI Lang reference is now prepended (transiently per call) to every LangGraph turn. The committed artifact at `packages/nl-engine/src/nl_engine/agent/openui_prompt.txt` is regenerated via `make openui-prompt`, which invokes `packages/frontend/scripts/generate-openui-prompt.mjs` against the standard `openuiLibrary`. A tool-calling preamble re-frames the OpenUI prompt's "respond with raw DSL" framing — DSL goes inside `final_answer.openui_dsl`, never as the message body.
+* **`final_answer` tool docstring.** Now instructs the agent to populate `openui_dsl` whenever a chart/table/KPI tile communicates the answer better than prose, and to leave it None for purely textual answers.
+* **Server-side validator.** `packages/api/src/api/services/openui_validator.py` spawns `packages/frontend/scripts/validate-openui-dsl.mjs` as a Node subprocess on every terminal turn that carries `openui_dsl`. The script imports `@openuidev/react-lang`'s `createParser` against `openuiLibrary.toJSONSchema()` and emits `{valid, errors}` JSON. The Python wrapper soft-skips on every failure mode (Node missing, script absent, timeout, non-zero exit, JSON parse error) — the OpenUI parser on the frontend is permissive and the renderer has its own error boundary, so unverified DSL still flows to the browser with `validated=False`.
+* **`StreamFinal` schema.** Now carries an optional `openui: OpenUIDslPayload | None` field alongside the persisted `ThreadMessage`. Frontend (HUG-179 territory) reads this to decide whether to render via OpenUI or fall back to the legacy `ResultPanel`.
+
+### Why these specific choices
+
+* **Committed prompt artifact, not boot-time generation.** OpenUI's instruction manual is a JS function (`openuiLibrary.prompt(openuiPromptOptions)`). Three options were considered: (a) commit the artifact, (b) shell out to Node at API boot, (c) write a custom shorter prompt. Chose (a) — no Node dependency at request time, deterministic, reviewable in git diffs. Drift caught by `tests/structural/test_openui_prompt_drift.py`, which re-runs the generator and compares output. Skipped (not failed) when Node isn't on PATH so backend-only contributors aren't blocked.
+* **Soft-skip on validator failure.** The OpenUI parser is permissive and `OpenUIRenderer` has an error boundary. Hard-blocking on validator unavailability would create a Node-dependency in production for marginal safety gain, since the frontend already tolerates malformed DSL. Validation is a defensive signal, not a gate.
+* **Tool-calling preamble.** The raw OpenUI prompt opens with "Your ENTIRE response must be valid openui-lang code" — actively hostile to tool-calling. An empirical Q1 against Gemma 4 31B with the unwrapped prompt hit the 10-step cap without ever calling `final_answer`. Wrapping the prompt with our own preamble ("call tools first, put DSL inside `final_answer.openui_dsl`") fixed it on the first re-attempt.
+
+### Smoke test (merge gate, 2026-05-05)
+
+Five must-pass questions (must-pass-001 through must-pass-005, sourced from `packages/nl-engine/benchmarks/questions.yaml`) ran end-to-end through the deployed agent (`LLM_PROVIDER=google`, Gemma 4 31B). Each turn POSTed to `/threads/{id}/messages`, captured the SSE final event, and inspected the attached `OpenUIDslPayload`:
+
+| Question | Validated | Errors | Outcome |
+|---|---|---|---|
+| Loan-to-deposit ratio | True | 0 | ✅ valid DSL |
+| Total loan portfolio balance | True | 0 | ✅ valid DSL |
+| Total deposit balance | True | 0 | ✅ valid DSL |
+| Rate spread | True | 0 | ✅ valid DSL |
+| Past-due ratio | True | 0 | ✅ valid DSL |
+
+**5/5 (100%) valid DSL.** Above the 80% merge gate; matches the HUG-195 spike's 95% measurement.
+
+### What's still NOT changed
+
+* Frontend wiring of `<OpenUIRenderer>` into `AssistantMessage.tsx` — HUG-179.
+* Streaming DSL rendering, conversation-aware prompt rewriting, retry-on-invalid-DSL — out of scope.
+* `final_answer.openui_dsl: str | None` field shape — unchanged from Phase A.
+* Tool list or tool call shapes — unchanged.
+
+### Operational notes
+
+* Regenerate the prompt artifact whenever `@openuidev/react-ui` or `@openuidev/lang-core` is bumped: `make openui-prompt`. The structural drift test catches stale artifacts.
+* Validator latency: ~50-150ms per terminal turn (Node subprocess startup). Acceptable on SSE turns that take seconds. Defer optimization unless it bites.
+* `node` becomes a soft runtime dependency for the API container. If absent, validation soft-skips and DSL still flows; the system continues to function, just without a server-side parse check.
