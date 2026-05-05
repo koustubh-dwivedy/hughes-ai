@@ -12,6 +12,8 @@ export const TAG_TYPES = [
 	"Trust",
 	"History",
 	"Ask",
+	"Thread",
+	"ThreadList",
 ] as const;
 
 export type TagType = (typeof TAG_TYPES)[number];

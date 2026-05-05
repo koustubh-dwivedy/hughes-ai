@@ -33,6 +33,7 @@ const router = createBrowserRouter([
 			{ path: "/dashboards/past-due", element: <PastDuePage /> },
 			{ path: "/dashboards/officer-branch", element: <OfficersPage /> },
 			{ path: "/intelligence", element: <IntelligencePage /> },
+			{ path: "/intelligence/:threadId", element: <IntelligencePage /> },
 			{ path: "/chat", element: <Navigate to="/intelligence" replace /> },
 			{ path: "/data/sources", element: <DataSourcesPage /> },
 			{

@@ -1,0 +1,139 @@
+import { describe, expect, it } from "vitest";
+import reducer, {
+	initialThreadState,
+	setCurrentThread,
+	setDraft,
+	streamCleared,
+	streamError,
+	streamFinal,
+	streamStarted,
+	streamStep,
+	type ThreadState,
+	type ThreadStreamFinal,
+	type ThreadStreamStep,
+} from "./threadSlice";
+
+const sampleStep: ThreadStreamStep = {
+	step: 1,
+	kind: "tool_call",
+	name: "list_metrics",
+	args: {},
+	result: null,
+};
+
+const sampleFinal: ThreadStreamFinal = {
+	message: {
+		message_id: "m1",
+		thread_id: "t1",
+		role: "tool",
+		content: '{"summary":"hi"}',
+	},
+	openui: {
+		dsl_text: 'root = Stack(["hi"])',
+		validated: true,
+		validation_errors: [],
+		validated_at: "2026-05-06T00:00:00Z",
+	},
+};
+
+describe("threadSlice", () => {
+	it("returns the initial state when no action matches", () => {
+		const state = reducer(undefined, { type: "noop" });
+		expect(state).toEqual(initialThreadState);
+	});
+
+	it("setCurrentThread sets the id and clears transient buffers", () => {
+		const dirty: ThreadState = {
+			currentThreadId: null,
+			draftInput: "hello",
+			streaming: true,
+			steps: [sampleStep],
+			lastFinal: sampleFinal,
+			error: "boom",
+		};
+		const next = reducer(dirty, setCurrentThread("t-new"));
+		expect(next.currentThreadId).toBe("t-new");
+		expect(next.steps).toEqual([]);
+		expect(next.lastFinal).toBeNull();
+		expect(next.error).toBeNull();
+		expect(next.streaming).toBe(false);
+		expect(next.draftInput).toBe("hello");
+	});
+
+	it("setCurrentThread(null) clears the id while still resetting buffers", () => {
+		const next = reducer(
+			{ ...initialThreadState, currentThreadId: "t1" },
+			setCurrentThread(null),
+		);
+		expect(next.currentThreadId).toBeNull();
+	});
+
+	it("setDraft updates the composer text without touching anything else", () => {
+		const next = reducer(initialThreadState, setDraft("what's our LTD ratio?"));
+		expect(next.draftInput).toBe("what's our LTD ratio?");
+		expect(next.steps).toEqual([]);
+		expect(next.streaming).toBe(false);
+	});
+
+	it("streamStarted flips the flag and clears prior buffers", () => {
+		const dirty: ThreadState = {
+			...initialThreadState,
+			steps: [sampleStep],
+			lastFinal: sampleFinal,
+			error: "stale",
+		};
+		const next = reducer(dirty, streamStarted());
+		expect(next.streaming).toBe(true);
+		expect(next.steps).toEqual([]);
+		expect(next.lastFinal).toBeNull();
+		expect(next.error).toBeNull();
+	});
+
+	it("streamStep appends to the steps list in arrival order", () => {
+		const a = reducer(initialThreadState, streamStep(sampleStep));
+		const b = reducer(
+			a,
+			streamStep({
+				step: 2,
+				kind: "tool_result",
+				name: "list_metrics",
+				args: null,
+				result: { ok: true },
+			}),
+		);
+		expect(b.steps).toHaveLength(2);
+		expect(b.steps[0].step).toBe(1);
+		expect(b.steps[1].step).toBe(2);
+	});
+
+	it("streamFinal stores the terminal payload and ends streaming", () => {
+		const mid: ThreadState = { ...initialThreadState, streaming: true };
+		const next = reducer(mid, streamFinal(sampleFinal));
+		expect(next.lastFinal).toEqual(sampleFinal);
+		expect(next.streaming).toBe(false);
+	});
+
+	it("streamCleared resets buffers but keeps thread id and draft", () => {
+		const dirty: ThreadState = {
+			currentThreadId: "t1",
+			draftInput: "in flight",
+			streaming: false,
+			steps: [sampleStep],
+			lastFinal: sampleFinal,
+			error: "x",
+		};
+		const next = reducer(dirty, streamCleared());
+		expect(next.steps).toEqual([]);
+		expect(next.lastFinal).toBeNull();
+		expect(next.error).toBeNull();
+		expect(next.currentThreadId).toBe("t1");
+		expect(next.draftInput).toBe("in flight");
+	});
+
+	it("streamError records the message and stops streaming", () => {
+		const mid: ThreadState = { ...initialThreadState, streaming: true };
+		const next = reducer(mid, streamError("network down"));
+		expect(next.error).toBe("network down");
+		expect(next.streaming).toBe(false);
+	});
+});

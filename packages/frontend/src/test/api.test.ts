@@ -6,9 +6,6 @@ import {
 	getOfficerBranch,
 	getPastDue,
 	getTrust,
-	historyDetailToAskResponse,
-	postAsk,
-	postRerun,
 } from "../shared/api/api";
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -27,27 +24,6 @@ beforeEach(() => {
 
 afterEach(() => {
 	vi.unstubAllGlobals();
-});
-
-describe("postAsk", () => {
-	it("POSTs to /api/ask with JSON body", async () => {
-		fetchMock.mockResolvedValue(jsonResponse({ rows: [] }));
-		await postAsk("how many loans");
-		const [url, init] = fetchMock.mock.calls[0];
-		expect(url).toBe("/api/ask");
-		expect(init.method).toBe("POST");
-		// fetchJson now wraps headers in a Headers instance to inject
-		// X-Hughes-Session — use the Headers API instead of object access.
-		const headers = init.headers as Headers;
-		expect(headers.get("Content-Type")).toBe("application/json");
-		expect(headers.get("X-Hughes-Session")).toMatch(/^[0-9a-f-]{36}$/);
-		expect(JSON.parse(init.body)).toEqual({ question: "how many loans" });
-	});
-
-	it("throws on non-2xx with HTTP <status>", async () => {
-		fetchMock.mockResolvedValue(jsonResponse({ detail: "boom" }, 500));
-		await expect(postAsk("q")).rejects.toThrow("HTTP 500");
-	});
 });
 
 describe("getHistory", () => {
@@ -69,15 +45,6 @@ describe("getTrust", () => {
 		fetchMock.mockResolvedValue(jsonResponse({}));
 		await getTrust();
 		expect(fetchMock.mock.calls[0][0]).toBe("/api/trust");
-	});
-});
-
-describe("postRerun", () => {
-	it("POSTs to /api/history/<id>/rerun", async () => {
-		fetchMock.mockResolvedValue(jsonResponse({}));
-		await postRerun("abc-123");
-		expect(fetchMock.mock.calls[0][0]).toBe("/api/history/abc-123/rerun");
-		expect(fetchMock.mock.calls[0][1].method).toBe("POST");
 	});
 });
 
@@ -132,48 +99,5 @@ describe("dashboard fetchers", () => {
 	it("getOfficerBranch omits qs when params are absent", async () => {
 		await getOfficerBranch();
 		expect(fetchMock.mock.calls[0][0]).toBe("/api/dashboards/officer-branch");
-	});
-});
-
-describe("historyDetailToAskResponse", () => {
-	it("flattens nested answer/lineage JSON into AskResponse", () => {
-		const out = historyDetailToAskResponse({
-			id: "id-1",
-			question: "q",
-			sql: "SELECT 1",
-			created_at: "2026-01-01",
-			answer_json: {
-				explanation: "ok",
-				rows: [{ a: 1 }],
-				columns: ["a"],
-			},
-			assumptions: ["A1"],
-			caveats: ["C1"],
-			lineage_json: { tables_used: ["t1"] },
-		});
-		expect(out.request_id).toBe("id-1");
-		expect(out.sql).toBe("SELECT 1");
-		expect(out.explanation).toBe("ok");
-		expect(out.tables_used).toEqual(["t1"]);
-		expect(out.rows).toEqual([{ a: 1 }]);
-		expect(out.columns).toEqual(["a"]);
-		expect(out.clarification).toBeNull();
-	});
-
-	it("provides safe defaults when fields are missing", () => {
-		const out = historyDetailToAskResponse({
-			id: "id-2",
-			question: "q",
-			sql: "SELECT 1",
-			created_at: "2026-01-01",
-			answer_json: {},
-			assumptions: [],
-			caveats: [],
-			lineage_json: {},
-		});
-		expect(out.explanation).toBeNull();
-		expect(out.tables_used).toEqual([]);
-		expect(out.rows).toEqual([]);
-		expect(out.columns).toEqual([]);
 	});
 });

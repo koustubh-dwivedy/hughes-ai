@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TAG_TYPES } from "./tags";
 
 describe("TAG_TYPES", () => {
-	it("declares the seven cache tags used across slices", () => {
+	it("declares the cache tags used across slices", () => {
 		expect(TAG_TYPES).toEqual([
 			"DepositPortfolio",
 			"PastDue",
@@ -11,6 +11,8 @@ describe("TAG_TYPES", () => {
 			"Trust",
 			"History",
 			"Ask",
+			"Thread",
+			"ThreadList",
 		]);
 	});
 

@@ -10,8 +10,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Phase B (frontend half) flips on inside the final commit of HUG-179.
-_FRONTEND_FENCE_ACTIVE = False
+# Phase B (frontend half) flipped on by the final commit of HUG-179
+# once features/chat/ was deleted and shared/api/api.ts dropped postAsk,
+# AskResponse, postRerun, and historyDetailToAskResponse. Subsequent PRs
+# that re-introduce a frontend caller of /api/ask will fail this gate.
+_FRONTEND_FENCE_ACTIVE = True
 
 _BACKEND_SCAN_ROOTS = [
     REPO_ROOT / "packages" / "api" / "src",

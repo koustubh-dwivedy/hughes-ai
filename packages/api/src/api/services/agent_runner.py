@@ -44,15 +44,35 @@ def _persist_assistant(
 
 
 def _persist_tool(
-    thread_id: UUID, msg: ToolMessage, db_url: str
+    thread_id: UUID,
+    msg: ToolMessage,
+    db_url: str,
+    terminal: dict[str, Any] | None = None,
 ) -> ThreadMessage:
+    """Persist a tool message. When `terminal` is the decoded
+    `final_answer` payload, also propagate the rich fields (openui_dsl,
+    mf_query, rows) into their dedicated columns so reloading a thread
+    via GET /threads/:id renders with full fidelity instead of forcing
+    the frontend to re-parse the content blob (HUG-179)."""
     canonical = to_canonical(msg)
+    extra: dict[str, Any] = {}
+    if terminal is not None:
+        dsl = terminal.get("openui_dsl")
+        if isinstance(dsl, str) and dsl:
+            extra["openui_dsl"] = dsl
+        mf = terminal.get("mf_query")
+        if isinstance(mf, dict):
+            extra["mf_query"] = mf
+        rows = terminal.get("rows")
+        if isinstance(rows, list):
+            extra["rows"] = rows
     return threads_repo.append_message(
         thread_id=thread_id,
         role="tool",
         db_url=db_url,
         content=canonical.get("content") or "",
         tool_results=canonical.get("tool_results"),
+        **extra,
     )
 
 
@@ -125,8 +145,8 @@ def _process_message(
     if isinstance(msg, AIMessage):
         _persist_assistant(thread_id, msg, db_url)
     elif isinstance(msg, ToolMessage):
-        persisted = _persist_tool(thread_id, msg, db_url)
         terminal = _terminal_payload(msg)
+        persisted = _persist_tool(thread_id, msg, db_url, terminal=terminal)
         if terminal is not None:
             dsl = terminal.get("openui_dsl")
             openui = (
