@@ -173,7 +173,7 @@ const slice = baseApi.injectEndpoints({
 				} catch (err) {
 					const message = err instanceof Error ? err.message : "network error";
 					api.dispatch(streamError(message));
-					return { error: { status: "FETCH_ERROR", error: message } };
+					return { error: { status: "FETCH_ERROR" as const, error: message } };
 				}
 				if (!response.ok || !response.body) {
 					const message = `HTTP ${response.status}`;
@@ -208,7 +208,9 @@ const slice = baseApi.injectEndpoints({
 					const message =
 						err instanceof Error ? err.message : "stream read error";
 					api.dispatch(streamError(message));
-					return { error: { status: "STREAM_ERROR", error: message } };
+					return {
+						error: { status: "CUSTOM_ERROR" as const, error: message },
+					};
 				}
 				api.dispatch(
 					baseApi.util.invalidateTags([
