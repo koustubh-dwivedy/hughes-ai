@@ -57,6 +57,22 @@ make eval       # NL accuracy benchmark (20-question subset by default)
 make eval-full  # full 50+ question benchmark
 ```
 
+## LLM provider configuration
+
+LLM construction is centralized in `nl_engine.llm.make_llm()`. Both the agent (`api/services/llm.py`) and the eval harness (`run_eval.py`) call it. Provider is selected by env var:
+
+| Env var | Values | Default | Purpose |
+|---|---|---|---|
+| `LLM_PROVIDER` | `groq` \| `google` | `groq` | Primary provider |
+| `LLM_FALLBACK_PROVIDER` | `groq` \| `google` \| unset | unset | If set, wraps primary in `FallbackChatModel`; falls through on rate-limit errors (HTTP 429 / TPD / TPM / quota) |
+| `LLM_MODEL` | string | per-provider default | Optional model-ID override |
+| `GROQ_API_KEY` | string | — | Required when provider/fallback is `groq` |
+| `GOOGLE_API_KEY` | string | — | Required when provider/fallback is `google` |
+
+Default-per-provider models: `qwen/qwen3-32b` (groq, ADR-0004 invariants enforced), `gemma-4-31b-it` (google, AI Studio).
+
+See `docs/decisions/0004-llm-switch-qwen3-32b-groq.md` (Amendment 2026-05-05) for the full design + constraints any new provider must satisfy.
+
 ## Synth data profile (small_cu)
 
 | Dimension | Value |

@@ -23,7 +23,6 @@ from typing import Any
 from uuid import uuid4
 
 from langchain_core.language_models import BaseChatModel
-from langchain_groq import ChatGroq
 from nl_engine.benchmarks.cache import load_cache, save_cache
 from nl_engine.benchmarks.grader import (
     GradeResult,
@@ -45,6 +44,7 @@ from nl_engine.benchmarks.runner import (
 )
 from nl_engine.benchmarks.schema import Question, load_questions
 from nl_engine.context_loader import load_all
+from nl_engine.llm import make_llm
 
 QUESTIONS_FILE = Path(__file__).parent / "questions.yaml"
 CACHE_FILE = Path(__file__).parent / ".cache" / "responses.json"
@@ -53,7 +53,6 @@ LEDGER_FILE = Path(__file__).parent / ".promotion-ledger.csv"
 _DEFAULT_GATE = "must-pass=80,long-tail=65"
 _AGENT_LEAD_THRESHOLD_PP = 5.0
 _AVG_CALLS_BUDGET = 4.0
-_AGENT_MODEL = "qwen/qwen3-32b"  # ADR-0004; mirrors api.services.llm
 
 # Question types in the legacy set are filtered out by default; --full
 # includes them. The legacy set is kept for runway-state informational
@@ -74,19 +73,6 @@ class RunOptions:
     commit_sha: str
 
 
-def _make_eval_llm() -> ChatGroq:
-    """Construct the agent LLM. Mirrors api.services.llm.make_agent_llm.
-
-    Inlined here so nl_engine doesn't import from api (layer rule).
-    ADR-0004 pins reasoning_format='hidden'.
-    """
-    return ChatGroq(
-        model=_AGENT_MODEL,
-        temperature=0,
-        reasoning_format="hidden",
-    )
-
-
 def _load_run_inputs(
     opts: RunOptions,
 ) -> tuple[str, Any, list[Question], BaseChatModel]:
@@ -96,7 +82,7 @@ def _load_run_inputs(
     questions = qf.questions
     if not opts.full:
         questions = [q for q in questions if q.question_type not in _LEGACY_TYPES]
-    return db_url, ctx, questions, _make_eval_llm()
+    return db_url, ctx, questions, make_llm()
 
 
 def _grade_all_questions(
