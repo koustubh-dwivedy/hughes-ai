@@ -37,12 +37,6 @@ semantic_models:
       - name: monthly_deposit_growth
         agg: max
         expr: monthly_deposit_growth
-      - name: ytd_loan_growth
-        agg: max
-        expr: ytd_loan_growth
-      - name: ytd_deposit_growth
-        agg: max
-        expr: ytd_deposit_growth
       - name: weighted_avg_loan_rate_kpi
         agg: max
         expr: weighted_avg_loan_rate

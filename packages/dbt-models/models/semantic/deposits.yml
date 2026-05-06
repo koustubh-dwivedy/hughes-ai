@@ -31,7 +31,7 @@ semantic_models:
         expr: total_balance
       - name: avg_deposit_balance
         agg: average
-        expr: avg_balance
+        expr: avg_balance_per_customer
       - name: deposit_mtd_change
         agg: sum
         expr: mtd_change

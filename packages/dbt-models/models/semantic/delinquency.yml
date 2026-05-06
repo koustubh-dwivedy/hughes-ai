@@ -21,6 +21,7 @@ semantic_models:
           time_granularity: month
       - name: delinquency_bucket
         type: categorical
+        expr: bucket
     measures:
       - name: delinquent_loan_count
         agg: sum

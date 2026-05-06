@@ -9,10 +9,11 @@ semantic_models:
     entities:
       - name: event
         type: primary
-        expr: event_id
+        expr: row_id
     dimensions:
       - name: event_month
         type: time
+        expr: as_of_month
         type_params:
           time_granularity: month
       - name: event_type
