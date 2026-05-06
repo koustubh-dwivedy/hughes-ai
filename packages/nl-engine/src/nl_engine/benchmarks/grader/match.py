@@ -88,17 +88,28 @@ def _row_sort_key(row: dict[str, Any], tolerance: float) -> tuple[Any, ...]:
     )
 
 
-def _maybe_numeric(v: Any) -> Any:
-    """MetricFlow returns numeric column values as quoted strings via the
-    JSON tool-call surface (the LLM sees them as strings and copies them
-    verbatim into final_answer.rows). Coerce on the way in so numeric
-    comparisons + tolerance logic actually fire."""
-    if isinstance(v, bool) or v is None:
+_BOOL_STRING_TRUE = {"true", "True", "TRUE"}
+_BOOL_STRING_FALSE = {"false", "False", "FALSE"}
+
+
+def _coerce_for_compare(v: Any) -> Any:
+    """MetricFlow returns numeric and boolean column values as quoted
+    strings via the JSON tool-call surface (the LLM sees them as strings
+    and copies them verbatim into final_answer.rows). Coerce on the way
+    in so numeric comparisons + tolerance logic and bool equality
+    actually fire."""
+    if v is None:
+        return v
+    if isinstance(v, bool):
         return v
     if isinstance(v, (int, float)):
         return v
     if isinstance(v, str):
         s = v.strip()
+        if s in _BOOL_STRING_TRUE:
+            return True
+        if s in _BOOL_STRING_FALSE:
+            return False
         try:
             return float(s)
         except (TypeError, ValueError):
@@ -107,10 +118,10 @@ def _maybe_numeric(v: Any) -> Any:
 
 
 def _values_equal(expected: Any, actual: Any, tolerance: float) -> bool:
-    if isinstance(expected, bool) or isinstance(actual, bool):
-        return bool(expected == actual)
-    e = _maybe_numeric(expected)
-    a = _maybe_numeric(actual)
+    e = _coerce_for_compare(expected)
+    a = _coerce_for_compare(actual)
+    if isinstance(e, bool) or isinstance(a, bool):
+        return bool(e == a)
     if isinstance(e, (int, float)) and isinstance(a, (int, float)):
         if e == 0:
             return abs(a) <= tolerance
