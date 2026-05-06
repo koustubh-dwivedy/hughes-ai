@@ -1,0 +1,4 @@
+run_id,commit_sha,run_date,must_pass_legacy,must_pass_agent,long_tail_legacy,long_tail_agent,agent_avg_calls_per_turn,gate_status
+hug-190-iter-1-1778050665,194fbca-iter1,2026-05-06T06:57:46.741304+00:00,0.0,0.0,0.0,,6.25,FAIL
+hug-190-glm-wallclock-1778097323,hug-190-glm-wallclock,2026-05-06T20:36:30.662524+00:00,0.0,0.0,0.0,,4.59,FAIL
+hug-190-iter3-clear-1778107365,6d8ef71c82feb5946387172bf52bd33ca74bf1bd,2026-05-06T22:42:45.000000+00:00,,0.833,,,3.833,PASS
