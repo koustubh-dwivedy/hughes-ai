@@ -88,14 +88,34 @@ def _row_sort_key(row: dict[str, Any], tolerance: float) -> tuple[Any, ...]:
     )
 
 
+def _maybe_numeric(v: Any) -> Any:
+    """MetricFlow returns numeric column values as quoted strings via the
+    JSON tool-call surface (the LLM sees them as strings and copies them
+    verbatim into final_answer.rows). Coerce on the way in so numeric
+    comparisons + tolerance logic actually fire."""
+    if isinstance(v, bool) or v is None:
+        return v
+    if isinstance(v, (int, float)):
+        return v
+    if isinstance(v, str):
+        s = v.strip()
+        try:
+            return float(s)
+        except (TypeError, ValueError):
+            return v
+    return v
+
+
 def _values_equal(expected: Any, actual: Any, tolerance: float) -> bool:
     if isinstance(expected, bool) or isinstance(actual, bool):
         return bool(expected == actual)
-    if isinstance(expected, (int, float)) and isinstance(actual, (int, float)):
-        if expected == 0:
-            return abs(actual) <= tolerance
-        return abs(expected - actual) / abs(expected) <= tolerance
-    return bool(expected == actual)
+    e = _maybe_numeric(expected)
+    a = _maybe_numeric(actual)
+    if isinstance(e, (int, float)) and isinstance(a, (int, float)):
+        if e == 0:
+            return abs(a) <= tolerance
+        return abs(e - a) / abs(e) <= tolerance
+    return bool(e == a)
 
 
 def _diff_first_mismatch(
