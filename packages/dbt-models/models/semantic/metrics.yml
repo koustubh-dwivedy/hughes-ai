@@ -229,6 +229,13 @@ metrics:
     type_params:
       measure: lifecycle_event_count
 
+  - name: lifecycle_event_count
+    description: Count of loan-lifecycle events (new / renewed / paid_off) per period.
+    label: Lifecycle Event Count
+    type: simple
+    type_params:
+      measure: lifecycle_event_count
+
   # ---------------- Cross-portfolio ratios (executive KPI source) ----------------
   - name: loan_to_deposit_ratio
     description: Total loans / total deposits — from pre-computed exec KPI.

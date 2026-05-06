@@ -55,6 +55,8 @@ def test_no_orphan_mf_metrics() -> None:
         "loan_count",               # standalone metric
         "past_due_loan_count",      # exposed for past-due slicing
         "weighted_avg_loan_rate",   # mart-derived weighted rate
+        "lifecycle_event_count",    # named-twin of watchlist_count for
+                                    # lifecycle questions (HUG-190 must-pass-023)
     }
     orphans = sorted((mf - prose) - helpers)
     assert not orphans, (
