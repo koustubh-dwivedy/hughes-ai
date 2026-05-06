@@ -14,6 +14,7 @@ subprocess, so a seeded database + dbt build are required by the caller.
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -47,6 +48,63 @@ def _extract_tool_call_trace(messages: list[Any]) -> list[dict[str, Any]]:
             for call in msg.tool_calls:
                 trace.append({"tool": call["name"]})
     return trace
+
+
+# Cap each printed field so a 20K-token tool-call-result doesn't drown the
+# terminal. Full content stays in the cache; this is just for live triage.
+_TRACE_CONTENT_CAP = 1200
+
+
+def _truncate(text: str, cap: int = _TRACE_CONTENT_CAP) -> str:
+    if len(text) <= cap:
+        return text
+    return f"{text[:cap]}… [truncated {len(text) - cap} chars]"
+
+
+def _print_react_trace(messages: list[Any]) -> None:
+    """Dump each ReAct step (AIMessage + ToolMessage pair) for `EVAL_TRACE=1`.
+
+    Shows what the LLM said before each tool call (`.content`), which tool
+    it picked with what args (`.tool_calls`), and what came back from the
+    tool (`ToolMessage.content`). Skipped silently unless the env var is
+    set so normal eval runs stay quiet.
+    """
+    if os.environ.get("EVAL_TRACE") != "1":
+        return
+    print("[trace] ─── ReAct trace begin ───", flush=True)  # noqa: T201
+    step = 0
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            print(  # noqa: T201
+                f"[trace] USER: {_truncate(str(msg.content))}", flush=True,
+            )
+        elif isinstance(msg, AIMessage):
+            step += 1
+            content = str(msg.content or "").strip()
+            if content:
+                print(  # noqa: T201
+                    f"[trace] step {step} LLM thought: {_truncate(content)}",
+                    flush=True,
+                )
+            if msg.tool_calls:
+                for call in msg.tool_calls:
+                    args_str = json.dumps(call.get("args", {}), default=str)
+                    print(  # noqa: T201
+                        f"[trace] step {step} tool_call: {call['name']}"
+                        f"({_truncate(args_str)})",
+                        flush=True,
+                    )
+            elif not content:
+                print(  # noqa: T201
+                    f"[trace] step {step} LLM: (empty)", flush=True,
+                )
+        elif isinstance(msg, ToolMessage):
+            print(  # noqa: T201
+                f"[trace] step {step} tool_result {msg.name}: "
+                f"{_truncate(str(msg.content))}",
+                flush=True,
+            )
+    print("[trace] ─── ReAct trace end ───", flush=True)  # noqa: T201
 
 
 def _parse_payload(content: Any) -> dict[str, Any]:
@@ -102,6 +160,7 @@ def run_agent_question(
     final = graph.invoke(initial)
     elapsed = time.monotonic() - t0
     messages = final["messages"]
+    _print_react_trace(messages)
     kind, payload = _extract_final_payload(messages)
     rows = list(payload.get("rows") or [])
     columns = list(rows[0].keys()) if rows else []

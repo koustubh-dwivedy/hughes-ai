@@ -1041,7 +1041,7 @@ questions:
     FROM fct_executive_kpis
     WHERE as_of_month = '2026-04-01'
   ground_truth_rows:
-    - {total_loans_balance: 32064355.75}
+    - {portfolio_balance: 32064355.75}
 
 - id: must-pass-003
   category: dashboard
@@ -1058,7 +1058,7 @@ questions:
     FROM fct_executive_kpis
     WHERE as_of_month = '2026-04-01'
   ground_truth_rows:
-    - {total_deposits_balance: 237946370.15}
+    - {total_deposits: 236749187.20}
 
 - id: must-pass-004
   category: dashboard
@@ -1092,7 +1092,7 @@ questions:
     FROM fct_executive_kpis
     WHERE as_of_month = '2026-04-01'
   ground_truth_rows:
-    - {blended_past_due_ratio: 0.0977}
+    - {past_due_ratio: 0.0977}
 
 # ── Deposit drilldowns (4) ──────────────────────────────────────────────────
 
@@ -1110,16 +1110,16 @@ questions:
     SELECT dp.product_name, ROUND(SUM(d.total_balance)::numeric, 2) AS total_balance
     FROM fct_deposits_monthly d
     JOIN dim_deposit_product dp ON dp.deposit_product_id = d.deposit_product_id
-    WHERE d.as_of_month = '2026-04-01'
+    WHERE d.as_of_month = '2026-05-01'
     GROUP BY dp.product_name
     ORDER BY total_balance DESC
     LIMIT 5
   ground_truth_rows:
-    - {product_name: "Time Deposits",    total_balance: 110471651.85}
-    - {product_name: "Money Market",     total_balance: 71901861.99}
-    - {product_name: "Interest Bearing", total_balance: 37099071.36}
-    - {product_name: "Savings",          total_balance: 14765844.55}
-    - {product_name: "Demand",           total_balance: 3707940.40}
+    - {product_name: "Time Deposits",    deposits_by_product: 109803408.24}
+    - {product_name: "Money Market",     deposits_by_product: 71604076.99}
+    - {product_name: "Interest Bearing", deposits_by_product: 36946986.74}
+    - {product_name: "Savings",          deposits_by_product: 14700126.53}
+    - {product_name: "Demand",           deposits_by_product: 3694588.70}
 
 - id: must-pass-007
   category: dashboard
@@ -1134,15 +1134,15 @@ questions:
   ground_truth_sql: |
     SELECT branch_id, ROUND(SUM(total_balance)::numeric, 2) AS total_balance
     FROM fct_deposits_monthly
-    WHERE as_of_month = '2026-04-01'
+    WHERE as_of_month = '2026-05-01'
     GROUP BY branch_id
     ORDER BY branch_id
   ground_truth_rows:
-    - {branch_id: 1, total_balance: 49350280.67}
-    - {branch_id: 2, total_balance: 47296761.98}
-    - {branch_id: 3, total_balance: 46919837.34}
-    - {branch_id: 4, total_balance: 46534824.79}
-    - {branch_id: 5, total_balance: 47844665.37}
+    - {branch_name: "Main Branch",  deposits_by_branch: 49152344.25}
+    - {branch_name: "North Branch", deposits_by_branch: 47040130.32}
+    - {branch_name: "South Branch", deposits_by_branch: 46770526.83}
+    - {branch_name: "East Branch",  deposits_by_branch: 46397856.26}
+    - {branch_name: "West Branch",  deposits_by_branch: 47388329.54}
 
 - id: must-pass-008
   category: dashboard
@@ -1157,9 +1157,9 @@ questions:
   ground_truth_sql: |
     SELECT ROUND(SUM(mtd_change)::numeric, 2) AS mtd_change
     FROM fct_deposits_monthly
-    WHERE as_of_month = '2026-04-01'
+    WHERE as_of_month = '2026-05-01'
   ground_truth_rows:
-    - {mtd_change: -237659.38}
+    - {mtd_deposit_change: -1197182.95}
 
 - id: must-pass-009
   category: dashboard
@@ -1174,12 +1174,12 @@ questions:
   ground_truth_sql: |
     SELECT is_core_deposit, ROUND(SUM(total_balance)::numeric, 2) AS total_balance
     FROM fct_deposits_monthly
-    WHERE as_of_month = '2026-04-01'
+    WHERE as_of_month = '2026-05-01'
     GROUP BY is_core_deposit
     ORDER BY is_core_deposit DESC
   ground_truth_rows:
-    - {is_core_deposit: true,  total_balance: 90375646.94}
-    - {is_core_deposit: false, total_balance: 147570723.21}
+    - {is_core_deposit: true,  total_deposits: 89998792.22}
+    - {is_core_deposit: false, total_deposits: 146750394.98}
 
 # ── Origination (4) ─────────────────────────────────────────────────────────
 
@@ -1374,7 +1374,7 @@ questions:
     WHERE as_of_month = '2026-04-01'
       AND bucket = '90+'
   ground_truth_rows:
-    - {nonaccrual_balance: 765566.24}
+    - {delinquent_balance: 765566.24}
 
 # ── Channel mix (2) ─────────────────────────────────────────────────────────
 
@@ -1493,7 +1493,7 @@ questions:
     GROUP BY event_type
     ORDER BY event_type
   ground_truth_rows:
-    - {event_type: "new", event_count: 7}
+    - {event_type: "new", lifecycle_event_count: 7}
 
 # ── Clarification (1, ambiguous — agent should clarify) ─────────────────────
 

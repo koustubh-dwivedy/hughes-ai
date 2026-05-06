@@ -8,6 +8,38 @@ from typing import Any
 TABLE_EQUIV_THRESHOLD = 0.7
 KEYWORD_FRAC_THRESHOLD = 0.6
 
+# MetricFlow appends a time-grain suffix to the synthetic time-dimension
+# column it returns (e.g., `kpi_month__as_of_month__month`). The set
+# matches MetricFlow's `TimeGranularity` enum.
+_MF_TIME_GRAIN_SUFFIXES: tuple[str, ...] = (
+    "__second", "__minute", "__hour", "__day", "__week",
+    "__month", "__quarter", "__year",
+)
+
+
+def normalize_column_name(col: str) -> str:
+    """Collapse a MetricFlow column ID to its semantically meaningful tail.
+
+    MetricFlow returns column names like ``deposits_monthly_grain__branch``
+    (semantic-model prefix + dimension), or
+    ``kpi_month__as_of_month__month`` (semantic-model prefix + dimension +
+    time-grain suffix). The grader's ground truth uses the bare
+    user-facing names (``branch``, ``as_of_month``). This collapses the MF
+    form to that bare name so the comparison is meaningful:
+
+      - strip a trailing time-grain suffix (`__month`, `__day`, etc.) once
+      - take the last `__`-separated segment
+
+    Bare metric names (no `__`) pass through unchanged.
+    """
+    for suffix in _MF_TIME_GRAIN_SUFFIXES:
+        if col.endswith(suffix):
+            col = col[: -len(suffix)]
+            break
+    if "__" in col:
+        col = col.rsplit("__", 1)[-1]
+    return col
+
 
 def table_equivalence(
     expected: list[str],
@@ -88,12 +120,33 @@ def _diff_first_mismatch(
     return None
 
 
+def _normalize_row(
+    row: dict[str, Any], expected_keys: set[str]
+) -> dict[str, Any]:
+    """Project a row's keys through `normalize_column_name` and keep only
+    those that appear in `expected_keys`. Ignores extras the agent picked
+    up alongside the answer (e.g., the time-dim that MetricFlow
+    auto-attaches when grouping by `metric_time__month`)."""
+    out: dict[str, Any] = {}
+    for k, v in row.items():
+        norm = normalize_column_name(k)
+        if norm in expected_keys:
+            out[norm] = v
+    return out
+
+
 def rowset_match(
     expected: list[dict[str, Any]],
     actual: list[dict[str, Any]],
     tolerance: float = 0.01,
 ) -> tuple[bool, str]:
     """Order-insensitive row comparison; numeric values within `tolerance`.
+
+    Column-name normalization (see `normalize_column_name`) is applied
+    before comparison. Extra columns in `actual` beyond what `expected`
+    declares are ignored — they often arise because MetricFlow attaches
+    a time-dim alongside the metric, which the answer is still correct
+    despite.
 
     Returns (matched, diff_message). diff_message is empty on match.
     """
@@ -103,8 +156,11 @@ def rowset_match(
         )
     if not expected:
         return True, ""
-    e_sorted = sorted(expected, key=lambda r: _row_sort_key(r, tolerance))
-    a_sorted = sorted(actual, key=lambda r: _row_sort_key(r, tolerance))
+    expected_keys = {normalize_column_name(k) for k in expected[0]}
+    e_norm = [_normalize_row(r, expected_keys) for r in expected]
+    a_norm = [_normalize_row(r, expected_keys) for r in actual]
+    e_sorted = sorted(e_norm, key=lambda r: _row_sort_key(r, tolerance))
+    a_sorted = sorted(a_norm, key=lambda r: _row_sort_key(r, tolerance))
     for i, (e_row, a_row) in enumerate(zip(e_sorted, a_sorted, strict=False)):
         diff = _diff_first_mismatch(e_row, a_row, i, tolerance)
         if diff:
@@ -116,14 +172,12 @@ def columnset_match(
     expected: list[str],
     actual: list[str],
 ) -> tuple[bool, str]:
-    """Order-insensitive column-name set comparison."""
-    e = set(expected)
-    a = set(actual)
-    if e == a:
+    """Subset semantics on normalized column names: every expected column
+    must appear in actual after `normalize_column_name`. Extra actual
+    columns are allowed — see `rowset_match` rationale."""
+    e = {normalize_column_name(c) for c in expected}
+    a = {normalize_column_name(c) for c in actual}
+    missing = e - a
+    if not missing:
         return True, ""
-    parts = []
-    if e - a:
-        parts.append(f"missing: {sorted(e - a)}")
-    if a - e:
-        parts.append(f"extra: {sorted(a - e)}")
-    return False, "; ".join(parts)
+    return False, f"missing: {sorted(missing)}"

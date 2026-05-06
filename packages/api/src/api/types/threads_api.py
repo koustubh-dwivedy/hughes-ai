@@ -62,3 +62,11 @@ class StreamFinal(BaseModel):
 
     message: ThreadMessage
     openui: OpenUIDslPayload | None = None
+
+
+class StreamError(BaseModel):
+    """SSE event emitted when the agent runner's graph stream crashes
+    (HUG-190 Phase C). Frontend renders this as a user-visible error
+    instead of leaving the stream silently incomplete."""
+
+    message: str

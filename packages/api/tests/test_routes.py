@@ -139,7 +139,7 @@ def test_get_history_returns_list(
 ) -> None:
     monkeypatch.setattr(
         "api.routes.history.get_history",
-        lambda limit, db_url: [_history_row(), _history_row()],
+        lambda limit, db_url, kind=None: [_history_row(), _history_row()],
     )
     resp = client.get("/history")
     assert resp.status_code == 200

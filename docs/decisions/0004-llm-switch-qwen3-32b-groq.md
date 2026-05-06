@@ -123,3 +123,34 @@ Adding Gemma 4 31B as a manual / automatic fallback eliminates the calendar depe
 ### Operational footnote — Gemma 4 31B response shape
 
 Gemma 4 31B's response `content` is a structured list of blocks (one `thinking` block + one `text` block by default). The agent code already inspects `tool_calls` directly rather than `content`, so tool routing is unaffected. For text-only paths (like the OpenUI DSL spike, HUG-195) consumers should `str()`-cast or extract the text block. Documented in `nl_engine/llm/providers/google.py`.
+
+---
+
+## Amendment 2026-05-07 — single-LLM, config-driven (HUG-190)
+
+### What changed
+
+The fallback chain (Amendment 2026-05-05) is **removed**. The agent runs exactly one LLM at a time, selected by a YAML file checked into the repo.
+
+* `packages/nl-engine/src/nl_engine/llm/fallback.py` and `tests/test_llm_fallback.py` are deleted.
+* `LLM_FALLBACK_PROVIDER` env var is no longer consulted.
+* New file `config/llm.yaml` is the single source of truth for provider + model. `make_llm()` reads it first; `LLM_PROVIDER` / `LLM_MODEL` env vars survive only as a tests-without-config fallback.
+* `ollama` is added as a third provider option (Ollama Cloud, OpenAI-compatible API). Default model when `provider: ollama`: `glm-5.1`.
+
+### Why
+
+User directive: "I do not want any fallback LLM — I only want 1 LLM running for surface 2." The Amendment 2026-05-05 fallback was set up for Groq quota exhaustion; in production we want a predictable single model and the ability to switch providers via a config edit (no code change, no env-var sprawl). HUG-197 (sticky-within-a-turn fallback) is moot under this design and was closed without action.
+
+### How a future provider swap works
+
+1. Edit `config/llm.yaml` — set `provider`, `model`, and the `api_key_env` name.
+2. Add the API key to `.env` under that name.
+3. `make_llm()` picks it up — no code change.
+
+### Constraints any new provider must still satisfy
+
+Same as the 2026-05-05 list (BaseChatModel + LangChain tool-call shape + free-text generation), minus the rate-limit-error-shape requirement (which only mattered for the deleted FallbackChatModel).
+
+### Operational footnote — GLM-5.1 + Ollama Cloud
+
+`langchain-ollama`'s `ChatOllama` against Ollama Cloud's `https://ollama.com/api/chat` works for tool calling. The HTTP timeout configured via `client_kwargs["timeout"]` covers connect-phase hangs only — read-phase hangs (TCP open, no bytes) bypass it. Defense-in-depth: the agent's step now wraps `bound.invoke()` in a wall-clock daemon-thread timeout (`AGENT_STEP_TIMEOUT_S`, default 150s) so a hung Ollama connection cannot wedge the eval. See `nl_engine/agent/llm_invoke.py`.

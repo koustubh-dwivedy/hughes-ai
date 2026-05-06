@@ -57,22 +57,50 @@ def test_mf_query_succeeds_on_first_try(monkeypatch: pytest.MonkeyPatch) -> None
     assert out["rows"] == [{"x": 1}]
 
 
-def test_mf_query_retries_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mf_query_transient_retries_once_then_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Transient errors (timeout, connection, OOM) get one retry. Anything
+    else is classified structural and surfaced immediately. HUG-190."""
     _install_fake_metricflow(
         monkeypatch,
-        [RuntimeError("transient"), RuntimeError("transient"), {"rows": [{"x": 2}]}],
+        [RuntimeError("timeout reading subprocess"), {"rows": [{"x": 2}]}],
     )
+    monkeypatch.setattr("nl_engine.agent.tools.time.sleep", lambda _s: None)
     out = mf_query.invoke({"metric": "total_loans"})
     assert out["rows"] == [{"x": 2}]
 
 
-def test_mf_query_gives_up_after_max_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mf_query_structural_error_returns_payload_no_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Structural errors (column not found, validation) return an error
+    dict on first failure; the agent gets to correct on the next call.
+    HUG-190."""
     _install_fake_metricflow(
         monkeypatch,
-        [RuntimeError("a"), RuntimeError("b"), RuntimeError("c")],
+        [RuntimeError("column 'foo' does not exist; did you mean: ['bar']")],
     )
-    with pytest.raises(RuntimeError, match="mf_query failed after retries"):
-        mf_query.invoke({"metric": "total_loans"})
+    out = mf_query.invoke({"metric": "total_loans"})
+    assert isinstance(out, dict)
+    assert "error" in out
+    assert "hint" in out  # 'did you mean' parsed out as hint
+    assert "bar" in out["hint"]
+
+
+def test_mf_query_transient_then_failure_returns_error_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Transient → retry → transient again → return error payload."""
+    _install_fake_metricflow(
+        monkeypatch,
+        [RuntimeError("connection refused"), RuntimeError("connection refused 2")],
+    )
+    monkeypatch.setattr("nl_engine.agent.tools.time.sleep", lambda _s: None)
+    out = mf_query.invoke({"metric": "total_loans"})
+    assert isinstance(out, dict)
+    assert "error" in out
+    assert "connection refused 2" in out["error"]
 
 
 def test_clarify_returns_typed_payload() -> None:

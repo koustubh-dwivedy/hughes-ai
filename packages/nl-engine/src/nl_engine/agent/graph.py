@@ -14,7 +14,9 @@ enforcing our own invariants:
 
 from __future__ import annotations
 
-from pathlib import Path
+import logging
+import os
+import time
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -22,41 +24,19 @@ from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolM
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
 
+from nl_engine.agent.llm_invoke import (
+    AGENT_STEP_DEFAULT_TIMEOUT_S,
+    invoke_with_wall_timeout,
+    is_transient_llm_error,
+)
 from nl_engine.agent.state import MAX_STEPS_PER_TURN, AgentState
+from nl_engine.agent.system_prompt import SYSTEM_PROMPT as _OPENUI_SYSTEM_PROMPT
 from nl_engine.agent.tools import ALL_TOOLS, serialize_tool_result
+
+log = logging.getLogger(__name__)
 
 _TERMINAL_TOOLS = {"final_answer", "clarify"}
 
-# OpenUI system prompt — committed artifact regenerated via
-# `make openui-prompt`. ~20K chars; teaches the agent to emit
-# valid OpenUI Lang DSL via `final_answer.openui_dsl` (HUG-178 Phase B).
-#
-# The committed artifact is written for free-text DSL emission ("Your
-# ENTIRE response must be valid openui-lang code"), which is hostile to
-# our tool-calling flow. We wrap it with a preamble that re-frames it
-# as a reference grammar: tools come first, OpenUI DSL goes inside the
-# `final_answer.openui_dsl` argument when a chart/widget is appropriate.
-_OPENUI_REFERENCE = (Path(__file__).parent / "openui_prompt.txt").read_text(
-    encoding="utf-8"
-)
-_OPENUI_SYSTEM_PROMPT = (
-    "You are a lending-analytics agent for a credit union. Answer the "
-    "user's question by calling the registered tools (list_metrics, "
-    "lookup_metric_definition, mf_query) to gather data, then terminate "
-    "the turn by calling the `final_answer` tool exactly once.\n\n"
-    "The `final_answer.openui_dsl` argument accepts a valid OpenUI Lang "
-    "DSL string — populate it whenever the answer benefits from a "
-    "chart, table, KPI tile, or layout. Use only the components in the "
-    "library below. Stay strictly within the openui-lang syntax rules. "
-    "If the answer is purely textual, leave `openui_dsl` empty.\n\n"
-    "The `summary` argument is shown in every case. `rows` and "
-    "`mf_query` should be populated from the mf_query tool result when "
-    "you used it.\n\n"
-    "DO NOT respond with raw openui-lang text in the message body — "
-    "that bypasses our tool-call protocol. The DSL belongs inside "
-    "`final_answer.openui_dsl`, not in the assistant message content.\n\n"
-    "=== OpenUI Lang reference (apply only to `openui_dsl` argument) ===\n\n"
-) + _OPENUI_REFERENCE
 _STEP_CAP_MESSAGE = (
     "I couldn't reach an answer within the {cap}-step limit for this turn. "
     "Try rephrasing or breaking the question into smaller parts."
@@ -125,13 +105,119 @@ def _ensure_system_prompt(messages: list[BaseMessage]) -> list[BaseMessage]:
     return [SystemMessage(content=_OPENUI_SYSTEM_PROMPT), *messages]
 
 
+# Token-overflow guard threshold (HUG-190 Phase C). Both Qwen 3 32B and
+# Gemma 4 31B have 128K-131K context windows; we trim long histories at
+# 100K to leave headroom for the system prompt + tool descriptions +
+# the LLM's own response. Heuristic estimate: ~4 chars per token.
+_TOKEN_BUDGET = 100_000
+_CHARS_PER_TOKEN_HEURISTIC = 4
+
+
+def _estimate_tokens(messages: list[BaseMessage]) -> int:
+    """Rough character-based token estimate. Fast (no tokenizer dep)
+    and good enough to decide when to truncate. Real budget happens
+    inside the LLM provider; this is just to avoid sending obviously-
+    over-budget requests."""
+    total_chars = 0
+    for msg in messages:
+        content = msg.content
+        if isinstance(content, str):
+            total_chars += len(content)
+        else:
+            # AIMessage with structured content (tool calls) — best-effort
+            # serialization length.
+            total_chars += len(str(content))
+    return total_chars // _CHARS_PER_TOKEN_HEURISTIC
+
+
+def _truncate_history(messages: list[BaseMessage]) -> list[BaseMessage]:
+    """If the message list exceeds the token budget, drop the oldest
+    non-system messages in pairs until it fits. Preserves the system
+    prompt (always kept) and the tail of the conversation (the most
+    recent context the LLM actually needs).
+
+    HUG-190 Phase C: prevents context-overflow exceptions from crashing
+    the agent on long threads.
+    """
+    if _estimate_tokens(messages) <= _TOKEN_BUDGET:
+        return messages
+    system: list[BaseMessage] = []
+    rest: list[BaseMessage] = []
+    for msg in messages:
+        if isinstance(msg, SystemMessage):
+            system.append(msg)
+        else:
+            rest.append(msg)
+    dropped = 0
+    while rest and _estimate_tokens(system + rest) > _TOKEN_BUDGET:
+        # Drop the oldest non-system message.
+        rest.pop(0)
+        dropped += 1
+    if dropped:
+        log.warning(
+            "agent history truncated: dropped %d oldest non-system messages "
+            "to fit %d-token budget",
+            dropped,
+            _TOKEN_BUDGET,
+        )
+    return system + rest
+
+
+_AGENT_ERROR_FALLBACK = (
+    "I hit an error while thinking about that question. The system has "
+    "logged the details. Please try rephrasing or breaking the question "
+    "into smaller parts."
+)
+
+_LLM_MAX_RETRIES = 2  # 1 original + 2 retries = 3 total attempts
+_LLM_RETRY_BACKOFF_BASE_S = 1.0  # exponential: 1s, 2s
+
+
 def _make_agent_step(llm: BaseChatModel, tools: list[BaseTool]) -> Any:
     bound = llm.bind_tools(tools)
+    wall_timeout = float(
+        os.environ.get("AGENT_STEP_TIMEOUT_S", AGENT_STEP_DEFAULT_TIMEOUT_S)
+    )
 
     def agent_step(state: AgentState) -> dict[str, Any]:
-        msgs = _ensure_system_prompt(state.messages)
-        response = bound.invoke(msgs)
-        return {"messages": [response], "step_count": state.step_count + 1}
+        msgs = _truncate_history(_ensure_system_prompt(state.messages))
+        last_exc: Exception | None = None
+        for attempt in range(_LLM_MAX_RETRIES + 1):
+            try:
+                response = invoke_with_wall_timeout(bound, msgs, wall_timeout)
+                return {
+                    "messages": [response],
+                    "step_count": state.step_count + 1,
+                }
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+                if attempt < _LLM_MAX_RETRIES and is_transient_llm_error(exc):
+                    backoff = _LLM_RETRY_BACKOFF_BASE_S * (2**attempt)
+                    log.warning(
+                        "agent_step LLM transient error (attempt %d/%d, "
+                        "retrying in %.1fs): %s",
+                        attempt + 1,
+                        _LLM_MAX_RETRIES + 1,
+                        backoff,
+                        str(exc)[:200],
+                    )
+                    time.sleep(backoff)
+                    continue
+                break
+        # Fall-through: non-transient error OR retries exhausted.
+        # Surface as graceful AIMessage so the SSE stream stays alive.
+        log.warning(
+            "agent_step LLM error after %d attempt(s) (%s): %s",
+            (_LLM_MAX_RETRIES + 1)
+            if last_exc and is_transient_llm_error(last_exc)
+            else 1,
+            type(last_exc).__name__ if last_exc else "Unknown",
+            str(last_exc)[:300] if last_exc else "",
+        )
+        return {
+            "messages": [AIMessage(content=_AGENT_ERROR_FALLBACK)],
+            "step_count": state.step_count + 1,
+        }
 
     return agent_step
 

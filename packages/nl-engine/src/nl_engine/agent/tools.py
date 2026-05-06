@@ -11,19 +11,21 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any
 
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
+from nl_engine.agent.mf_errors import classify_mf_error, extract_mf_hint
 from nl_engine.agent.state import ClarifyResult, FinalAnswer
 
 log = logging.getLogger(__name__)
 
-# How many times mf_query is allowed to retry against a model-corrected
-# argument set before we surface the failure to the agent. Two retries
-# matches the plan's "max-2 internal retry" decision.
-_MF_QUERY_MAX_RETRIES = 2
+# Transient errors get one extra retry; structural errors are surfaced
+# to the agent immediately so it can correct on the next LLM call
+# (HUG-190 Phase B).
+_MF_QUERY_TRANSIENT_RETRY_DELAY_S = 0.5
 
 
 class MetricSummary(BaseModel):
@@ -46,8 +48,18 @@ def _safe_mf() -> Any:
 
 @tool
 def list_metrics() -> list[dict[str, Any]]:
-    """Return every metric MetricFlow knows about + the dimensions it
-    supports. Cache-eligible (the catalog only changes on a deploy)."""
+    """Return every metric MetricFlow knows about plus the EXACT dimension
+    strings that metric supports. Call this FIRST before any `mf_query`.
+
+    The dimension strings returned here are the literal bytes you must
+    pass to `mf_query`. Examples of valid dimensions look like
+    `deposits_monthly_grain__branch`, `application__channel`,
+    `metric_time__month`. Do NOT paraphrase them into user-friendly
+    names like `branch` or `branch_name`; MetricFlow rejects anything
+    that isn't an exact match.
+
+    Cache-eligible (the catalog only changes on a deploy).
+    """
     mf = _safe_mf()
     return [
         MetricSummary(name=m.name, dimensions=m.dimensions).model_dump()
@@ -57,9 +69,15 @@ def list_metrics() -> list[dict[str, Any]]:
 
 @tool
 def lookup_metric_definition(name: str) -> dict[str, Any]:
-    """Return the dimension list + (eventually) prose definition for a
-    single metric. Useful when the agent wants to confirm a measure
-    is what the user is asking about before issuing a query."""
+    """Return the dimension list for a single metric. Most of the time
+    `list_metrics()` already gives you everything you need; reach for
+    this only when you need to confirm a single metric's dimensions in
+    isolation (e.g., the user asked about a specific metric by name and
+    you want to validate it exists before issuing a query).
+
+    Returns the same dimension shape as `list_metrics()` — the strings
+    are the literal bytes to pass to `mf_query`.
+    """
     mf = _safe_mf()
     for m in mf.list_metrics():
         if m.name == name:
@@ -68,13 +86,68 @@ def lookup_metric_definition(name: str) -> dict[str, Any]:
 
 
 class MfQueryArgs(BaseModel):
-    """The structured arguments the agent must produce to call MetricFlow."""
+    """The structured arguments the agent must produce to call MetricFlow.
 
-    metric: str
-    dimensions: list[str] = Field(default_factory=list)
-    where: str | None = None
-    order: str | None = None
-    limit: int = 100
+    Every field's value must be drawn from what `list_metrics()` returns —
+    do NOT invent column names or paraphrase user terms.
+    """
+
+    metric: str = Field(
+        description=(
+            "Exact metric name from `list_metrics()` (e.g.,"
+            " 'loan_to_deposit_ratio', 'deposits_by_branch'). Case-sensitive."
+        ),
+    )
+    dimensions: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Group-by columns. Each string MUST be one of the dimensions"
+            " returned by `list_metrics()` for this metric — copy them"
+            " verbatim. Use `metric_time__month` for monthly time series,"
+            " `metric_time__day` for daily, etc. Examples of valid values:"
+            " 'deposits_monthly_grain__branch', 'application__channel'."
+            " NEVER paraphrase to user-friendly names like 'branch' or"
+            " 'branch_name'."
+        ),
+    )
+    where: str | None = Field(
+        default=None,
+        description=(
+            "Filter predicate. MetricFlow requires Jinja-templated"
+            " `Dimension()` wrappers; bare columns are rejected."
+            " Format: \"{{ Dimension('<column_name>') }} <op> '<value>'\"."
+            " Examples (the literal {{ }} braces are required):"
+            " \"{{ Dimension('deposits_monthly_grain__as_of_month') }} = '2026-04-01'\","  # noqa: E501
+            " \"{{ Dimension('application__channel') }} = 'online'\","
+            " \"{{ Dimension('metric_time__day') }} >= '2026-01-01'\"."
+            " Multiple conditions: chain with AND inside one string."
+            " <column_name> must be a dimension in `list_metrics()`."
+        ),
+    )
+    order: str | None = Field(
+        default=None,
+        description=(
+            "Order-by column. JUST the column name — bare for ASC, with"
+            " a `-` prefix for DESC. NEVER use the words ASC or DESC;"
+            " MetricFlow rejects them outright."
+            " Examples: 'metric_time__month' (ASC), '-metric_time__month'"
+            " (DESC), '-loan_to_deposit_ratio' (DESC by metric value)."
+            " Multi-key: comma-separated, e.g.,"
+            " 'metric_time__month,-revenue'."
+            " The column must already appear in `dimensions` or be the"
+            " metric name itself; otherwise MetricFlow rejects with"
+            " 'does not match exactly one of the query items'."
+        ),
+    )
+    limit: int = Field(
+        default=100,
+        description=(
+            "Row limit. Default 100 is fine for most queries. Raise only"
+            " when the user explicitly asks for more or when summing all"
+            " rows requires it. Lower (e.g., 1) when the user asks 'what"
+            " is X this month' — a single value is enough."
+        ),
+    )
 
 
 def _mf_query_once(args: MfQueryArgs) -> dict[str, Any]:
@@ -101,8 +174,27 @@ def mf_query(
     order: str | None = None,
     limit: int = 100,
 ) -> dict[str, Any]:
-    """Run a MetricFlow query. Retries up to twice on transient errors
-    so the agent doesn't waste a step-cap slot fighting a flaky query.
+    """Run a MetricFlow query and return the resulting rows.
+
+    Workflow: call `list_metrics()` first to see the exact metric and
+    dimension strings; pass those strings VERBATIM. Do NOT paraphrase
+    user-friendly terms ('branch', 'this month', 'by product') into
+    column names — use the exact semantic IDs the catalog returned
+    (e.g., 'deposits_monthly_grain__branch', 'metric_time__month').
+
+    Order-by syntax: pass JUST the column name. Bare = ascending;
+    `-`-prefix = descending. NEVER use the words 'ASC' or 'DESC' —
+    MetricFlow rejects them. Examples:
+      order='metric_time__month'       (ASC)
+      order='-metric_time__month'      (DESC)
+      order='-loan_to_deposit_ratio'   (DESC by metric value)
+    The order column must already be in `dimensions` or be the metric
+    name. Otherwise MetricFlow returns 'does not match exactly one of
+    the query items'.
+
+    On error: read the MetricFlow error message — it usually includes
+    a 'did you mean: [...]' suggestion list. Adjust your arguments
+    based on that list rather than retrying identical args.
     """
     args = MfQueryArgs(
         metric=metric,
@@ -111,14 +203,38 @@ def mf_query(
         order=order,
         limit=limit,
     )
-    last_error: Exception | None = None
-    for attempt in range(_MF_QUERY_MAX_RETRIES + 1):
-        try:
-            return _mf_query_once(args)
-        except Exception as exc:
-            last_error = exc
-            log.warning("mf_query attempt %s failed: %s", attempt + 1, exc)
-    raise RuntimeError(f"mf_query failed after retries: {last_error}")
+    return _run_mf_query_with_retry(args)
+
+
+def _run_mf_query_with_retry(args: MfQueryArgs) -> dict[str, Any]:
+    """Smart retry: surface structural errors immediately; retry only
+    transient errors once with a small backoff (HUG-190 Phase B)."""
+    try:
+        return _mf_query_once(args)
+    except Exception as exc:  # noqa: BLE001 — surfaced as tool-result
+        kind = classify_mf_error(exc)
+        log.warning("mf_query attempt 1 failed (%s): %s", kind, exc)
+        if kind != "transient":
+            return _mf_error_payload(exc)
+    time.sleep(_MF_QUERY_TRANSIENT_RETRY_DELAY_S)
+    try:
+        return _mf_query_once(args)
+    except Exception as retry_exc:  # noqa: BLE001 — surfaced as tool-result
+        log.warning("mf_query attempt 2 failed (transient retry): %s", retry_exc)
+        return _mf_error_payload(retry_exc)
+
+
+def _mf_error_payload(exc: Exception) -> dict[str, Any]:
+    """Return a structured tool-result so the agent sees the error +
+    any 'did you mean' hint MetricFlow surfaced. The graph's tool
+    executor wraps tool returns in a ToolMessage; the agent reads this
+    on the next step."""
+    msg = str(exc)
+    hint = extract_mf_hint(msg)
+    payload: dict[str, Any] = {"error": msg}
+    if hint:
+        payload["hint"] = hint
+    return payload
 
 
 @tool

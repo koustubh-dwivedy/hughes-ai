@@ -49,6 +49,24 @@ semantic_models:
         expr: is_active::TEXT
 
   # ===================================================================
+  # Branch dimension — joined to deposits_monthly + loans_monthly via
+  # the foreign `branch` entity. Without this, "by branch" questions
+  # (HUG-190 must-pass-007) have no group-by surface.
+  # ===================================================================
+  - name: branches
+    description: Branch dimension (location + region).
+    model: ref('dim_branch')
+    entities:
+      - name: branch
+        type: primary
+        expr: branch_id
+    dimensions:
+      - name: branch_name
+        type: categorical
+      - name: branch_region
+        type: categorical
+
+  # ===================================================================
   # Officer dimension
   # ===================================================================
   - name: officers

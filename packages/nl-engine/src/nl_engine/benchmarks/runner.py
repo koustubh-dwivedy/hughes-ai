@@ -7,6 +7,7 @@ shape; long-tail agent grading is intentionally skipped (HUG-189 Option B).
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -90,7 +91,9 @@ def run_agent(
     cache: dict[str, dict[str, object]],
 ) -> AgentEvalResult:
     key = cache_key(q.question, db_url, AGENT_PATH)
-    if key in cache:
+    # EVAL_TRACE=1 bypasses the cache so the ReAct trace prints fresh —
+    # cached results skip the agent invocation entirely (no trace to dump).
+    if key in cache and os.environ.get("EVAL_TRACE") != "1":
         return deserialize_agent(cache[key])
     try:
         result = run_agent_question(q.question, db_url, llm)

@@ -95,8 +95,34 @@ def test_rowset_match_zero_expected_handles_actual_within_tolerance() -> None:
 
 
 def test_rowset_match_column_keys_differ() -> None:
+    """If actual has none of the expected columns (after normalization),
+    every expected key is missing in the projected row — surfaced via the
+    diff message."""
     ok, msg = rowset_match([{"a": 1}], [{"b": 1}])
-    assert not ok and "column keys differ" in msg
+    assert not ok and "a" in msg
+
+
+def test_rowset_match_extra_actual_columns_are_ignored() -> None:
+    """HUG-190 (2026-05-07): MetricFlow attaches a time-dim column the
+    grader's ground-truth row doesn't declare. Subset semantics — match
+    on the projection of expected keys."""
+    ok, _ = rowset_match(
+        [{"loan_to_deposit_ratio": 0.13}],
+        [{"kpi_month__as_of_month__month": "2026-04-01",
+          "loan_to_deposit_ratio": 0.13}],
+    )
+    assert ok
+
+
+def test_rowset_match_normalizes_metricflow_dimension_keys() -> None:
+    """Agent's `deposits_monthly_grain__branch` collapses to GT's `branch`."""
+    ok, _ = rowset_match(
+        [{"branch": "downtown", "total_balance": 100.0}],
+        [{"deposits_monthly_grain__branch": "downtown",
+          "deposits_by_branch": 100.0,  # extra metric col — ignored
+          "total_balance": 100.0}],
+    )
+    assert ok
 
 
 def test_rowset_match_empty_both_passes() -> None:
@@ -127,6 +153,27 @@ def test_columnset_match_missing() -> None:
     assert not ok and "missing" in msg
 
 
-def test_columnset_match_extra() -> None:
+def test_columnset_match_allows_extra_actual_columns() -> None:
+    """HUG-190 (2026-05-07): subset semantics — extra agent columns are
+    fine as long as every expected column is present. MetricFlow attaches
+    a time-dim column alongside the metric; that's not a failure."""
     ok, msg = columnset_match(["a"], ["a", "b"])
-    assert not ok and "extra" in msg
+    assert ok and msg == ""
+
+
+def test_columnset_match_normalizes_metricflow_dimension_names() -> None:
+    """`deposits_monthly_grain__branch` collapses to `branch`; the GT's
+    `branch` should match."""
+    ok, _ = columnset_match(
+        ["branch"], ["deposits_monthly_grain__branch", "deposits_by_branch"]
+    )
+    assert ok
+
+
+def test_columnset_match_normalizes_time_grain_suffix() -> None:
+    """`kpi_month__as_of_month__month` collapses to `as_of_month`."""
+    ok, _ = columnset_match(
+        ["as_of_month", "loan_to_deposit_ratio"],
+        ["kpi_month__as_of_month__month", "loan_to_deposit_ratio"],
+    )
+    assert ok

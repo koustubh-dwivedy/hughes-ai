@@ -17,6 +17,7 @@ import argparse
 import datetime as _dt
 import os
 import sys
+import time as _time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -44,6 +45,7 @@ from nl_engine.benchmarks.runner import (
 )
 from nl_engine.benchmarks.schema import Question, load_questions
 from nl_engine.context_loader import load_all
+from nl_engine.engine import AnswerResponse, ClarificationResponse
 from nl_engine.llm import make_llm
 
 QUESTIONS_FILE = Path(__file__).parent / "questions.yaml"
@@ -85,6 +87,23 @@ def _load_run_inputs(
     return db_url, ctx, questions, make_llm()
 
 
+def _legacy_for(
+    q: Question, db_url: str, ctx: Any,
+    cache: dict[str, dict[str, object]], skip_legacy: bool,
+) -> AnswerResponse | ClarificationResponse:
+    """HUG-190 (2026-05-07): EVAL_SKIP_LEGACY=1 bypasses Surface 1 in
+    eval runs. Surface 1's engine.ask hits Groq directly with no timeout
+    configured; when it stalls, the entire eval hangs before the agent
+    path runs. The bypass lets us iterate on agent-path quality without
+    being blocked by the legacy path."""
+    if skip_legacy:
+        return AnswerResponse(
+            sql="", explanation="(legacy skipped via EVAL_SKIP_LEGACY=1)",
+            tables_used=[], assumptions=[], caveats=[], rows=[], columns=[],
+        )
+    return run_legacy(q, db_url, ctx, cache)
+
+
 def _grade_all_questions(
     questions: list[Question],
     db_url: str,
@@ -95,16 +114,34 @@ def _grade_all_questions(
     results_legacy: list[GradeResult] = []
     results_agent: list[GradeResult] = []
     agent_steps: list[int] = []
-    for q in questions:
-        legacy_result = run_legacy(q, db_url, ctx, cache)
-        results_legacy.append(grade(q, legacy_result))
+    skip_legacy = os.environ.get("EVAL_SKIP_LEGACY") == "1"
+    total = len(questions)
+    run_start = _time.monotonic()
+    for idx, q in enumerate(questions, start=1):
+        q_start = _time.monotonic()
+        tier = "must-pass" if q.must_pass else "long-tail"
+        print(  # noqa: T201
+            f"[eval] Q{idx}/{total}: {q.id} ({tier}) — {q.question[:80]}",
+            flush=True,
+        )
+        results_legacy.append(grade(q, _legacy_for(q, db_url, ctx, cache, skip_legacy)))
         agent_result = run_agent(q, db_url, llm, cache)
         agent_steps.append(agent_result.step_count)
+        agent_grade: GradeResult | None = None
         if agent_path_meaningful(q):
             answer_or_clarify, trace = agent_to_grader_inputs(agent_result)
-            results_agent.append(
-                grade(q, answer_or_clarify, tool_call_trace=trace)
-            )
+            agent_grade = grade(q, answer_or_clarify, tool_call_trace=trace)
+            results_agent.append(agent_grade)
+        verdict = "PASS" if (agent_grade and agent_grade.correct) else (
+            "FAIL" if agent_grade else "n/a"
+        )
+        print(  # noqa: T201
+            f"[eval] Q{idx}/{total} done — agent={verdict} steps="
+            f"{agent_result.step_count} elapsed="
+            f"{_time.monotonic() - q_start:.1f}s cumulative="
+            f"{_time.monotonic() - run_start:.0f}s",
+            flush=True,
+        )
     return results_legacy, results_agent, agent_steps
 
 

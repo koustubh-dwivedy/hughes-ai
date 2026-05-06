@@ -25,7 +25,19 @@ from nl_engine.agent.state import AgentState
 from api.repo import threads as threads_repo
 from api.services.openui_validator import validate_openui_dsl
 from api.types.threads import ThreadMessage
-from api.types.threads_api import StreamFinal, StreamStep
+from api.types.threads_api import StreamError, StreamFinal, StreamStep
+
+
+class _PRODUCER_ERROR_SENTINEL:  # noqa: N801 — internal sentinel, not a class API
+    """Marker placed on the producer queue when graph.stream raises.
+
+    The consumer translates this into an SSE `event: error` frame so the
+    frontend sees a clean error message instead of a silently-broken
+    stream. HUG-190 Phase C.
+    """
+
+    def __init__(self, message: str) -> None:
+        self.message = message
 
 log = logging.getLogger(__name__)
 
@@ -88,6 +100,30 @@ def _terminal_payload(msg: ToolMessage) -> dict[str, Any] | None:
     return decoded if isinstance(decoded, dict) else None
 
 
+def _make_producer(
+    graph: Any, initial: AgentState, queue: asyncio.Queue[Any]
+) -> Any:
+    """Build the producer thread function. Crashes are converted into
+    a sentinel placed on the queue so the consumer can yield an SSE
+    error frame instead of silently breaking the stream (HUG-190 Phase C)."""
+
+    def producer() -> None:
+        try:
+            for chunk in graph.stream(initial, stream_mode="values"):
+                queue.put_nowait(chunk)
+        except Exception as exc:  # noqa: BLE001 — surfaced as SSE error frame
+            log.warning(
+                "agent_runner producer crashed (%s): %s",
+                type(exc).__name__,
+                str(exc)[:300],
+            )
+            queue.put_nowait(_PRODUCER_ERROR_SENTINEL(message=str(exc)[:300]))
+        finally:
+            queue.put_nowait(None)
+
+    return producer
+
+
 async def stream_user_turn(
     thread_id: UUID,
     user_content: str,
@@ -98,7 +134,8 @@ async def stream_user_turn(
     """Persist the user message, run the agent, yield SSE events.
 
     Each event is a dict ready for sse_starlette.EventSourceResponse:
-      {event: "step", data: <json>} or {event: "final", data: <json>}.
+      {event: "step", data: <json>}, {event: "final", data: <json>},
+      or {event: "error", data: <json>} when the graph crashes.
     """
     threads_repo.append_message(
         thread_id=thread_id,
@@ -109,21 +146,19 @@ async def stream_user_turn(
     initial = _build_initial_state(thread_id, user_content, history)
     graph = build_graph(llm)
     queue: asyncio.Queue[Any] = asyncio.Queue()
-
-    def producer() -> None:
-        try:
-            for chunk in graph.stream(initial, stream_mode="values"):
-                queue.put_nowait(chunk)
-        finally:
-            queue.put_nowait(None)
-
-    asyncio.create_task(asyncio.to_thread(producer))
+    asyncio.create_task(asyncio.to_thread(_make_producer(graph, initial, queue)))
     seen: set[int] = set()
     step_idx = 0
     while True:
         chunk = await queue.get()
         if chunk is None:
             break
+        if isinstance(chunk, _PRODUCER_ERROR_SENTINEL):
+            yield {
+                "event": "error",
+                "data": StreamError(message=chunk.message).model_dump_json(),
+            }
+            continue
         for msg in chunk.get("messages", []):
             if id(msg) in seen or isinstance(msg, HumanMessage):
                 seen.add(id(msg))
