@@ -1,4 +1,4 @@
-.PHONY: up down dev migrate seed lint lint-fix typecheck test audit eval eval-full openui-prompt
+.PHONY: up down dev migrate seed lint lint-fix typecheck test audit eval openui-prompt
 
 up:
 	docker compose up -d
@@ -51,11 +51,12 @@ typecheck:
 test:
 	pytest
 
+# HUG-193: Surface 1 was retired, so `make eval` runs the LangGraph agent
+# against every question in questions.yaml (no path subset, no two-path
+# legacy/agent comparison). The old `--full` flag is gone — there is no
+# subset to skip.
 eval:
 	python scripts/eval.py
-
-eval-full:
-	python scripts/eval.py --full
 
 # HUG-178 Phase B: regenerate the OpenUI agent system prompt artifact.
 # Re-run after bumping @openuidev/react-ui or @openuidev/lang-core.
