@@ -27,7 +27,6 @@ router = APIRouter(prefix="/data-model")
 async def graph(request: Request) -> Response:
     rid: str = request.state.request_id
     db_url: str = request.app.state.db_url
-    ctx = request.app.state.ctx
 
     manifest = repo_dm.load_manifest()
     dashboard_map = repo_dm.load_dashboard_mapping()
@@ -35,7 +34,6 @@ async def graph(request: Request) -> Response:
 
     response = svc.compose_graph(
         manifest=manifest,
-        ctx=ctx,
         dashboard_map=dashboard_map,
         nl_counts=nl_counts,
         audit_id=rid,
@@ -53,7 +51,6 @@ async def graph(request: Request) -> Response:
 async def node_detail(node_id: str, request: Request) -> Response:
     rid: str = request.state.request_id
     db_url: str = request.app.state.db_url
-    ctx = request.app.state.ctx
 
     manifest = repo_dm.load_manifest()
     dashboard_map = repo_dm.load_dashboard_mapping()
@@ -63,7 +60,6 @@ async def node_detail(node_id: str, request: Request) -> Response:
     detail = svc.compose_node_detail(
         node_id=node_id,
         manifest=manifest,
-        ctx=ctx,
         dashboard_map=dashboard_map,
         nl_counts=nl_counts,
         run_results=run_results,

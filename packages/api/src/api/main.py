@@ -7,11 +7,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from nl_engine.context_loader import load_all
 
 from api.middleware.request_id import RequestIDMiddleware
 from api.routes import (
-    ask,
     dashboards,
     data_model,
     health,
@@ -30,14 +28,12 @@ load_dotenv(Path(__file__).resolve().parents[4] / ".env")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    app.state.ctx = load_all()
     app.state.db_url = os.environ["DATABASE_URL"]
     yield
 
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(RequestIDMiddleware)
-app.include_router(ask.router)
 app.include_router(dashboards.router)
 app.include_router(data_model.router)
 app.include_router(health.router)

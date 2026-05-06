@@ -1,10 +1,6 @@
-"""NL eval runner — scores questions against both Surface 1 (engine.ask) and
-Surface 2 (the LangGraph agent), per HUG-189.
-
-Two-path rollout: every question runs through both paths. The agent path
-is the gating signal; the legacy column is informational and will be
-deleted by HUG-193. Long-tail agent grading is intentionally skipped —
-see runner.agent_path_meaningful for the rule.
+"""NL eval runner — scores must-pass + long-tail questions against the
+LangGraph agent (Surface 2). Surface 1 was retired in HUG-193, so the
+two-path runner collapses to one.
 
 Promotion ledger: when --write-ledger is set, append one row to
 .promotion-ledger.csv. The workflow passes --write-ledger only on
@@ -20,7 +16,6 @@ import sys
 import time as _time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 from uuid import uuid4
 
 from langchain_core.language_models import BaseChatModel
@@ -41,11 +36,8 @@ from nl_engine.benchmarks.runner import (
     agent_path_meaningful,
     agent_to_grader_inputs,
     run_agent,
-    run_legacy,
 )
 from nl_engine.benchmarks.schema import Question, load_questions
-from nl_engine.context_loader import load_all
-from nl_engine.engine import AnswerResponse, ClarificationResponse
 from nl_engine.llm import make_llm
 
 QUESTIONS_FILE = Path(__file__).parent / "questions.yaml"
@@ -53,23 +45,12 @@ CACHE_FILE = Path(__file__).parent / ".cache" / "responses.json"
 LEDGER_FILE = Path(__file__).parent / ".promotion-ledger.csv"
 
 _DEFAULT_GATE = "must-pass=80,long-tail=65"
-_AGENT_LEAD_THRESHOLD_PP = 5.0
 _AVG_CALLS_BUDGET = 4.0
-
-# Question types in the legacy set are filtered out by default; --full
-# includes them. The legacy set is kept for runway-state informational
-# scoring of the long-tail; HUG-193 will retire the filter.
-_LEGACY_TYPES = frozenset({
-    "origination_volume", "approval_rate", "funding_rate",
-    "delinquency_rate", "portfolio_balance", "product_mix",
-    "channel_mix", "edge_case", "ambiguous",
-})
 
 
 @dataclass
 class RunOptions:
     gates: dict[str, float]
-    full: bool
     write_ledger: bool
     run_id: str
     commit_sha: str
@@ -77,44 +58,20 @@ class RunOptions:
 
 def _load_run_inputs(
     opts: RunOptions,
-) -> tuple[str, Any, list[Question], BaseChatModel]:
+) -> tuple[str, list[Question], BaseChatModel]:
     db_url = os.environ["DATABASE_URL"]
-    ctx = load_all()
     qf = load_questions(QUESTIONS_FILE)
-    questions = qf.questions
-    if not opts.full:
-        questions = [q for q in questions if q.question_type not in _LEGACY_TYPES]
-    return db_url, ctx, questions, make_llm()
-
-
-def _legacy_for(
-    q: Question, db_url: str, ctx: Any,
-    cache: dict[str, dict[str, object]], skip_legacy: bool,
-) -> AnswerResponse | ClarificationResponse:
-    """HUG-190 (2026-05-07): EVAL_SKIP_LEGACY=1 bypasses Surface 1 in
-    eval runs. Surface 1's engine.ask hits Groq directly with no timeout
-    configured; when it stalls, the entire eval hangs before the agent
-    path runs. The bypass lets us iterate on agent-path quality without
-    being blocked by the legacy path."""
-    if skip_legacy:
-        return AnswerResponse(
-            sql="", explanation="(legacy skipped via EVAL_SKIP_LEGACY=1)",
-            tables_used=[], assumptions=[], caveats=[], rows=[], columns=[],
-        )
-    return run_legacy(q, db_url, ctx, cache)
+    return db_url, qf.questions, make_llm()
 
 
 def _grade_all_questions(
     questions: list[Question],
     db_url: str,
-    ctx: Any,
     llm: BaseChatModel,
     cache: dict[str, dict[str, object]],
-) -> tuple[list[GradeResult], list[GradeResult], list[int]]:
-    results_legacy: list[GradeResult] = []
+) -> tuple[list[GradeResult], list[int]]:
     results_agent: list[GradeResult] = []
     agent_steps: list[int] = []
-    skip_legacy = os.environ.get("EVAL_SKIP_LEGACY") == "1"
     total = len(questions)
     run_start = _time.monotonic()
     for idx, q in enumerate(questions, start=1):
@@ -124,7 +81,6 @@ def _grade_all_questions(
             f"[eval] Q{idx}/{total}: {q.id} ({tier}) — {q.question[:80]}",
             flush=True,
         )
-        results_legacy.append(grade(q, _legacy_for(q, db_url, ctx, cache, skip_legacy)))
         agent_result = run_agent(q, db_url, llm, cache)
         agent_steps.append(agent_result.step_count)
         agent_grade: GradeResult | None = None
@@ -142,61 +98,47 @@ def _grade_all_questions(
             f"{_time.monotonic() - run_start:.0f}s",
             flush=True,
         )
-    return results_legacy, results_agent, agent_steps
+    return results_agent, agent_steps
 
 
 def _emit_signals(
-    legacy_tiers: list[TierSummary],
     agent_tiers: list[TierSummary],
     avg_calls: float,
     agent_exit: int,
-) -> tuple[float | None, float | None, float | None, float | None, str]:
-    must_pass_legacy = accuracy_for(legacy_tiers, "must-pass")
+) -> tuple[float | None, float | None, str]:
     must_pass_agent = accuracy_for(agent_tiers, "must-pass")
-    long_tail_legacy = accuracy_for(legacy_tiers, "long-tail")
     long_tail_agent = accuracy_for(agent_tiers, "long-tail")
-    leading = (
-        must_pass_legacy is not None
-        and must_pass_agent is not None
-        and must_pass_agent >= must_pass_legacy + _AGENT_LEAD_THRESHOLD_PP
-    )
-    print(f"AGENT_LEADING={'true' if leading else 'false'}")  # noqa: T201
     gate_pass = agent_exit == 0 and avg_calls <= _AVG_CALLS_BUDGET
     return (
-        must_pass_legacy,
         must_pass_agent,
-        long_tail_legacy,
         long_tail_agent,
         "PASS" if gate_pass else "FAIL",
     )
 
 
 def run(opts: RunOptions) -> int:
-    db_url, ctx, questions, llm = _load_run_inputs(opts)
+    db_url, questions, llm = _load_run_inputs(opts)
     cache = load_cache(CACHE_FILE)
-    results_legacy, results_agent, agent_steps = _grade_all_questions(
-        questions, db_url, ctx, llm, cache,
+    results_agent, agent_steps = _grade_all_questions(
+        questions, db_url, llm, cache,
     )
     save_cache(CACHE_FILE, cache)
 
-    _, legacy_tiers = evaluate_gate(results_legacy, opts.gates)
     agent_exit, agent_tiers = evaluate_gate(results_agent, opts.gates)
     avg_calls = (sum(agent_steps) / len(agent_steps)) if agent_steps else 0.0
 
     sys.path.insert(0, str(Path(__file__).parent))
-    from report import print_two_path_report  # noqa: PLC0415
+    from report import print_agent_report  # noqa: PLC0415
 
-    print_two_path_report(
-        legacy_results=results_legacy,
+    print_agent_report(
         agent_results=results_agent,
-        legacy_tiers=legacy_tiers,
         agent_tiers=agent_tiers,
         avg_calls_per_turn=avg_calls,
         avg_calls_budget=_AVG_CALLS_BUDGET,
     )
 
-    mp_legacy, mp_agent, lt_legacy, lt_agent, gate_status = _emit_signals(
-        legacy_tiers, agent_tiers, avg_calls, agent_exit,
+    mp_agent, lt_agent, gate_status = _emit_signals(
+        agent_tiers, avg_calls, agent_exit,
     )
 
     if opts.write_ledger:
@@ -206,16 +148,15 @@ def run(opts: RunOptions) -> int:
                 run_id=opts.run_id,
                 commit_sha=opts.commit_sha,
                 run_date=_dt.datetime.now(_dt.UTC).isoformat(),
-                must_pass_legacy=mp_legacy,
+                must_pass_legacy=None,
                 must_pass_agent=mp_agent,
-                long_tail_legacy=lt_legacy,
+                long_tail_legacy=None,
                 long_tail_agent=lt_agent,
                 agent_avg_calls_per_turn=avg_calls,
                 gate_status=gate_status,
             ),
         )
 
-    # The agent path is the gating signal (HUG-189 amendment).
     return agent_exit
 
 
@@ -228,7 +169,6 @@ def main() -> None:
         metavar="STR",
         help=f"Tier thresholds. Default: {_DEFAULT_GATE!r}.",
     )
-    parser.add_argument("--full", action="store_true")
     parser.add_argument(
         "--write-ledger",
         action="store_true",
@@ -245,7 +185,6 @@ def main() -> None:
         run(
             RunOptions(
                 gates=gates,
-                full=args.full,
                 write_ledger=args.write_ledger,
                 run_id=args.run_id or str(uuid4()),
                 commit_sha=args.commit_sha,

@@ -4,29 +4,6 @@ from datetime import datetime
 
 from api.repo.data_model import aggregate_nl_counts
 from api.service.data_model_service import compose_graph, compose_node_detail
-from nl_engine.context_loader import AllContext, Column, Table
-
-
-def _ctx() -> AllContext:
-    return AllContext(
-        tables=[
-            Table(
-                name="fct_loans_monthly",
-                description="Friendly monthly loan rollup.",
-                columns=[
-                    Column(
-                        name="as_of_month",
-                        type="DATE",
-                        description="Month start.",
-                        example="2024-01-01",
-                    ),
-                ],
-            ),
-        ],
-        metrics=[],
-        rules=[],
-        examples=[],
-    )
 
 
 def _model_node(uid: str, name: str, layer: str, parents: list[str]) -> dict:
@@ -41,8 +18,8 @@ def _model_node(uid: str, name: str, layer: str, parents: list[str]) -> dict:
         "columns": {
             "as_of_month": {
                 "name": "as_of_month",
-                "description": "",
-                "data_type": None,
+                "description": "Month start.",
+                "data_type": "DATE",
             },
         },
         "raw_code": "SELECT 1",
@@ -109,7 +86,6 @@ def _dashboard_map() -> list[dict]:
 def test_compose_graph_buckets_by_layer() -> None:
     resp = compose_graph(
         manifest=_manifest(),
-        ctx=_ctx(),
         dashboard_map=_dashboard_map(),
         nl_counts={},
         audit_id="aid",
@@ -126,7 +102,6 @@ def test_compose_graph_buckets_by_layer() -> None:
 def test_compose_graph_includes_dashboard_edges() -> None:
     resp = compose_graph(
         manifest=_manifest(),
-        ctx=_ctx(),
         dashboard_map=_dashboard_map(),
         nl_counts={},
         audit_id="aid",
@@ -140,22 +115,22 @@ def test_compose_graph_includes_dashboard_edges() -> None:
     assert (mart, "dashboard.executive") in edges
 
 
-def test_compose_graph_uses_ctx_description_over_manifest() -> None:
+def test_compose_graph_uses_manifest_description() -> None:
+    """HUG-193: Surface 1's prose grounding YAMLs are gone, so node
+    descriptions come exclusively from the dbt manifest."""
     resp = compose_graph(
         manifest=_manifest(),
-        ctx=_ctx(),
         dashboard_map=[],
         nl_counts={},
         audit_id="aid",
     )
     fct = next(n for n in resp.nodes if n.name == "fct_loans_monthly")
-    assert fct.description == "Friendly monthly loan rollup."
+    assert fct.description == "Manifest description."
 
 
 def test_compose_graph_stamps_nl_counts() -> None:
     resp = compose_graph(
         manifest=_manifest(),
-        ctx=_ctx(),
         dashboard_map=[],
         nl_counts={"fct_loans_monthly": 4, "booked_loans": 1},
         audit_id="aid",
@@ -166,11 +141,10 @@ def test_compose_graph_stamps_nl_counts() -> None:
     assert by_name["stg_symitar_loans"].nl_query_count_30d == 0
 
 
-def test_compose_node_detail_pulls_columns_from_ctx() -> None:
+def test_compose_node_detail_pulls_columns_from_manifest() -> None:
     detail = compose_node_detail(
         node_id="model.hughes_ai.fct_loans_monthly",
         manifest=_manifest(),
-        ctx=_ctx(),
         dashboard_map=_dashboard_map(),
         nl_counts={},
         run_results={},
@@ -190,7 +164,6 @@ def test_compose_node_detail_returns_none_for_unknown() -> None:
         compose_node_detail(
             node_id="model.hughes_ai.nope",
             manifest=_manifest(),
-            ctx=_ctx(),
             dashboard_map=_dashboard_map(),
             nl_counts={},
             run_results={},
@@ -203,7 +176,6 @@ def test_compose_node_detail_dashboard_node() -> None:
     detail = compose_node_detail(
         node_id="dashboard.executive",
         manifest=_manifest(),
-        ctx=_ctx(),
         dashboard_map=_dashboard_map(),
         nl_counts={},
         run_results={},
@@ -218,7 +190,6 @@ def test_compose_node_detail_attaches_last_run_at() -> None:
     detail = compose_node_detail(
         node_id="model.hughes_ai.fct_loans_monthly",
         manifest=_manifest(),
-        ctx=_ctx(),
         dashboard_map=_dashboard_map(),
         nl_counts={},
         run_results={"model.hughes_ai.fct_loans_monthly": ts},

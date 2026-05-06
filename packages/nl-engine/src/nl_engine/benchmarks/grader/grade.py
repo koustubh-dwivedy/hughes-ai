@@ -18,7 +18,7 @@ from nl_engine.benchmarks.grader.match import (
     table_equivalence,
 )
 from nl_engine.benchmarks.schema import Question, QuestionType
-from nl_engine.engine import AnswerResponse, ClarificationResponse
+from nl_engine.types.answer import AnswerResponse, ClarificationResponse
 
 
 @dataclass

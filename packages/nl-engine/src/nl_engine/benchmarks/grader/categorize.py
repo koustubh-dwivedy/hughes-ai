@@ -9,7 +9,7 @@ from nl_engine.benchmarks.grader.match import (
     TABLE_EQUIV_THRESHOLD,
 )
 from nl_engine.benchmarks.schema import Question
-from nl_engine.engine import AnswerResponse, ClarificationResponse
+from nl_engine.types.answer import AnswerResponse, ClarificationResponse
 
 CategoryOutcome = Literal[
     "ok",

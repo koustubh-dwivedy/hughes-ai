@@ -5,29 +5,6 @@ from __future__ import annotations
 import pytest
 from api.main import app
 from fastapi.testclient import TestClient
-from nl_engine.context_loader import AllContext, Column, Table
-
-
-def _ctx() -> AllContext:
-    return AllContext(
-        tables=[
-            Table(
-                name="fct_loans_monthly",
-                description="Monthly loan rollup.",
-                columns=[
-                    Column(
-                        name="as_of_month",
-                        type="DATE",
-                        description="Month start.",
-                        example="2024-01-01",
-                    ),
-                ],
-            ),
-        ],
-        metrics=[],
-        rules=[],
-        examples=[],
-    )
 
 
 def _manifest() -> dict:
@@ -38,10 +15,16 @@ def _manifest() -> dict:
                 "name": "fct_loans_monthly",
                 "resource_type": "model",
                 "fqn": ["hughes_ai", "marts", "fct_loans_monthly"],
-                "description": "",
+                "description": "Monthly loan rollup.",
                 "config": {"materialized": "table"},
                 "depends_on": {"nodes": ["source.hughes_ai.raw.booked_loans"]},
-                "columns": {},
+                "columns": {
+                    "as_of_month": {
+                        "name": "as_of_month",
+                        "data_type": "DATE",
+                        "description": "Month start.",
+                    },
+                },
                 "raw_code": "SELECT 1",
                 "original_file_path": "models/marts/fct_loans_monthly.sql",
             },
@@ -98,7 +81,6 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     )
 
     with TestClient(app, raise_server_exceptions=True) as c:
-        app.state.ctx = _ctx()
         app.state.db_url = "postgresql://localhost/cubi"
         c.audit_calls = audit_calls  # type: ignore[attr-defined]
         return c

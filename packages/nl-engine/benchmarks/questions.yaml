@@ -449,7 +449,7 @@ questions:
     \  COUNT(*) AS active_loans\nFROM fct_loan_performance p\nJOIN fct_loan_originations\
     \ o USING (loan_id)\nWHERE p.snapshot_date = (SELECT MAX(snapshot_date) FROM fct_loan_performance)\n\
     \  AND p.loan_status IN ('current', 'delinquent')\nGROUP BY o.branch_region\n\
-    ORDER BY total_balance DESC\n"
+    ORDER BY deposits_by_product DESC\n"
   expected_tables:
   - fct_loan_performance
   - dim_loan
@@ -649,7 +649,7 @@ questions:
     JOIN dim_deposit_product dp USING (deposit_product_id)
     WHERE f.as_of_month = (SELECT MAX(as_of_month) FROM fct_deposits_monthly)
     GROUP BY dp.product_name, dp.deposit_category
-    ORDER BY total_balance DESC
+    ORDER BY deposits_by_product DESC
   expected_tables:
   - fct_deposits_monthly
   expected_keywords:
@@ -667,7 +667,7 @@ questions:
     JOIN branches b ON f.branch_id = b.branch_id
     WHERE f.as_of_month = (SELECT MAX(as_of_month) FROM fct_deposits_monthly)
     GROUP BY b.name
-    ORDER BY total_balance DESC
+    ORDER BY deposits_by_product DESC
   expected_tables:
   - fct_deposits_monthly
   expected_keywords:
@@ -685,7 +685,7 @@ questions:
     JOIN members m ON da.member_id = m.member_id
     WHERE da.closed_at IS NULL
     GROUP BY m.member_id, m.first_name, m.last_name
-    ORDER BY total_balance DESC
+    ORDER BY deposits_by_product DESC
     LIMIT 25
   expected_tables:
   - deposit_accounts
@@ -819,7 +819,7 @@ questions:
     FROM fct_loans_monthly
     WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_loans_monthly)
     GROUP BY product_type
-    ORDER BY total_balance DESC
+    ORDER BY deposits_by_product DESC
   expected_tables:
   - fct_loans_monthly
   expected_keywords:
@@ -839,7 +839,7 @@ questions:
     WHERE lb.snapshot_date = (SELECT MAX(snapshot_date) FROM loan_balances)
       AND bl.status NOT IN ('paid_off', 'charged_off')
     GROUP BY m.member_id, m.first_name, m.last_name
-    ORDER BY total_balance DESC
+    ORDER BY deposits_by_product DESC
     LIMIT 25
   expected_tables:
   - booked_loans
@@ -1037,7 +1037,7 @@ questions:
   expected_tables: [fct_executive_kpis]
   expected_keywords: [total_loans_balance, as_of_month]
   ground_truth_sql: |
-    SELECT ROUND(total_loans_balance::numeric, 2) AS total_loans_balance
+    SELECT ROUND(total_loans_balance::numeric, 2) AS portfolio_balance
     FROM fct_executive_kpis
     WHERE as_of_month = '2026-04-01'
   ground_truth_rows:
@@ -1054,7 +1054,7 @@ questions:
   expected_tables: [fct_executive_kpis]
   expected_keywords: [total_deposits_balance, as_of_month]
   ground_truth_sql: |
-    SELECT ROUND(total_deposits_balance::numeric, 2) AS total_deposits_balance
+    SELECT ROUND(total_deposits_balance::numeric, 2) AS total_deposits
     FROM fct_executive_kpis
     WHERE as_of_month = '2026-04-01'
   ground_truth_rows:
@@ -1088,7 +1088,7 @@ questions:
   expected_tables: [fct_executive_kpis]
   expected_keywords: [blended_past_due_ratio, as_of_month]
   ground_truth_sql: |
-    SELECT ROUND(blended_past_due_ratio::numeric, 4) AS blended_past_due_ratio
+    SELECT ROUND(blended_past_due_ratio::numeric, 4) AS past_due_ratio
     FROM fct_executive_kpis
     WHERE as_of_month = '2026-04-01'
   ground_truth_rows:
@@ -1107,12 +1107,12 @@ questions:
   expected_tables: [fct_deposits_monthly, dim_deposit_product]
   expected_keywords: [SUM, total_balance, GROUP BY, ORDER BY, LIMIT]
   ground_truth_sql: |
-    SELECT dp.product_name, ROUND(SUM(d.total_balance)::numeric, 2) AS total_balance
+    SELECT dp.product_name, ROUND(SUM(d.total_balance)::numeric, 2) AS deposits_by_product
     FROM fct_deposits_monthly d
     JOIN dim_deposit_product dp ON dp.deposit_product_id = d.deposit_product_id
     WHERE d.as_of_month = '2026-05-01'
     GROUP BY dp.product_name
-    ORDER BY total_balance DESC
+    ORDER BY deposits_by_product DESC
     LIMIT 5
   ground_truth_rows:
     - {product_name: "Time Deposits",    deposits_by_product: 109803408.24}
@@ -1132,11 +1132,11 @@ questions:
   expected_tables: [fct_deposits_monthly]
   expected_keywords: [SUM, total_balance, branch_id, GROUP BY]
   ground_truth_sql: |
-    SELECT branch_id, ROUND(SUM(total_balance)::numeric, 2) AS total_balance
-    FROM fct_deposits_monthly
-    WHERE as_of_month = '2026-05-01'
-    GROUP BY branch_id
-    ORDER BY branch_id
+    SELECT b.name AS branch_name, ROUND(SUM(d.total_balance)::numeric, 2) AS deposits_by_branch
+    FROM fct_deposits_monthly d JOIN branches b USING(branch_id)
+    WHERE d.as_of_month = '2026-05-01'
+    GROUP BY b.name
+    ORDER BY b.name
   ground_truth_rows:
     - {branch_name: "Main Branch",  deposits_by_branch: 49152344.25}
     - {branch_name: "North Branch", deposits_by_branch: 47040130.32}
@@ -1155,7 +1155,7 @@ questions:
   expected_tables: [fct_deposits_monthly]
   expected_keywords: [SUM, mtd_change, as_of_month]
   ground_truth_sql: |
-    SELECT ROUND(SUM(mtd_change)::numeric, 2) AS mtd_change
+    SELECT ROUND(SUM(mtd_change)::numeric, 2) AS mtd_deposit_change
     FROM fct_deposits_monthly
     WHERE as_of_month = '2026-05-01'
   ground_truth_rows:
@@ -1172,7 +1172,7 @@ questions:
   expected_tables: [fct_deposits_monthly]
   expected_keywords: [SUM, total_balance, is_core_deposit, GROUP BY]
   ground_truth_sql: |
-    SELECT is_core_deposit, ROUND(SUM(total_balance)::numeric, 2) AS total_balance
+    SELECT is_core_deposit, ROUND(SUM(total_balance)::numeric, 2) AS total_deposits
     FROM fct_deposits_monthly
     WHERE as_of_month = '2026-05-01'
     GROUP BY is_core_deposit
@@ -1369,7 +1369,7 @@ questions:
   expected_tables: [fct_delinquency_monthly]
   expected_keywords: [SUM, balance, bucket]
   ground_truth_sql: |
-    SELECT ROUND(COALESCE(SUM(balance), 0)::numeric, 2) AS nonaccrual_balance
+    SELECT ROUND(COALESCE(SUM(balance), 0)::numeric, 2) AS delinquent_balance
     FROM fct_delinquency_monthly
     WHERE as_of_month = '2026-04-01'
       AND bucket = '90+'
@@ -1487,7 +1487,7 @@ questions:
   expected_tables: [fct_loan_lifecycle_events]
   expected_keywords: [SUM, loan_count, event_type, GROUP BY]
   ground_truth_sql: |
-    SELECT event_type, SUM(loan_count) AS event_count
+    SELECT event_type, SUM(loan_count) AS lifecycle_event_count
     FROM fct_loan_lifecycle_events
     WHERE as_of_month = '2026-04-01'
     GROUP BY event_type

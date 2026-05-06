@@ -1,44 +1,15 @@
-"""Append-only query history repository."""
+"""Append-only query history repository.
+
+`save_query` (which inserted the Surface 1 / `kind='ask'` row) is gone
+along with Surface 1 itself (HUG-193). Threads writes its own rows via
+`packages/api/src/api/repo/threads.py`. Reads still serve historical
+`'ask'` rows so the HistoryRail keeps displaying past data.
+"""
 
 import json
 import uuid
 
 import psycopg
-from nl_engine.engine import AnswerResponse
-
-
-def save_query(
-    question: str,
-    result: AnswerResponse,
-    request_id: str,
-    db_url: str,
-) -> uuid.UUID:
-    record_id = uuid.UUID(request_id)
-    with psycopg.connect(db_url) as conn:
-        conn.execute(
-            "INSERT INTO query_history "
-            "(id, question, sql, answer_json, assumptions, caveats,"
-            " lineage_json, token_usage, kind) "
-            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (
-                record_id,
-                question,
-                result.sql,
-                json.dumps(
-                    {
-                        "rows": result.rows,
-                        "columns": result.columns,
-                        "explanation": result.explanation,
-                    }
-                ),
-                json.dumps(result.assumptions),
-                json.dumps(result.caveats),
-                json.dumps({"tables_used": result.tables_used}),
-                json.dumps({}),
-                "ask",
-            ),
-        )
-    return record_id
 
 
 def get_history_by_id(

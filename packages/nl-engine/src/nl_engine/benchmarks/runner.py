@@ -1,8 +1,8 @@
 """Per-question execution helpers + bridge between agent results and grader.
 
-Both paths (legacy + agent) are cached. The agent path's structured
-result is bridged to the grader's AnswerResponse | ClarificationResponse
-shape; long-tail agent grading is intentionally skipped (HUG-189 Option B).
+Surface 1 was retired in HUG-193, so the runner only handles the agent
+path now. Long-tail agent grading is intentionally skipped (HUG-189
+Option B) — see `agent_path_meaningful` for the rule.
 """
 
 from __future__ import annotations
@@ -17,14 +17,11 @@ from nl_engine.agent.eval_runner import AgentEvalResult, run_agent_question
 from nl_engine.benchmarks.cache import (
     cache_key,
     deserialize_agent,
-    deserialize_legacy,
     serialize_agent,
-    serialize_legacy,
 )
 from nl_engine.benchmarks.schema import Question
-from nl_engine.engine import AnswerResponse, ClarificationResponse, ask
+from nl_engine.types.answer import AnswerResponse, ClarificationResponse
 
-LEGACY_PATH = "legacy"
 AGENT_PATH = "agent"
 
 
@@ -62,28 +59,6 @@ def agent_path_meaningful(q: Question) -> bool:
     return q.ground_truth_rows is not None or q.question_type == "ambiguous"
 
 
-def run_legacy(
-    q: Question,
-    db_url: str,
-    ctx: Any,
-    cache: dict[str, dict[str, object]],
-) -> AnswerResponse | ClarificationResponse:
-    key = cache_key(q.question, db_url, LEGACY_PATH)
-    if key in cache:
-        return deserialize_legacy(cache[key])
-    try:
-        result: AnswerResponse | ClarificationResponse = ask(
-            q.question, db_url, ctx
-        )
-    except Exception as exc:  # noqa: BLE001
-        result = AnswerResponse(
-            sql="", explanation=str(exc),
-            tables_used=[], assumptions=[], caveats=[], rows=[], columns=[],
-        )
-    cache[key] = serialize_legacy(result)
-    return result
-
-
 def run_agent(
     q: Question,
     db_url: str,
@@ -106,13 +81,10 @@ def run_agent(
     return result
 
 
-# Re-export Path so the consumer doesn't need a separate import.
 __all__ = [
     "AGENT_PATH",
-    "LEGACY_PATH",
     "Path",
     "agent_path_meaningful",
     "agent_to_grader_inputs",
     "run_agent",
-    "run_legacy",
 ]
