@@ -13,9 +13,9 @@ Hughes AI is a lending analytics demo for one synthetic credit union. Users ask 
 | Path | What it is |
 |---|---|
 | `packages/synth-data/` | Deterministic synthetic data generators (Origence + Symitar + reconciliation bridge) |
-| `packages/nl-engine/` | Context layer + NL→SQL pipeline + Qwen 3 32B (Groq) integration |
-| `packages/nl-engine/context/` | YAML grounding files: schema_context, metrics, rules, examples |
-| `packages/api/` | FastAPI backend: /ask, /history, /trust, /dashboards/* |
+| `packages/nl-engine/` | LangGraph agent (Surface 2) + MetricFlow integration + eval harness |
+| `packages/nl-engine/src/nl_engine/agent/` | Agent graph, tools, prompts (`system_prompt.py` + `openui_prompt.txt`) |
+| `packages/api/` | FastAPI backend: /threads, /history, /trust, /data-model/*, /dashboards/* |
 | `packages/frontend/` | React + Vite + TypeScript single-page app |
 | `packages/frontend/src/dashboards/` | Dashboard page modules (ExecutiveSummary, DepositPortfolio, PastDue, OfficerBranch, Chat) |
 | `packages/dbt-models/` | dbt: staging → core → lending metrics marts |
@@ -96,6 +96,7 @@ Lint → typecheck → unit → structural → security → doc-validation → i
 ## Key files to read first
 
 1. `docs/requirements.md` — product spec
-2. `docs/metrics.md` — metric definitions (grounding layer depends on this)
-3. `packages/nl-engine/context/` — the four YAML grounding files
-4. `packages/synth-data/config/` — synthetic data configuration
+2. `docs/metrics.md` — metric definitions (the user-facing reference)
+3. `packages/dbt-models/models/semantic/` — MetricFlow semantic models (the canonical metric catalog after HUG-193)
+4. `packages/nl-engine/src/nl_engine/agent/system_prompt.py` — agent's tool-calling rules (ANCHOR-A through ANCHOR-E)
+5. `packages/synth-data/config/` — synthetic data configuration
