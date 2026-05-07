@@ -28,10 +28,11 @@ from langgraph.graph import END, START, StateGraph
 from nl_engine.agent.history import ensure_system_prompt, truncate_history
 from nl_engine.agent.llm_invoke import (
     AGENT_STEP_DEFAULT_TIMEOUT_S,
-    invoke_with_wall_timeout,
     is_transient_llm_error,
+    stream_with_wall_timeout,
 )
 from nl_engine.agent.state import MAX_STEPS_PER_TURN, AgentState
+from nl_engine.agent.streaming_summary import make_summary_streamer
 from nl_engine.agent.tools import ALL_TOOLS, serialize_tool_result
 from nl_engine.logging import bind_request_id, get_logger
 
@@ -208,7 +209,13 @@ def _make_agent_step(llm: BaseChatModel, tools: list[BaseTool]) -> Any:
         t0 = time.monotonic()
         for attempt in range(_LLM_MAX_RETRIES + 1):
             try:
-                response = invoke_with_wall_timeout(bound, msgs, wall_timeout)
+                # Per-step summary streamer: forwards `final_answer.summary`
+                # token deltas to the SSE consumer registered in
+                # `nl_engine.agent.streaming` (HUG-202 Phase 2).
+                on_chunk = make_summary_streamer(state.request_id or "")
+                response = stream_with_wall_timeout(
+                    bound, msgs, wall_timeout, on_chunk
+                )
                 _, step_n = _log_step_success(response, state, t0, retries)
                 return {"messages": [response], "step_count": step_n}
             except Exception as exc:  # noqa: BLE001

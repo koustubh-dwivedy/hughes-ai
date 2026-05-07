@@ -14,17 +14,14 @@
  */
 
 import { useState } from "react";
+import { useAppSelector } from "../../../shared/api/hooks";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import type { ThreadMessageWire } from "../api";
 import OpenUIRenderer from "../openui/OpenUIRenderer";
 import ReferencesModal from "./ReferencesModal";
-import TypewriterText from "./TypewriterText";
 
 interface Props {
 	messages: ThreadMessageWire[];
-	/** The id of the most-recently-arrived final-answer ToolMessage, so the
-	 *  summary types-in once instead of every re-render. */
-	animatedTerminalId?: string | null;
 	/** Optimistic user-question bubble shown at the tail while the agent is
 	 *  responding (HUG-201 option A). Cleared once the persisted history
 	 *  refetches with the matching user message. */
@@ -118,13 +115,7 @@ const referencesPillStyle: React.CSSProperties = {
 	gap: spacing[1],
 };
 
-function AssistantTerminal({
-	msg,
-	animate,
-}: {
-	msg: ThreadMessageWire;
-	animate: boolean;
-}) {
+function AssistantTerminal({ msg }: { msg: ThreadMessageWire }) {
 	const payload = parseFinalPayload(msg);
 	const summary = payload.summary ?? "";
 	const [showRefs, setShowRefs] = useState(false);
@@ -134,11 +125,7 @@ function AssistantTerminal({
 	const refCount = (payload.rows?.length ?? 0) + (hasMfQuery ? 1 : 0);
 	return (
 		<article aria-label="Assistant answer" style={assistantBubbleStyle}>
-			{summary !== "" && (
-				<div style={summaryStyle}>
-					{animate ? <TypewriterText text={summary} /> : summary}
-				</div>
-			)}
+			{summary !== "" && <div style={summaryStyle}>{summary}</div>}
 			{payload.openui_dsl && payload.openui_dsl.length > 0 ? (
 				<div data-testid="openui-renderer">
 					<OpenUIRenderer dsl={payload.openui_dsl} />
@@ -165,6 +152,49 @@ function AssistantTerminal({
 	);
 }
 
+const streamingCaretStyle: React.CSSProperties = {
+	display: "inline-block",
+	width: 8,
+	height: "1em",
+	verticalAlign: "text-bottom",
+	background: colors.slate[500],
+	marginLeft: 2,
+	animation: "hughesStreamingCaret 1s step-end infinite",
+};
+
+const STREAMING_CARET_KEYFRAMES_ID = "hughes-streaming-caret-keyframes";
+
+function ensureCaretKeyframes(): void {
+	if (typeof document === "undefined") return;
+	if (document.getElementById(STREAMING_CARET_KEYFRAMES_ID)) return;
+	const style = document.createElement("style");
+	style.id = STREAMING_CARET_KEYFRAMES_ID;
+	style.textContent = `
+@keyframes hughesStreamingCaret {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+`;
+	document.head.appendChild(style);
+}
+
+/** In-flight assistant bubble fed by the slice's `streamingSummary`.
+ *  Replaced by the persisted AssistantTerminal as soon as the
+ *  thread-cache refetch lands (HUG-202 Phase 2). */
+function StreamingAssistant() {
+	const text = useAppSelector((s) => s.thread.streamingSummary);
+	if (!text) return null;
+	ensureCaretKeyframes();
+	return (
+		<article aria-label="Assistant answer (streaming)" style={assistantBubbleStyle}>
+			<div style={summaryStyle} data-testid="streaming-summary">
+				{text}
+				<span style={streamingCaretStyle} aria-hidden />
+			</div>
+		</article>
+	);
+}
+
 function UserBubble({ msg }: { msg: ThreadMessageWire }) {
 	return (
 		<div style={userBubbleStyle} aria-label="User question">
@@ -184,9 +214,22 @@ function AssistantText({ msg }: { msg: ThreadMessageWire }) {
 
 export default function MessageList({
 	messages,
-	animatedTerminalId,
 	pendingUserContent,
 }: Props) {
+	const streaming = useAppSelector((s) => s.thread.streaming);
+	const streamingSummary = useAppSelector((s) => s.thread.streamingSummary);
+	// Find the last persisted final-answer tool message — when it
+	// matches the streaming summary's content, switch from the in-flight
+	// bubble to the persisted one to avoid double-render.
+	const persistedHasMatchingTerminal = (() => {
+		for (let i = messages.length - 1; i >= 0; i--) {
+			const m = messages[i];
+			if (m.role === "tool" && isFinalAnswerToolMessage(m)) return true;
+		}
+		return false;
+	})();
+	const showStreamingBubble =
+		streaming || (streamingSummary.length > 0 && !persistedHasMatchingTerminal);
 	return (
 		<div style={containerStyle} role="log" aria-live="polite">
 			{messages.map((msg) => {
@@ -197,15 +240,8 @@ export default function MessageList({
 					return <AssistantText key={msg.message_id} msg={msg} />;
 				}
 				if (msg.role === "tool" && isFinalAnswerToolMessage(msg)) {
-					return (
-						<AssistantTerminal
-							key={msg.message_id}
-							msg={msg}
-							animate={animatedTerminalId === msg.message_id}
-						/>
-					);
+					return <AssistantTerminal key={msg.message_id} msg={msg} />;
 				}
-				// system messages and intermediate tool calls are not user-visible
 				return null;
 			})}
 			{pendingUserContent ? (
@@ -213,6 +249,7 @@ export default function MessageList({
 					{pendingUserContent}
 				</div>
 			) : null}
+			{showStreamingBubble ? <StreamingAssistant /> : null}
 		</div>
 	);
 }

@@ -19,6 +19,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from nl_engine.agent.graph import build_graph
 from nl_engine.agent.persistence import to_canonical
 from nl_engine.agent.state import AgentState
+from nl_engine.agent.streaming import clear_token_sink, set_token_sink
 from nl_engine.logging import bind_request_id, get_logger
 
 from api.prometheus import (
@@ -34,7 +35,7 @@ from api.services.agent_runner_events import (
 )
 from api.services.openui_validator import validate_openui_dsl
 from api.types.threads import ThreadMessage
-from api.types.threads_api import StreamError, StreamFinal
+from api.types.threads_api import StreamError, StreamFinal, StreamToken
 
 slog = get_logger().bind(component="agent.runner")
 
@@ -116,6 +117,9 @@ def _make_producer(graph: Any, initial: AgentState, queue: asyncio.Queue[Any]) -
     return producer
 
 
+_TOKEN_SENTINEL_KEY = "_token_delta"  # noqa: S105 — queue sentinel
+
+
 def _start_turn(
     thread_id: UUID,
     user_content: str,
@@ -139,6 +143,16 @@ def _start_turn(
     )
     initial = _build_initial_state(thread_id, user_content, history, request_id)
     queue: asyncio.Queue[Any] = asyncio.Queue()
+    # HUG-202 Phase 2: token deltas → asyncio queue → SSE `token` frames.
+    if request_id:
+        loop = asyncio.get_running_loop()
+
+        def _sink(delta: str) -> None:
+            loop.call_soon_threadsafe(
+                queue.put_nowait, {_TOKEN_SENTINEL_KEY: delta}
+            )
+
+        set_token_sink(request_id, _sink)
     asyncio.create_task(
         asyncio.to_thread(_make_producer(build_graph(llm), initial, queue))
     )
@@ -181,6 +195,14 @@ async def stream_user_turn(
             if isinstance(chunk, _PRODUCER_ERROR_SENTINEL):
                 yield _emit_error_frame(chunk.message)
                 continue
+            if isinstance(chunk, dict) and _TOKEN_SENTINEL_KEY in chunk:
+                yield {
+                    "event": "token",
+                    "data": StreamToken(
+                        content_delta=chunk[_TOKEN_SENTINEL_KEY]
+                    ).model_dump_json(),
+                }
+                continue
             for msg in chunk.get("messages", []):
                 if id(msg) in seen or isinstance(msg, HumanMessage):
                     seen.add(id(msg))
@@ -190,6 +212,8 @@ async def stream_user_turn(
                 for event in _process_message(msg, step_idx, thread_id, db_url):
                     yield event
     finally:
+        if request_id:
+            clear_token_sink(request_id)
         _finalize_turn(thread_id, turn_start, step_idx, token)
 
 

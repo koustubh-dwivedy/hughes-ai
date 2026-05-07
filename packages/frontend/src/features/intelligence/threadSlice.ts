@@ -71,6 +71,11 @@ export interface ThreadState {
 	// streamStarted / streamFinal / streamError so a new turn starts
 	// from the default copy.
 	narrationLine: string | null;
+	// HUG-202 Phase 2 — accumulating LLM-streamed answer summary. Grows
+	// token-by-token while the agent generates `final_answer.summary`.
+	// Cleared at the start of each turn and on streamFinal once the
+	// canonical persisted message takes over.
+	streamingSummary: string;
 }
 
 export const initialThreadState: ThreadState = {
@@ -82,6 +87,7 @@ export const initialThreadState: ThreadState = {
 	error: null,
 	pendingQuestion: null,
 	narrationLine: null,
+	streamingSummary: "",
 };
 
 const slice = createSlice({
@@ -108,6 +114,7 @@ const slice = createSlice({
 			state.streaming = false;
 			state.pendingQuestion = null;
 			state.narrationLine = null;
+			state.streamingSummary = "";
 		},
 		pendingQuestionSubmitted(
 			state,
@@ -131,6 +138,7 @@ const slice = createSlice({
 			state.lastFinal = null;
 			state.error = null;
 			state.narrationLine = null;
+			state.streamingSummary = "";
 		},
 		streamStep(state, action: PayloadAction<ThreadStreamStep>) {
 			state.steps.push(action.payload);
@@ -138,21 +146,30 @@ const slice = createSlice({
 		streamThinking(state, action: PayloadAction<{ step: number; line: string }>) {
 			state.narrationLine = action.payload.line;
 		},
+		streamToken(state, action: PayloadAction<{ content_delta: string }>) {
+			state.streamingSummary += action.payload.content_delta;
+		},
 		streamFinal(state, action: PayloadAction<ThreadStreamFinal>) {
 			state.lastFinal = action.payload;
 			state.streaming = false;
 			state.narrationLine = null;
+			// Keep streamingSummary populated briefly so the bubble
+			// doesn't flash empty between final-event landing and the
+			// persisted-thread refetch arriving. The next streamStarted
+			// resets it.
 		},
 		streamCleared(state) {
 			state.steps = [];
 			state.lastFinal = null;
 			state.error = null;
 			state.narrationLine = null;
+			state.streamingSummary = "";
 		},
 		streamError(state, action: PayloadAction<string>) {
 			state.error = action.payload;
 			state.streaming = false;
 			state.narrationLine = null;
+			state.streamingSummary = "";
 		},
 	},
 });
@@ -164,6 +181,7 @@ export const {
 	streamStarted,
 	streamStep,
 	streamThinking,
+	streamToken,
 	streamFinal,
 	streamCleared,
 	streamError,

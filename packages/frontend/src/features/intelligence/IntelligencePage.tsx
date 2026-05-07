@@ -197,16 +197,6 @@ export default function IntelligencePage() {
 		}
 	}, [pendingQuestion, pendingUserContent, dispatch]);
 
-	// Animate only the most recent terminal answer (so re-renders /
-	// scrolling existing threads don't re-type prior answers).
-	const animatedTerminalId = useMemo(() => {
-		for (let i = messages.length - 1; i >= 0; i--) {
-			const m = messages[i];
-			if (m.role === "tool") return m.message_id;
-		}
-		return null;
-	}, [messages]);
-
 	return (
 		<div style={layoutStyle}>
 			<ThreadRail currentThreadId={threadId} onNewThread={handleNewThread} />
@@ -236,7 +226,6 @@ export default function IntelligencePage() {
 						<>
 							<MessageList
 								messages={messages}
-								animatedTerminalId={animatedTerminalId}
 								pendingUserContent={pendingUserContent}
 							/>
 							<div style={{ padding: spacing[3] }}>

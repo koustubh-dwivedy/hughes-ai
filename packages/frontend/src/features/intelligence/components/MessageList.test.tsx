@@ -1,7 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { render as rtlRender, screen } from "@testing-library/react";
+import { Provider as ReduxProvider } from "react-redux";
 import { describe, expect, it, vi } from "vitest";
+import { createStore } from "../../../shared/api/store";
 import type { ThreadMessageWire } from "../api";
 import MessageList from "./MessageList";
+
+function render(ui: React.ReactElement) {
+	const store = createStore();
+	return rtlRender(<ReduxProvider store={store}>{ui}</ReduxProvider>);
+}
 
 vi.mock("../openui/OpenUIRenderer", () => ({
 	default: ({ dsl }: { dsl: string }) => (

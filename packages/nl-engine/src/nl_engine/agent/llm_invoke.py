@@ -18,6 +18,7 @@ Lifted out of `graph.py` to keep that file under the 300-LOC cap
 
 from __future__ import annotations
 
+import contextlib
 import threading
 from typing import Any
 
@@ -59,6 +60,58 @@ def is_transient_llm_error(exc: BaseException) -> bool:
     that won't self-heal)."""
     msg = (str(exc) + " " + type(exc).__name__).lower()
     return any(marker in msg for marker in TRANSIENT_LLM_MARKERS)
+
+
+def stream_with_wall_timeout(
+    bound: Any,
+    msgs: list[BaseMessage],
+    timeout_s: float,
+    on_chunk: Any,
+) -> Any:
+    """Run `bound.stream(msgs)` with a wall-clock timeout.
+
+    Iterates the LangChain stream, calls `on_chunk(chunk)` per chunk,
+    and accumulates them into a single AIMessage compatible with the
+    graph's existing invoke()-based contract. Raises
+    `LLMWallClockTimeoutError` if the full stream hasn't completed
+    within `timeout_s` so the caller's transient-retry layer kicks in.
+
+    `on_chunk` runs in the worker thread; sink-side errors should
+    not propagate (the registry's `emit_token` already swallows them).
+    """
+    result_box: dict[str, Any] = {}
+
+    def runner() -> None:
+        try:
+            full: Any = None
+            for chunk in bound.stream(msgs):
+                # Sink errors must not abort the LLM stream — the consumer
+                # being unreachable shouldn't fail the agent turn.
+                with contextlib.suppress(BaseException):
+                    on_chunk(chunk)
+                full = chunk if full is None else full + chunk
+            result_box["value"] = full
+        except BaseException as exc:  # noqa: BLE001 — surfaced via box
+            result_box["error"] = exc
+
+    worker = threading.Thread(
+        target=runner, daemon=True, name="agent-step-llm-stream"
+    )
+    worker.start()
+    worker.join(timeout=timeout_s)
+    if worker.is_alive():
+        raise LLMWallClockTimeoutError(
+            f"LLM stream exceeded wall-clock budget of {timeout_s}s "
+            "(provider hang)"
+        )
+    if "error" in result_box:
+        raise result_box["error"]
+    if result_box.get("value") is None:
+        # Empty stream — provider returned no chunks. Treat as transient.
+        raise LLMWallClockTimeoutError(
+            "LLM stream returned zero chunks (empty response)"
+        )
+    return result_box["value"]
 
 
 def invoke_with_wall_timeout(

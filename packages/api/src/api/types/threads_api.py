@@ -64,6 +64,15 @@ class StreamFinal(BaseModel):
     openui: OpenUIDslPayload | None = None
 
 
+class StreamToken(BaseModel):
+    """SSE event carrying a content delta for the assistant's
+    streaming summary (HUG-202 Phase 2). The frontend appends each
+    delta to the in-flight answer bubble's text. The full canonical
+    summary lands in the subsequent `final` event when the turn ends."""
+
+    content_delta: str
+
+
 class StreamThinking(BaseModel):
     """SSE event carrying a single narration line for the Thinking box
     (HUG-202). The box shows ONE line at a time — each new event REPLACES
