@@ -15,6 +15,7 @@ Hughes AI is a lending analytics demo for one synthetic credit union. Users ask 
 | `packages/synth-data/` | Deterministic synthetic data generators (Origence + Symitar + reconciliation bridge) |
 | `packages/nl-engine/` | LangGraph agent (Surface 2) + MetricFlow integration + eval harness |
 | `packages/nl-engine/src/nl_engine/agent/` | Agent graph, tools, prompts (`system_prompt.py` + `openui_prompt.txt`) |
+| `packages/nl-engine/src/nl_engine/agent/prompts/` | DSPy modules + compiled artifacts (HUG-181) |
 | `packages/api/` | FastAPI backend: /threads, /history, /trust, /data-model/*, /dashboards/* |
 | `packages/frontend/` | React + Vite + TypeScript single-page app |
 | `packages/frontend/src/dashboards/` | Dashboard page modules (ExecutiveSummary, DepositPortfolio, PastDue, OfficerBranch, Chat) |
