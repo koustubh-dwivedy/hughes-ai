@@ -23,8 +23,8 @@ async def log_endpoint(body: LogRequest) -> Response:
     log = structlog.stdlib.get_logger()
     bound = log.bind(source="frontend", **body.context)
     if body.request_id:
-        # client_request_id preserves the original /ask trace ID alongside
-        # the middleware-generated request_id for this /log call
+        # client_request_id preserves the original turn / thread request ID
+        # alongside the middleware-generated request_id for this /log call.
         bound = bound.bind(client_request_id=body.request_id)
     if body.level == "error":
         bound.error(body.message)
