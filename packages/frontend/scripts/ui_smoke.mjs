@@ -24,9 +24,96 @@ const OUT_DIR = "/tmp/hughes-ui-smoke";
 const QUICK = process.argv.includes("--quick");
 const HEADED = process.argv.includes("--headed");
 
+// HUG-202 Phase 4: when set, the log-assertion utility tails the API
+// stdout file and asserts per-turn telemetry invariants for each
+// LLM-bound scenario. Skipped silently if unset.
+const API_LOG_PATH = process.env.HUGHES_API_LOG_PATH ?? "";
+
 await fs.mkdir(OUT_DIR, { recursive: true });
 
 const results = [];
+
+/**
+ * Capture an SSE POST /messages response's X-Request-ID. Wraps the
+ * page's fetch so any subsequent /messages call exposes the header
+ * value via window.__hughesLastRequestId.
+ */
+async function installRequestIdCapture(page) {
+	await page.evaluate(() => {
+		window.__hughesLastRequestId = null;
+		const orig = window.fetch;
+		window.fetch = async (...args) => {
+			const url = String(args[0]);
+			const res = await orig(...args);
+			if (url.includes("/messages")) {
+				const rid = res.headers.get("x-request-id");
+				if (rid) window.__hughesLastRequestId = rid;
+			}
+			return res;
+		};
+	});
+}
+
+/**
+ * Read the API stdout file and return the JSON-parseable structlog
+ * events whose `request_id` field matches the given rid. Returns []
+ * when no log file was configured (so callers can short-circuit).
+ */
+async function readAgentEventsFor(rid) {
+	if (!API_LOG_PATH || !rid) return [];
+	let raw;
+	try {
+		raw = await fs.readFile(API_LOG_PATH, "utf-8");
+	} catch {
+		return [];
+	}
+	const events = [];
+	for (const line of raw.split("\n")) {
+		if (!line.startsWith("{")) continue;
+		try {
+			const obj = JSON.parse(line);
+			if (obj.request_id === rid && typeof obj.event === "string") {
+				events.push(obj);
+			}
+		} catch {}
+	}
+	return events;
+}
+
+/**
+ * Cross-check log invariants for a single LLM-bound turn. Throws on
+ * any failed assertion; returns a descriptive note on success. No-op
+ * (returns null) when log assertions are not configured.
+ */
+async function assertTelemetryFor(rid) {
+	if (!API_LOG_PATH) return null;
+	const events = await readAgentEventsFor(rid);
+	if (events.length === 0) {
+		throw new Error(`no agent events found for request_id=${rid}`);
+	}
+	const counts = {};
+	for (const e of events) counts[e.event] = (counts[e.event] || 0) + 1;
+	const fail = (msg) => {
+		throw new Error(`telemetry assert failed: ${msg} | counts=${JSON.stringify(counts)}`);
+	};
+	if (counts["agent.turn_started"] !== 1) fail("expected agent.turn_started=1");
+	if (counts["agent.turn_completed"] !== 1) fail("expected agent.turn_completed=1");
+	if ((counts["agent.narration_emitted"] || 0) < 3) fail("expected narration_emitted ≥3");
+	if (counts["agent.trace_persisted"] !== 1) fail("expected trace_persisted=1");
+	if (counts["agent.token_stream_summary"] !== 1) fail("expected token_stream_summary=1");
+	const tokenSum = events.find((e) => e.event === "agent.token_stream_summary");
+	// `token_count >= 1` proves the streaming pipeline fired end-to-end.
+	// The strict ≥2-tokens-with-spread proof lives in the dedicated
+	// real-backend-streaming scenario; here we just cross-check existence.
+	if (!tokenSum || tokenSum.token_count < 1) {
+		fail(`expected token_stream_summary.token_count ≥1 (got ${tokenSum?.token_count})`);
+	}
+	const tracePersisted = events.find((e) => e.event === "agent.trace_persisted");
+	if (!tracePersisted || tracePersisted.entries < 3) {
+		fail(`expected trace_persisted.entries ≥3 (got ${tracePersisted?.entries})`);
+	}
+	return `telemetry: ${JSON.stringify(counts)} · trace.entries=${tracePersisted.entries} · tokens=${tokenSum.token_count}`;
+}
 
 async function withPage(name, fn) {
 	const t0 = Date.now();
@@ -118,6 +205,8 @@ await withPage("new-thread-button-clears-state", async ({ page, addNote }) => {
 
 if (!QUICK) {
 	await withPage("real-backend-streaming-emits-multiple-tokens", async ({ page, addNote }) => {
+		// scenario installs its own fetch wrap below; log-side telemetry
+		// assertions fire on the request_id captured during the run.
 		// HUG-202 Phase 2: the answer summary streams from the backend as
 		// LLM tokens. Assert ≥5 SSE `event: token` frames arrive AND the
 		// streaming-summary DOM grows monotonically over time.
@@ -127,11 +216,14 @@ if (!QUICK) {
 		await page.evaluate(() => {
 			window.__hughesTokenEvents = [];
 			window.__hughesSummarySamples = [];
+			window.__hughesLastRequestId = null;
 			const origFetch = window.fetch;
 			window.fetch = async (...args) => {
 				const url = String(args[0]);
 				const res = await origFetch(...args);
 				if (!url.includes("/messages") || !res.body) return res;
+				const rid = res.headers.get("x-request-id");
+				if (rid) window.__hughesLastRequestId = rid;
 				const reader = res.body.getReader();
 				const decoder = new TextDecoder();
 				const stream = new ReadableStream({
@@ -192,6 +284,9 @@ if (!QUICK) {
 		if (spread < 100)
 			throw new Error(`tokens arrived ${spread}ms apart — looks like a single chunk, not real streaming`);
 		if (!monotonic) throw new Error("streaming-summary text did not grow monotonically");
+		const rid = await page.evaluate(() => window.__hughesLastRequestId);
+		const telemetry = await assertTelemetryFor(rid);
+		if (telemetry) addNote(telemetry);
 	});
 
 	await withPage("thinking-narration-rolls-in-place", async ({ page, addNote }) => {
@@ -210,6 +305,7 @@ if (!QUICK) {
 			obs.observe(document.body, { childList: true, subtree: true, characterData: true });
 			window.__hughesObserver = obs;
 		});
+		await installRequestIdCapture(page);
 		await page.getByRole("button", { name: /loan-to-deposit/i }).click();
 		const terminal = page.locator('[aria-label="Assistant answer"]').first();
 		await terminal.waitFor({ state: "visible", timeout: 180_000 });
@@ -229,11 +325,15 @@ if (!QUICK) {
 		if (stackedCount > 0) {
 			throw new Error("Thinking bubble accumulated multi-line ticker — should be one line");
 		}
+		const rid = await page.evaluate(() => window.__hughesLastRequestId);
+		const telemetry = await assertTelemetryFor(rid);
+		if (telemetry) addNote(telemetry);
 	});
 
 	await withPage("after-answer-thinking-bubble-disappears", async ({ page, addNote }) => {
 		await page.goto(`${BASE}/intelligence`);
 		await page.waitForLoadState("networkidle");
+		await installRequestIdCapture(page);
 		await page.getByRole("button", { name: /loan-to-deposit/i }).click();
 		const terminal = page.locator('[aria-label="Assistant answer"]').first();
 		await terminal.waitFor({ state: "visible", timeout: 180_000 });
@@ -257,6 +357,9 @@ if (!QUICK) {
 			const visible = await thinking.first().isVisible();
 			if (visible) throw new Error("Thinking bubble still visible after answer arrived");
 		}
+		const rid = await page.evaluate(() => window.__hughesLastRequestId);
+		const telemetry = await assertTelemetryFor(rid);
+		if (telemetry) addNote(telemetry);
 	});
 
 	await withPage("new-thread-after-real-answer-clears", async ({ page, addNote }) => {
@@ -293,9 +396,13 @@ if (!QUICK) {
 		// modal, even after a fresh GET /threads/:id (i.e. on reload).
 		await page.goto(`${BASE}/intelligence`);
 		await page.waitForLoadState("networkidle");
+		await installRequestIdCapture(page);
 		await page.getByRole("button", { name: /loan-to-deposit/i }).click();
 		const terminal = page.locator('[aria-label="Assistant answer"]').first();
 		await terminal.waitFor({ state: "visible", timeout: 240_000 });
+		const rid = await page.evaluate(() => window.__hughesLastRequestId);
+		const telemetry = await assertTelemetryFor(rid);
+		if (telemetry) addNote(telemetry);
 		// Force a clean reload so the trace comes from GET /threads/:id,
 		// not in-flight slice state.
 		await page.reload();
@@ -317,6 +424,7 @@ if (!QUICK) {
 	await withPage("references-pill-and-modal", async ({ page, addNote }) => {
 		await page.goto(`${BASE}/intelligence`);
 		await page.waitForLoadState("networkidle");
+		await installRequestIdCapture(page);
 		await page.getByRole("button", { name: /loan-to-deposit/i }).click();
 		const terminal = page.locator('[aria-label="Assistant answer"]').first();
 		await terminal.waitFor({ state: "visible", timeout: 180_000 });
@@ -335,15 +443,17 @@ if (!QUICK) {
 		addNote(`dialog opens with Source rows: ${dialogText?.includes("Source rows")}; MetricFlow query: ${dialogText?.includes("MetricFlow query")}`);
 		await page.keyboard.press("Escape");
 		await dialog.waitFor({ state: "hidden", timeout: 2000 });
+		const rid = await page.evaluate(() => window.__hughesLastRequestId);
+		const telemetry = await assertTelemetryFor(rid);
+		if (telemetry) addNote(telemetry);
 	});
 
 	await withPage("submit-from-empty-state-shows-acknowledgment", async ({ page, addNote }) => {
 		await page.goto(`${BASE}/intelligence`);
 		await page.waitForLoadState("networkidle");
+		await installRequestIdCapture(page);
 		const composer = page.getByLabel(/Ask Hughes/i);
 		await composer.fill("What's our loan-to-deposit ratio this month?");
-		// Submit and immediately look for the user bubble — it MUST appear
-		// before the LLM round-trip completes.
 		await page.getByRole("button", { name: /^Send$/ }).click();
 		const userBubble = page.locator('[aria-label="User question (sending)"], [aria-label="User question"]').first();
 		await userBubble.waitFor({ state: "visible", timeout: 1500 });
@@ -351,30 +461,36 @@ if (!QUICK) {
 		const thinking = page.locator('[aria-label="Assistant is thinking"]');
 		await thinking.waitFor({ state: "visible", timeout: 1500 });
 		addNote("thinking bubble appeared");
-		// Wait up to 3 minutes for the real terminal answer (LLM cold start).
 		const terminal = page.locator('[aria-label="Assistant answer"]').first();
 		await terminal.waitFor({ state: "visible", timeout: 180_000 });
 		addNote(`final answer arrived after ${page.url()}`);
-		// Confirm OpenUI styling actually rendered (not raw <div>).
-		const card = page.locator(".openui-card, [class*='card'], [data-openui]").first();
 		const cardCount = await page.locator('[class*="Card"], [class*="card"]').count();
 		addNote(`elements with card class: ${cardCount}`);
+		// HUG-202 Phase 4: cross-check the SSE-side observation against
+		// the backend's structured agent.* logs for the same request_id.
+		const rid = await page.evaluate(() => window.__hughesLastRequestId);
+		addNote(`request_id: ${rid ?? "(none)"}`);
+		const telemetry = await assertTelemetryFor(rid);
+		if (telemetry) addNote(telemetry);
 	});
 
 	await withPage("chart-question-renders-openui", async ({ page, addNote }) => {
 		await page.goto(`${BASE}/intelligence`);
 		await page.waitForLoadState("networkidle");
+		await installRequestIdCapture(page);
 		const composer = page.getByLabel(/Ask Hughes/i);
 		await composer.fill("Show deposit balance by branch as of the latest month.");
 		await page.getByRole("button", { name: /^Send$/ }).click();
 		const terminal = page.locator('[aria-label="Assistant answer"]').first();
 		await terminal.waitFor({ state: "visible", timeout: 180_000 });
-		// Look for any chart / table content
 		const renderer = page.locator('[data-testid="openui-renderer"]').first();
 		const rendered = await renderer.count();
 		addNote(`openui-renderer present: ${rendered > 0}`);
 		const chart = page.locator('svg, canvas, [class*="chart" i], [class*="bar" i]');
 		addNote(`chart-like elements: ${await chart.count()}`);
+		const rid = await page.evaluate(() => window.__hughesLastRequestId);
+		const telemetry = await assertTelemetryFor(rid);
+		if (telemetry) addNote(telemetry);
 	});
 }
 

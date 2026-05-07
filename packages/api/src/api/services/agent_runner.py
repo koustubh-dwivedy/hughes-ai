@@ -34,6 +34,7 @@ from api.services.agent_runner_events import (
     terminal_payload,
     trace_entry,
 )
+from api.services.agent_runner_loop import TurnState, consume_queue
 from api.services.agent_runner_persistence import (
     persist_assistant,
     persist_tool,
@@ -155,36 +156,29 @@ async def stream_user_turn(
         thread_id, user_content, db_url, llm, history, request_id
     )
     turn_start = time.monotonic()
-    seen: set[int] = set()
-    step_idx = 0
-    # HUG-202 Phase 3: chronological trace persisted on the final-
-    # answer ToolMessage. References modal reads from here.
-    trace: list[dict[str, Any]] = []
+    state = TurnState()
     try:
-        while True:
-            chunk = await queue.get()
-            if chunk is None:
-                break
-            if isinstance(chunk, _PRODUCER_ERROR_SENTINEL):
-                yield _emit_error_frame(chunk.message)
-                continue
-            if isinstance(chunk, dict) and _TOKEN_SENTINEL_KEY in chunk:
-                yield _token_frame(chunk[_TOKEN_SENTINEL_KEY])
-                continue
-            for msg in chunk.get("messages", []):
-                if id(msg) in seen or isinstance(msg, HumanMessage):
-                    seen.add(id(msg))
-                    continue
-                seen.add(id(msg))
-                step_idx += 1
-                for event in _process_message(
-                    msg, step_idx, thread_id, db_url, trace
-                ):
-                    yield event
+        async for event in consume_queue(
+            queue,
+            state,
+            thread_id,
+            db_url,
+            is_error_sentinel=lambda c: isinstance(c, _PRODUCER_ERROR_SENTINEL),
+            error_frame=_emit_error_frame,
+            token_sentinel_key=_TOKEN_SENTINEL_KEY,
+            token_frame=_token_frame,
+            process_message=_process_message,
+        ):
+            yield event
     finally:
         if request_id:
             clear_token_sink(request_id)
-        _finalize_turn(thread_id, turn_start, step_idx, token)
+        slog.info(
+            "agent.token_stream_summary",
+            token_count=state.token_count,
+            total_chars=state.token_chars,
+        )
+        _finalize_turn(thread_id, turn_start, state.step_idx, token)
 
 
 def _finalize_turn(
