@@ -88,6 +88,20 @@ describe("parseSseBuffer", () => {
 		expect(first.events).toHaveLength(1);
 		expect(second.events).toEqual([{ event: "final", data: '{"x":1}' }]);
 	});
+
+	it("parses CRLF-separated wire output (sse_starlette default)", () => {
+		// Regression: the live wire emits \r\n between fields and \r\n\r\n
+		// between events. Splitting on \n\n alone produced zero events on
+		// this transport, leading to the streaming flag never clearing.
+		const { events, remainder } = parseSseBuffer(
+			'event: step\r\ndata: {"step":1}\r\n\r\nevent: final\r\ndata: {"ok":true}\r\n\r\n',
+		);
+		expect(events).toEqual([
+			{ event: "step", data: '{"step":1}' },
+			{ event: "final", data: '{"ok":true}' },
+		]);
+		expect(remainder).toBe("");
+	});
 });
 
 describe("usePostMessageMutation — SSE wiring", () => {

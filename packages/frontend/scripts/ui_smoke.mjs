@@ -117,6 +117,62 @@ await withPage("new-thread-button-clears-state", async ({ page, addNote }) => {
 });
 
 if (!QUICK) {
+	await withPage("after-answer-thinking-bubble-disappears", async ({ page, addNote }) => {
+		await page.goto(`${BASE}/intelligence`);
+		await page.waitForLoadState("networkidle");
+		await page.getByRole("button", { name: /loan-to-deposit/i }).click();
+		const terminal = page.locator('[aria-label="Assistant answer"]').first();
+		await terminal.waitFor({ state: "visible", timeout: 180_000 });
+		await page.waitForTimeout(1500);
+		// Capture a screenshot + slice state for debugging
+		await page.screenshot({ path: path.join(OUT_DIR, "after-answer.png"), fullPage: true });
+		const sliceState = await page.evaluate(() => {
+			const root = document.getElementById("root");
+			const reactRoot = root?._reactRootContainer ?? null;
+			return {
+				thinkingHTML: document.querySelector('[aria-label="Assistant is thinking"]')?.outerHTML?.slice(0, 500) ?? null,
+				answerHTML: document.querySelector('[aria-label="Assistant answer"]')?.outerHTML?.slice(0, 200) ?? null,
+				bodyChildren: document.body.children.length,
+			};
+		});
+		addNote(`debug: ${JSON.stringify(sliceState).slice(0, 500)}`);
+		const thinking = page.locator('[aria-label="Assistant is thinking"]');
+		const cnt = await thinking.count();
+		addNote(`thinking bubble count after final: ${cnt}`);
+		if (cnt > 0) {
+			const visible = await thinking.first().isVisible();
+			if (visible) throw new Error("Thinking bubble still visible after answer arrived");
+		}
+	});
+
+	await withPage("new-thread-after-real-answer-clears", async ({ page, addNote }) => {
+		await page.goto(`${BASE}/intelligence`);
+		await page.waitForLoadState("networkidle");
+		await page.getByRole("button", { name: /loan-to-deposit/i }).click();
+		const terminal = page.locator('[aria-label="Assistant answer"]').first();
+		await terminal.waitFor({ state: "visible", timeout: 180_000 });
+		await page.waitForTimeout(1000);
+		const newBtn = page.getByRole("button", { name: /\+ New thread/i });
+		await newBtn.click();
+		await page.waitForURL(`${BASE}/intelligence`, { timeout: 5000 });
+		await page.waitForTimeout(500);
+		await page.screenshot({ path: path.join(OUT_DIR, "after-newthread.png"), fullPage: true });
+		const dump = await page.evaluate(() => ({
+			url: location.href,
+			heading: document.querySelector('h2')?.textContent ?? null,
+			answers: document.querySelectorAll('[aria-label="Assistant answer"]').length,
+			thinking: !!document.querySelector('[aria-label="Assistant is thinking"]'),
+			suggestions: document.querySelectorAll('button').length,
+			composerVisible: !!document.querySelector('textarea'),
+		}));
+		addNote(`post-click DOM: ${JSON.stringify(dump)}`);
+		const heading = page.getByRole("heading", { name: /Ask Hughes/i });
+		await heading.waitFor({ state: "visible", timeout: 3000 });
+		const oldAnswer = await page.locator('[aria-label="Assistant answer"]').count();
+		if (oldAnswer > 0) throw new Error("Previous answer still visible after New Thread");
+		addNote(`stale assistant answers visible: ${oldAnswer}`);
+	});
+
 	await withPage("references-pill-and-modal", async ({ page, addNote }) => {
 		await page.goto(`${BASE}/intelligence`);
 		await page.waitForLoadState("networkidle");

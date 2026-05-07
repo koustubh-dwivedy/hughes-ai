@@ -94,7 +94,11 @@ interface ParseResult {
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSE parser state machine — splitting it further obscures the per-line dispatch.
 export function parseSseBuffer(buffer: string): ParseResult {
 	const events: ParsedSseEvent[] = [];
-	const blocks = buffer.split("\n\n");
+	// sse_starlette / starlette emit CRLF line endings (\r\n\r\n between
+	// events). The earlier LF-only split silently produced zero events on
+	// the live wire, so the entire stream landed in the trailing flush as
+	// a single corrupted "final" block — see HUG-201 follow-up.
+	const blocks = buffer.split(/\r?\n\r?\n/);
 	const remainder = blocks.pop() ?? "";
 	for (const block of blocks) {
 		if (block.length === 0) continue;

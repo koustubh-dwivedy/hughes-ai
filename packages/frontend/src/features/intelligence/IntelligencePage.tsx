@@ -166,7 +166,12 @@ export default function IntelligencePage() {
 		dispatch(setCurrentThread(null));
 	}
 
-	const messages = thread?.messages ?? [];
+	// Guard against RTK Query returning the previously-cached thread's data
+	// during the brief moment after navigating to `/intelligence` (no id),
+	// where `thread` may still hold the previous fetch's payload before the
+	// hook re-evaluates against `skipToken`. Without this guard the old
+	// answer flickers back into view after clicking "+ New thread".
+	const messages = threadId ? (thread?.messages ?? []) : [];
 	const clarifyMsg = lastClarifyMessage(messages);
 	// Hide the empty state once we know a question is pending — avoids the
 	// brief flash where the page navigates to /intelligence/<id> but the
