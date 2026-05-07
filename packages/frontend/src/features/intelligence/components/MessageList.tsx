@@ -13,13 +13,22 @@
  * parsing the JSON `content` blob.
  */
 
+import { useState } from "react";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
-import JsonBlock from "../../../ui/primitives/JsonBlock/JsonBlock";
 import type { ThreadMessageWire } from "../api";
 import OpenUIRenderer from "../openui/OpenUIRenderer";
+import ReferencesModal from "./ReferencesModal";
+import TypewriterText from "./TypewriterText";
 
 interface Props {
 	messages: ThreadMessageWire[];
+	/** The id of the most-recently-arrived final-answer ToolMessage, so the
+	 *  summary types-in once instead of every re-render. */
+	animatedTerminalId?: string | null;
+	/** Optimistic user-question bubble shown at the tail while the agent is
+	 *  responding (HUG-201 option A). Cleared once the persisted history
+	 *  refetches with the matching user message. */
+	pendingUserContent?: string | null;
 }
 
 interface FinalPayload {
@@ -63,43 +72,6 @@ const summaryStyle: React.CSSProperties = {
 	marginBottom: spacing[2],
 };
 
-const sectionLabelStyle: React.CSSProperties = {
-	fontSize: typography.size.xs,
-	fontWeight: typography.weight.medium,
-	color: colors.slate[600],
-	textTransform: "uppercase",
-	letterSpacing: "0.04em",
-	marginTop: spacing[3],
-	marginBottom: spacing[1],
-};
-
-const tableWrapStyle: React.CSSProperties = {
-	overflowX: "auto",
-	border: `1px solid ${colors.slate[200]}`,
-	borderRadius: radii.md,
-	background: colors.white,
-	marginTop: spacing[2],
-};
-
-const tableStyle: React.CSSProperties = {
-	width: "100%",
-	borderCollapse: "collapse",
-	fontSize: typography.size.xs,
-};
-
-const cellStyle: React.CSSProperties = {
-	padding: `${spacing[1]} ${spacing[3]}`,
-	borderBottom: `1px solid ${colors.slate[100]}`,
-	textAlign: "left",
-};
-
-const headerCellStyle: React.CSSProperties = {
-	...cellStyle,
-	background: colors.slate[100],
-	fontWeight: typography.weight.medium,
-	color: colors.slate[700],
-};
-
 function parseFinalPayload(msg: ThreadMessageWire): FinalPayload {
 	// `summary` only lives inside the content JSON blob — the
 	// persistence layer doesn't have a dedicated column for it. Parse
@@ -129,69 +101,66 @@ function isFinalAnswerToolMessage(msg: ThreadMessageWire): boolean {
 	return first.name === "final_answer";
 }
 
-function RowsTable({ rows }: { rows: Record<string, unknown>[] }) {
-	if (rows.length === 0) return null;
-	const cols = Object.keys(rows[0]);
-	return (
-		<div style={tableWrapStyle}>
-			<table style={tableStyle}>
-				<thead>
-					<tr>
-						{cols.map((c) => (
-							<th key={c} style={headerCellStyle}>
-								{c}
-							</th>
-						))}
-					</tr>
-				</thead>
-				<tbody>
-					{rows.slice(0, 25).map((r, idx) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: row identity is positional in the agent's tool result
-						<tr key={idx}>
-							{cols.map((c) => (
-								<td key={c} style={cellStyle}>
-									{String(r[c] ?? "")}
-								</td>
-							))}
-						</tr>
-					))}
-				</tbody>
-			</table>
-		</div>
-	);
-}
+const referencesPillStyle: React.CSSProperties = {
+	alignSelf: "flex-start",
+	marginTop: spacing[2],
+	background: colors.white,
+	color: colors.indigo[700],
+	border: `1px solid ${colors.slate[200]}`,
+	borderRadius: radii.md,
+	padding: `${spacing[1]} ${spacing[3]}`,
+	cursor: "pointer",
+	fontSize: typography.size.xs,
+	fontFamily: typography.fontFamily,
+	fontWeight: typography.weight.medium,
+	display: "inline-flex",
+	alignItems: "center",
+	gap: spacing[1],
+};
 
-function AssistantTerminal({ msg }: { msg: ThreadMessageWire }) {
+function AssistantTerminal({
+	msg,
+	animate,
+}: {
+	msg: ThreadMessageWire;
+	animate: boolean;
+}) {
 	const payload = parseFinalPayload(msg);
 	const summary = payload.summary ?? "";
+	const [showRefs, setShowRefs] = useState(false);
+	const hasRows = (payload.rows?.length ?? 0) > 0;
+	const hasMfQuery = payload.mf_query !== null && payload.mf_query !== undefined;
+	const hasReferences = hasRows || hasMfQuery;
+	const refCount = (payload.rows?.length ?? 0) + (hasMfQuery ? 1 : 0);
 	return (
 		<article aria-label="Assistant answer" style={assistantBubbleStyle}>
-			{summary !== "" && <div style={summaryStyle}>{summary}</div>}
+			{summary !== "" && (
+				<div style={summaryStyle}>
+					{animate ? <TypewriterText text={summary} /> : summary}
+				</div>
+			)}
 			{payload.openui_dsl && payload.openui_dsl.length > 0 ? (
 				<div data-testid="openui-renderer">
 					<OpenUIRenderer dsl={payload.openui_dsl} />
 				</div>
 			) : null}
-			{payload.rows && payload.rows.length > 0 ? (
-				<>
-					<div style={sectionLabelStyle}>Source rows</div>
-					<RowsTable rows={payload.rows} />
-				</>
+			{hasReferences ? (
+				<button
+					type="button"
+					style={referencesPillStyle}
+					onClick={() => setShowRefs(true)}
+					aria-haspopup="dialog"
+				>
+					<span aria-hidden>📎</span>
+					References ({refCount})
+				</button>
 			) : null}
-			{payload.mf_query ? (
-				<details>
-					<summary
-						style={{
-							...sectionLabelStyle,
-							cursor: "pointer",
-							marginBottom: spacing[2],
-						}}
-					>
-						MetricFlow query
-					</summary>
-					<JsonBlock value={payload.mf_query} label="MetricFlow query" />
-				</details>
-			) : null}
+			<ReferencesModal
+				open={showRefs}
+				onClose={() => setShowRefs(false)}
+				rows={payload.rows ?? null}
+				mfQuery={payload.mf_query ?? null}
+			/>
 		</article>
 	);
 }
@@ -213,7 +182,11 @@ function AssistantText({ msg }: { msg: ThreadMessageWire }) {
 	);
 }
 
-export default function MessageList({ messages }: Props) {
+export default function MessageList({
+	messages,
+	animatedTerminalId,
+	pendingUserContent,
+}: Props) {
 	return (
 		<div style={containerStyle} role="log" aria-live="polite">
 			{messages.map((msg) => {
@@ -224,11 +197,22 @@ export default function MessageList({ messages }: Props) {
 					return <AssistantText key={msg.message_id} msg={msg} />;
 				}
 				if (msg.role === "tool" && isFinalAnswerToolMessage(msg)) {
-					return <AssistantTerminal key={msg.message_id} msg={msg} />;
+					return (
+						<AssistantTerminal
+							key={msg.message_id}
+							msg={msg}
+							animate={animatedTerminalId === msg.message_id}
+						/>
+					);
 				}
 				// system messages and intermediate tool calls are not user-visible
 				return null;
 			})}
+			{pendingUserContent ? (
+				<div style={userBubbleStyle} aria-label="User question (sending)">
+					{pendingUserContent}
+				</div>
+			) : null}
 		</div>
 	);
 }

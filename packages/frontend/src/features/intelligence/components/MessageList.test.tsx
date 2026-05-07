@@ -59,15 +59,19 @@ describe("MessageList", () => {
 		);
 	});
 
-	it("renders an assistant terminal message with summary, OpenUI tree, rows, and MF query disclosure", () => {
+	it("renders an assistant terminal message with summary + OpenUI tree + a References pill", () => {
 		render(<MessageList messages={[userMsg, makeFinalAnswer()]} />);
 		expect(screen.getByText(/LTD ratio is 13.48%/)).toBeInTheDocument();
 		expect(screen.getByTestId("openui-renderer")).toBeInTheDocument();
 		expect(screen.getByTestId("mocked-openui")).toHaveTextContent(/Stack/);
-		// One label inside <summary>, another inside the <JsonBlock> header.
-		expect(screen.getAllByText("MetricFlow query")).toHaveLength(2);
-		// rows table renders the column header
-		expect(screen.getByText("loan_to_deposit_ratio")).toBeInTheDocument();
+		// References pill is the new entry-point — rows + MF query are
+		// hidden behind it (HUG-201 follow-up).
+		const refsBtn = screen.getByRole("button", { name: /References/i });
+		expect(refsBtn).toBeInTheDocument();
+		// And neither the rows nor the MF query label should be visible
+		// inline before the modal opens.
+		expect(screen.queryByText("Source rows")).toBeNull();
+		expect(screen.queryByText("MetricFlow query")).toBeNull();
 	});
 
 	it("prefers persisted columns over content blob when both are populated", () => {

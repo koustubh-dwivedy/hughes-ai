@@ -8,18 +8,13 @@
  */
 
 import { useAppSelector } from "../../../shared/api/hooks";
-import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import { colors, spacing, typography } from "../../../theme/tokens";
 import type { ThreadStreamStep } from "../threadSlice";
 
 const wrapperStyle: React.CSSProperties = {
 	display: "flex",
 	flexDirection: "column",
 	gap: spacing[1],
-	padding: spacing[3],
-	background: colors.slate[50],
-	border: `1px dashed ${colors.slate[300]}`,
-	borderRadius: radii.md,
-	margin: spacing[3],
 	color: colors.slate[600],
 	fontSize: typography.size.sm,
 	fontStyle: "italic",
@@ -60,6 +55,7 @@ export default function StepIndicator() {
 	const streaming = useAppSelector((s) => s.thread.streaming);
 	const steps = useAppSelector((s) => s.thread.steps);
 	if (!streaming && steps.length === 0) return null;
+	if (steps.length === 0) return null;
 	return (
 		<output aria-live="polite" style={wrapperStyle}>
 			{steps.map((step) => (
@@ -68,12 +64,6 @@ export default function StepIndicator() {
 					{labelForStep(step)}
 				</div>
 			))}
-			{streaming && steps.length === 0 ? (
-				<div>
-					<span style={dotStyle} aria-hidden />
-					Thinking…
-				</div>
-			) : null}
 		</output>
 	);
 }

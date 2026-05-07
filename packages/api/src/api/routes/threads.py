@@ -22,19 +22,21 @@ from api.types.threads_api import (
 router = APIRouter()
 
 
-def _session_id(x_session_id: str | None) -> str:
-    if not x_session_id:
-        raise HTTPException(status_code=400, detail="X-Session-Id header is required")
-    return x_session_id
+def _session_id(x_hughes_session: str | None) -> str:
+    if not x_hughes_session:
+        raise HTTPException(
+            status_code=400, detail="X-Hughes-Session header is required"
+        )
+    return x_hughes_session
 
 
 @router.post("/threads", response_model=CreateThreadResponse)
 def create_thread(
     body: CreateThreadRequest,
     request: Request,
-    x_session_id: str | None = Header(default=None),
+    x_hughes_session: str | None = Header(default=None),
 ) -> CreateThreadResponse:
-    sid = _session_id(x_session_id)
+    sid = _session_id(x_hughes_session)
     thread = threads_repo.create_thread(
         session_id=sid, db_url=request.app.state.db_url, title=body.title
     )
@@ -49,9 +51,9 @@ def create_thread(
 def list_threads(
     request: Request,
     limit: int = 20,
-    x_session_id: str | None = Header(default=None),
+    x_hughes_session: str | None = Header(default=None),
 ) -> ListThreadsResponse:
-    sid = _session_id(x_session_id)
+    sid = _session_id(x_hughes_session)
     summaries = threads_repo.list_threads_for_session(
         sid, request.app.state.db_url, limit=limit
     )

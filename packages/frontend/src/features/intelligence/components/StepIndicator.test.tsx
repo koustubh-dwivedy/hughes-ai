@@ -40,11 +40,13 @@ describe("StepIndicator", () => {
 		expect(container).toBeEmptyDOMElement();
 	});
 
-	it("shows a generic Thinking… line while streaming with no steps yet", () => {
+	it("renders nothing while streaming if no step events have arrived yet", () => {
+		// HUG-201: the generic "Thinking…" copy moved to <ThinkingBubble>.
+		// StepIndicator only renders once concrete tool-call events exist.
 		const store = createStore();
 		store.dispatch(streamStarted());
-		renderWithStore(store);
-		expect(screen.getByText(/Thinking…/i)).toBeInTheDocument();
+		const { container } = renderWithStore(store);
+		expect(container).toBeEmptyDOMElement();
 	});
 
 	it("renders human labels for known tool kinds", () => {

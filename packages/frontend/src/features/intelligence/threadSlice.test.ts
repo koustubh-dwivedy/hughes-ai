@@ -42,14 +42,15 @@ describe("threadSlice", () => {
 		expect(state).toEqual(initialThreadState);
 	});
 
-	it("setCurrentThread sets the id and clears transient buffers", () => {
+	it("setCurrentThread from one thread to another clears transient buffers", () => {
 		const dirty: ThreadState = {
-			currentThreadId: null,
+			currentThreadId: "t-old",
 			draftInput: "hello",
 			streaming: true,
 			steps: [sampleStep],
 			lastFinal: sampleFinal,
 			error: "boom",
+			pendingQuestion: null,
 		};
 		const next = reducer(dirty, setCurrentThread("t-new"));
 		expect(next.currentThreadId).toBe("t-new");
@@ -58,6 +59,31 @@ describe("threadSlice", () => {
 		expect(next.error).toBeNull();
 		expect(next.streaming).toBe(false);
 		expect(next.draftInput).toBe("hello");
+	});
+
+	it("setCurrentThread from empty (null) to a freshly-created thread preserves in-flight state", () => {
+		// HUG-201 follow-up: when the user submits from /intelligence,
+		// createThread + navigate fires `setCurrentThread(<newId>)`. We
+		// must NOT wipe the optimistic pending bubble or the streaming
+		// flag — they belong to the just-submitted turn.
+		const inFlight: ThreadState = {
+			currentThreadId: null,
+			draftInput: "",
+			streaming: true,
+			steps: [sampleStep],
+			lastFinal: null,
+			error: null,
+			pendingQuestion: {
+				content: "What's our LTD ratio?",
+				threadId: null,
+				submittedAt: 1,
+			},
+		};
+		const next = reducer(inFlight, setCurrentThread("t-new"));
+		expect(next.currentThreadId).toBe("t-new");
+		expect(next.streaming).toBe(true);
+		expect(next.pendingQuestion?.content).toBe("What's our LTD ratio?");
+		expect(next.steps).toEqual([sampleStep]);
 	});
 
 	it("setCurrentThread(null) clears the id while still resetting buffers", () => {
@@ -121,6 +147,7 @@ describe("threadSlice", () => {
 			steps: [sampleStep],
 			lastFinal: sampleFinal,
 			error: "x",
+			pendingQuestion: null,
 		};
 		const next = reducer(dirty, streamCleared());
 		expect(next.steps).toEqual([]);

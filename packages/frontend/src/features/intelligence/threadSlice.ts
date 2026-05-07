@@ -52,6 +52,12 @@ export interface ThreadStreamFinal {
 	openui: OpenUIDslPayload | null;
 }
 
+export interface PendingQuestion {
+	content: string;
+	threadId: string | null;
+	submittedAt: number;
+}
+
 export interface ThreadState {
 	currentThreadId: string | null;
 	draftInput: string;
@@ -59,6 +65,12 @@ export interface ThreadState {
 	steps: ThreadStreamStep[];
 	lastFinal: ThreadStreamFinal | null;
 	error: string | null;
+	// Optimistic UI: the user's just-submitted question (rendered
+	// immediately so the chat doesn't feel dead while the network round-
+	// trips). Cleared when the persisted thread refetches and contains
+	// a matching user message, OR when the next thread navigation kicks
+	// in.
+	pendingQuestion: PendingQuestion | null;
 }
 
 export const initialThreadState: ThreadState = {
@@ -68,6 +80,7 @@ export const initialThreadState: ThreadState = {
 	steps: [],
 	lastFinal: null,
 	error: null,
+	pendingQuestion: null,
 };
 
 const slice = createSlice({
@@ -75,13 +88,37 @@ const slice = createSlice({
 	initialState: initialThreadState,
 	reducers: {
 		setCurrentThread(state, action: PayloadAction<string | null>) {
+			// Preserve the in-flight pending question / streaming state when
+			// the URL transitions from no-thread → just-created-thread. This
+			// is the "user submitted from the empty state, we created a thread
+			// and navigated to it" case — wiping the buffers would yank the
+			// optimistic bubble + thinking indicator off-screen the moment
+			// they appeared (HUG-201 follow-up).
+			const transitioningFromEmpty =
+				state.currentThreadId === null && action.payload !== null;
 			state.currentThreadId = action.payload;
-			// New thread context — drop anything still buffered from a
-			// previous turn so stale steps don't bleed into the new view.
+			if (transitioningFromEmpty) return;
+			// Otherwise this is a real context switch (back to empty,
+			// switching threads, etc.) — drop transient buffers so stale
+			// steps don't bleed into the new view.
 			state.steps = [];
 			state.lastFinal = null;
 			state.error = null;
 			state.streaming = false;
+			state.pendingQuestion = null;
+		},
+		pendingQuestionSubmitted(
+			state,
+			action: PayloadAction<{ content: string; threadId: string | null }>,
+		) {
+			state.pendingQuestion = {
+				content: action.payload.content,
+				threadId: action.payload.threadId,
+				submittedAt: Date.now(),
+			};
+		},
+		pendingQuestionCleared(state) {
+			state.pendingQuestion = null;
 		},
 		setDraft(state, action: PayloadAction<string>) {
 			state.draftInput = action.payload;
@@ -120,5 +157,7 @@ export const {
 	streamFinal,
 	streamCleared,
 	streamError,
+	pendingQuestionSubmitted,
+	pendingQuestionCleared,
 } = slice.actions;
 export default slice.reducer;

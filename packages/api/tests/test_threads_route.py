@@ -95,7 +95,7 @@ def test_create_thread_requires_session_header(client: Any) -> None:
 def test_create_and_get_thread(client: Any) -> None:
     sid = f"pytest-{uuid4()}"
     resp = client.post(
-        "/threads", json={"title": "demo"}, headers={"X-Session-Id": sid}
+        "/threads", json={"title": "demo"}, headers={"X-Hughes-Session": sid}
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -111,9 +111,9 @@ def test_list_threads_returns_session_threads(client: Any) -> None:
     sid = f"pytest-{uuid4()}"
     for title in ("a", "b", "c"):
         client.post(
-            "/threads", json={"title": title}, headers={"X-Session-Id": sid}
+            "/threads", json={"title": title}, headers={"X-Hughes-Session": sid}
         )
-    resp = client.get("/threads", headers={"X-Session-Id": sid})
+    resp = client.get("/threads", headers={"X-Hughes-Session": sid})
     assert resp.status_code == 200
     titles = [t["title"] for t in resp.json()["threads"]]
     assert set(titles) == {"a", "b", "c"}
@@ -122,7 +122,7 @@ def test_list_threads_returns_session_threads(client: Any) -> None:
 def test_post_message_streams_final_event(client: Any) -> None:
     sid = f"pytest-{uuid4()}"
     created = client.post(
-        "/threads", json={"title": None}, headers={"X-Session-Id": sid}
+        "/threads", json={"title": None}, headers={"X-Hughes-Session": sid}
     )
     thread_id = created.json()["thread_id"]
     with client.stream(
