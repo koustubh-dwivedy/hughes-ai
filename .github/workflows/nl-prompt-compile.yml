@@ -1,0 +1,60 @@
+name: NL Prompt Compile
+
+on:
+  # Weekly DSPy compilation (HUG-181). Compilation makes ~hundreds of
+  # LLM calls — running on every push would burn through provider quota.
+  # Currently disabled_manually until the eval set is large enough that
+  # the optimizer has meaningful signal to learn from. Re-enable by
+  # restoring the cron + workflow_dispatch blocks below once HUG-180's
+  # follow-up grows the labeled set past ~50 examples per question type.
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "0 7 * * 1"  # Mondays 07:00 UTC
+  # workflow_dispatch:
+
+concurrency:
+  group: nl-prompt-compile
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  compile:
+    name: Compile DSPy prompts
+    runs-on: ubuntu-latest
+    env:
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      LLM_PROVIDER: groq
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-caching: true
+      - run: uv sync
+      - name: Compile prompts
+        run: uv run python scripts/compile_prompts.py
+      - name: Open PR with artifacts
+        run: |
+          BRANCH="prompt-compile/$(date +%Y-%m-%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add packages/nl-engine/src/nl_engine/agent/prompts/compiled/
+          if git diff --cached --quiet; then
+            echo "No prompt changes to commit; skipping PR."
+            exit 0
+          fi
+          git commit -m "chore(prompts): weekly DSPy artifact refresh"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "Weekly DSPy prompt artifact refresh" \
+            --body "Auto-compiled by .github/workflows/nl-prompt-compile.yml. Re-run \`make eval\` after merge and confirm the result-set match metric does not regress." \
+            --base main \
+            --head "$BRANCH"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
