@@ -7,7 +7,6 @@ blocked by LLM latency. Persists every canonical message as it streams.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -28,9 +27,14 @@ from api.prometheus import (
     agent_turn_duration_seconds,
 )
 from api.repo import threads as threads_repo
+from api.services.agent_runner_events import (
+    emit_step,
+    emit_thinking,
+    terminal_payload,
+)
 from api.services.openui_validator import validate_openui_dsl
 from api.types.threads import ThreadMessage
-from api.types.threads_api import StreamError, StreamFinal, StreamStep
+from api.types.threads_api import StreamError, StreamFinal
 
 slog = get_logger().bind(component="agent.runner")
 
@@ -88,18 +92,6 @@ def _persist_tool(
         tool_results=canonical.get("tool_results"),
         **extra,
     )
-
-
-def _terminal_payload(msg: ToolMessage) -> dict[str, Any] | None:
-    """If this ToolMessage is a `final_answer` result, decode its JSON
-    payload so the SSE final event carries structured data."""
-    if msg.name != "final_answer":
-        return None
-    try:
-        decoded = json.loads(str(msg.content))
-    except (json.JSONDecodeError, TypeError):
-        return None
-    return decoded if isinstance(decoded, dict) else None
 
 
 def _make_producer(graph: Any, initial: AgentState, queue: asyncio.Queue[Any]) -> Any:
@@ -223,15 +215,19 @@ def _finalize_turn(
 def _process_message(
     msg: Any, step_idx: int, thread_id: UUID, db_url: str
 ) -> list[dict[str, Any]]:
-    """Per-message side effects: persist + emit step (+ maybe final)."""
+    """Per-message side effects: persist + emit thinking/step/final."""
     out: list[dict[str, Any]] = []
-    event = _emit(msg, step_idx)
-    if event is not None:
-        out.append(event)
+    thinking = emit_thinking(msg, step_idx)
+    if thinking is not None:
+        slog.info("agent.narration_emitted", step=step_idx, msg_kind=type(msg).__name__)
+        out.append(thinking)
+    step_event = emit_step(msg, step_idx)
+    if step_event is not None:
+        out.append(step_event)
     if isinstance(msg, AIMessage):
         _persist_assistant(thread_id, msg, db_url)
     elif isinstance(msg, ToolMessage):
-        terminal = _terminal_payload(msg)
+        terminal = terminal_payload(msg)
         persisted = _persist_tool(thread_id, msg, db_url, terminal=terminal)
         if terminal is not None:
             dsl = terminal.get("openui_dsl")
@@ -277,23 +273,3 @@ def _build_initial_state(
     )
 
 
-def _emit(msg: Any, step_idx: int) -> dict[str, Any] | None:
-    def _step(**kw: Any) -> dict[str, Any]:
-        data = StreamStep(step=step_idx, **kw).model_dump_json()
-        return {"event": "step", "data": data}
-    if isinstance(msg, AIMessage) and msg.tool_calls:
-        first = msg.tool_calls[0]
-        return _step(kind="tool_call", name=first["name"], args=first.get("args"))
-    if isinstance(msg, ToolMessage):
-        try:
-            result = json.loads(str(msg.content))
-        except (json.JSONDecodeError, TypeError):
-            result = None
-        return _step(
-            kind="tool_result",
-            name=msg.name,
-            result=result if isinstance(result, dict) else None,
-        )
-    if isinstance(msg, AIMessage):
-        return _step(kind="thinking", result=None)
-    return None

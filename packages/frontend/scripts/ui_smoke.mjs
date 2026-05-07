@@ -117,6 +117,43 @@ await withPage("new-thread-button-clears-state", async ({ page, addNote }) => {
 });
 
 if (!QUICK) {
+	await withPage("thinking-narration-rolls-in-place", async ({ page, addNote }) => {
+		// HUG-202 Phase 1: the Thinking box shows ONE line at a time, and
+		// that line CHANGES as the agent makes progress. Assert:
+		//   - the thinking-line element value transitions through ≥3 distinct strings
+		//   - the conversation never accumulates a multi-line ticker
+		await page.goto(`${BASE}/intelligence`);
+		await page.waitForLoadState("networkidle");
+		await page.evaluate(() => {
+			window.__hughesObservedLines = new Set();
+			const obs = new MutationObserver(() => {
+				const el = document.querySelector('[data-testid="thinking-line"]');
+				if (el && el.textContent) window.__hughesObservedLines.add(el.textContent.trim());
+			});
+			obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+			window.__hughesObserver = obs;
+		});
+		await page.getByRole("button", { name: /loan-to-deposit/i }).click();
+		const terminal = page.locator('[aria-label="Assistant answer"]').first();
+		await terminal.waitFor({ state: "visible", timeout: 180_000 });
+		const lines = await page.evaluate(() => Array.from(window.__hughesObservedLines));
+		addNote(`distinct narration lines seen: ${lines.length}`);
+		addNote(`lines: ${JSON.stringify(lines).slice(0, 400)}`);
+		if (lines.length < 3) throw new Error(`expected ≥3 distinct narration lines, saw ${lines.length}`);
+		// And no multi-line ticker should be visible at any point — the
+		// previous step-indicator output element should never have stacked
+		// multiple <div> children.
+		const stackedCount = await page.evaluate(() => {
+			const ticker = document.querySelector('[aria-label="Assistant is thinking"]');
+			if (!ticker) return 0;
+			return ticker.querySelectorAll('div').length;
+		});
+		addNote(`stacked-line div count inside Thinking bubble: ${stackedCount}`);
+		if (stackedCount > 0) {
+			throw new Error("Thinking bubble accumulated multi-line ticker — should be one line");
+		}
+	});
+
 	await withPage("after-answer-thinking-bubble-disappears", async ({ page, addNote }) => {
 		await page.goto(`${BASE}/intelligence`);
 		await page.waitForLoadState("networkidle");

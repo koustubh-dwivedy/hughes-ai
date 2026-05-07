@@ -21,6 +21,7 @@ import {
 	streamFinal,
 	streamStarted,
 	streamStep,
+	streamThinking,
 } from "./threadSlice";
 
 // ── Wire types (mirror api.types.threads / api.types.threads_api) ─────────
@@ -243,6 +244,8 @@ function dispatchSseEvent(
 	}
 	if (ev.event === "step") {
 		dispatch(streamStep(parsed as ThreadStreamStep));
+	} else if (ev.event === "thinking") {
+		dispatch(streamThinking(parsed as { step: number; line: string }));
 	} else if (ev.event === "final") {
 		dispatch(streamFinal(parsed as ThreadStreamFinal));
 	}

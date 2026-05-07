@@ -65,12 +65,12 @@ export interface ThreadState {
 	steps: ThreadStreamStep[];
 	lastFinal: ThreadStreamFinal | null;
 	error: string | null;
-	// Optimistic UI: the user's just-submitted question (rendered
-	// immediately so the chat doesn't feel dead while the network round-
-	// trips). Cleared when the persisted thread refetches and contains
-	// a matching user message, OR when the next thread navigation kicks
-	// in.
 	pendingQuestion: PendingQuestion | null;
+	// HUG-202 Phase 1 — current Thinking-box line. The box shows ONE
+	// line at a time (replaces, not appends) while streaming. Cleared on
+	// streamStarted / streamFinal / streamError so a new turn starts
+	// from the default copy.
+	narrationLine: string | null;
 }
 
 export const initialThreadState: ThreadState = {
@@ -81,6 +81,7 @@ export const initialThreadState: ThreadState = {
 	lastFinal: null,
 	error: null,
 	pendingQuestion: null,
+	narrationLine: null,
 };
 
 const slice = createSlice({
@@ -106,6 +107,7 @@ const slice = createSlice({
 			state.error = null;
 			state.streaming = false;
 			state.pendingQuestion = null;
+			state.narrationLine = null;
 		},
 		pendingQuestionSubmitted(
 			state,
@@ -128,22 +130,29 @@ const slice = createSlice({
 			state.steps = [];
 			state.lastFinal = null;
 			state.error = null;
+			state.narrationLine = null;
 		},
 		streamStep(state, action: PayloadAction<ThreadStreamStep>) {
 			state.steps.push(action.payload);
 		},
+		streamThinking(state, action: PayloadAction<{ step: number; line: string }>) {
+			state.narrationLine = action.payload.line;
+		},
 		streamFinal(state, action: PayloadAction<ThreadStreamFinal>) {
 			state.lastFinal = action.payload;
 			state.streaming = false;
+			state.narrationLine = null;
 		},
 		streamCleared(state) {
 			state.steps = [];
 			state.lastFinal = null;
 			state.error = null;
+			state.narrationLine = null;
 		},
 		streamError(state, action: PayloadAction<string>) {
 			state.error = action.payload;
 			state.streaming = false;
+			state.narrationLine = null;
 		},
 	},
 });
@@ -154,6 +163,7 @@ export const {
 	setDraft,
 	streamStarted,
 	streamStep,
+	streamThinking,
 	streamFinal,
 	streamCleared,
 	streamError,

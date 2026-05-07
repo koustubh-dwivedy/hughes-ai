@@ -1,17 +1,20 @@
 /**
- * Live "agent is working" bubble (HUG-201, A+B+C from the feedback bundle).
+ * Live "Thinking" rolling-line bubble (HUG-202 Phase 1).
  *
- * Renders an assistant-styled bubble while a turn is streaming. Embeds
- * the StepIndicator so the user sees tool-call progress (Looking up
- * metrics… → Querying MetricFlow… → Drafting the answer…) inline rather
- * than as a separate footer block. A trio of pulsing dots gives a
- * passive "still working" cue when the stream has started but no step
- * events have arrived yet.
+ * Single line of narration that updates in place as the agent works.
+ * The line replaces the previous one with a brief cross-fade — the
+ * screen never accumulates a multi-line list. Three pulsing dots
+ * give a passive "still working" signal between updates.
+ *
+ * The full ordered trace lives in the References modal once the turn
+ * completes; this bubble is a UX layer, not the audit layer.
  */
 
+import { useEffect, useRef, useState } from "react";
 import { useAppSelector } from "../../../shared/api/hooks";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
-import StepIndicator from "./StepIndicator";
+
+const DEFAULT_LINE = "Thinking…";
 
 const bubbleStyle: React.CSSProperties = {
 	alignSelf: "flex-start",
@@ -23,16 +26,14 @@ const bubbleStyle: React.CSSProperties = {
 	border: `1px solid ${colors.slate[200]}`,
 	fontSize: typography.size.sm,
 	display: "flex",
-	flexDirection: "column",
+	alignItems: "center",
 	gap: spacing[2],
 };
 
-const pulseRowStyle: React.CSSProperties = {
+const dotsStyle: React.CSSProperties = {
 	display: "inline-flex",
 	gap: 6,
 	alignItems: "center",
-	color: colors.slate[600],
-	fontStyle: "italic",
 };
 
 const dotBaseStyle: React.CSSProperties = {
@@ -42,6 +43,16 @@ const dotBaseStyle: React.CSSProperties = {
 	borderRadius: "50%",
 	background: colors.slate[500],
 	animation: "hughesThinkingDot 1.2s ease-in-out infinite",
+};
+
+const lineWrapStyle: React.CSSProperties = {
+	flex: 1,
+	color: colors.slate[700],
+	fontStyle: "italic",
+	overflow: "hidden",
+	textOverflow: "ellipsis",
+	whiteSpace: "nowrap",
+	transition: "opacity 180ms ease",
 };
 
 const KEYFRAMES_ID = "hughes-thinking-keyframes";
@@ -62,7 +73,24 @@ function ensureKeyframes(): void {
 
 export default function ThinkingBubble() {
 	const streaming = useAppSelector((s) => s.thread.streaming);
-	const steps = useAppSelector((s) => s.thread.steps);
+	const narration = useAppSelector((s) => s.thread.narrationLine);
+	const visibleLine = narration ?? DEFAULT_LINE;
+	const [displayLine, setDisplayLine] = useState(visibleLine);
+	const [opacity, setOpacity] = useState(1);
+	const lastLineRef = useRef(visibleLine);
+
+	useEffect(() => {
+		if (visibleLine === lastLineRef.current) return;
+		// Cross-fade: dim, swap, fade back in.
+		setOpacity(0);
+		const swap = window.setTimeout(() => {
+			setDisplayLine(visibleLine);
+			lastLineRef.current = visibleLine;
+			setOpacity(1);
+		}, 180);
+		return () => window.clearTimeout(swap);
+	}, [visibleLine]);
+
 	if (!streaming) return null;
 	ensureKeyframes();
 	return (
@@ -71,15 +99,17 @@ export default function ThinkingBubble() {
 			aria-live="polite"
 			style={bubbleStyle}
 		>
-			<span style={pulseRowStyle}>
+			<span style={dotsStyle}>
 				<span style={{ ...dotBaseStyle, animationDelay: "0s" }} aria-hidden />
 				<span style={{ ...dotBaseStyle, animationDelay: "0.15s" }} aria-hidden />
 				<span style={{ ...dotBaseStyle, animationDelay: "0.3s" }} aria-hidden />
-				<span style={{ marginLeft: spacing[2] }}>
-					{steps.length === 0 ? "Thinking…" : "Working on your answer…"}
-				</span>
 			</span>
-			<StepIndicator />
+			<span
+				data-testid="thinking-line"
+				style={{ ...lineWrapStyle, opacity }}
+			>
+				{displayLine}
+			</span>
 		</article>
 	);
 }

@@ -8,6 +8,7 @@ import reducer, {
 	streamFinal,
 	streamStarted,
 	streamStep,
+	streamThinking,
 	type ThreadState,
 	type ThreadStreamFinal,
 	type ThreadStreamStep,
@@ -51,6 +52,7 @@ describe("threadSlice", () => {
 			lastFinal: sampleFinal,
 			error: "boom",
 			pendingQuestion: null,
+			narrationLine: null,
 		};
 		const next = reducer(dirty, setCurrentThread("t-new"));
 		expect(next.currentThreadId).toBe("t-new");
@@ -78,6 +80,7 @@ describe("threadSlice", () => {
 				threadId: null,
 				submittedAt: 1,
 			},
+			narrationLine: null,
 		};
 		const next = reducer(inFlight, setCurrentThread("t-new"));
 		expect(next.currentThreadId).toBe("t-new");
@@ -148,6 +151,7 @@ describe("threadSlice", () => {
 			lastFinal: sampleFinal,
 			error: "x",
 			pendingQuestion: null,
+			narrationLine: null,
 		};
 		const next = reducer(dirty, streamCleared());
 		expect(next.steps).toEqual([]);
@@ -162,5 +166,43 @@ describe("threadSlice", () => {
 		const next = reducer(mid, streamError("network down"));
 		expect(next.error).toBe("network down");
 		expect(next.streaming).toBe(false);
+	});
+
+	it("streamThinking replaces narrationLine in place (rolling display)", () => {
+		// HUG-202 Phase 1: each event REPLACES the previous narration so
+		// the Thinking box stays at one line. No history is kept here —
+		// the persistent trace lives elsewhere.
+		const start: ThreadState = { ...initialThreadState, streaming: true };
+		const after1 = reducer(
+			start,
+			streamThinking({ step: 1, line: "Looking up available metrics…" }),
+		);
+		expect(after1.narrationLine).toBe("Looking up available metrics…");
+		const after2 = reducer(
+			after1,
+			streamThinking({ step: 2, line: "Found 24 metrics" }),
+		);
+		expect(after2.narrationLine).toBe("Found 24 metrics");
+	});
+
+	it("streamFinal clears narrationLine so the Thinking bubble unmounts cleanly", () => {
+		const mid: ThreadState = {
+			...initialThreadState,
+			streaming: true,
+			narrationLine: "Working…",
+		};
+		const next = reducer(mid, streamFinal(sampleFinal));
+		expect(next.narrationLine).toBeNull();
+		expect(next.streaming).toBe(false);
+	});
+
+	it("streamStarted resets narrationLine for a new turn", () => {
+		const mid: ThreadState = {
+			...initialThreadState,
+			narrationLine: "carry-over from previous turn",
+		};
+		const next = reducer(mid, streamStarted());
+		expect(next.narrationLine).toBeNull();
+		expect(next.streaming).toBe(true);
 	});
 });

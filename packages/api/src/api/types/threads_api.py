@@ -64,6 +64,17 @@ class StreamFinal(BaseModel):
     openui: OpenUIDslPayload | None = None
 
 
+class StreamThinking(BaseModel):
+    """SSE event carrying a single narration line for the Thinking box
+    (HUG-202). The box shows ONE line at a time — each new event REPLACES
+    the previous line rather than appending. The full ordered history is
+    preserved server-side as the `thinking_trace` and surfaced in the
+    References modal once the turn completes."""
+
+    step: int
+    line: str
+
+
 class StreamError(BaseModel):
     """SSE event emitted when the agent runner's graph stream crashes
     (HUG-190 Phase C). Frontend renders this as a user-visible error
