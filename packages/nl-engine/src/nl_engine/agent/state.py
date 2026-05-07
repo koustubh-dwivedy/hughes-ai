@@ -34,6 +34,11 @@ class AgentState(BaseModel):
     thread_id: str
     step_count: int = 0
     slots: dict[str, Any] = Field(default_factory=dict)
+    # Per-turn correlation id (HUG-200). Threaded into every node + tool's
+    # structlog contextvars so a `grep request_id=…` reconstructs the
+    # whole turn across api/, nl_engine/, and the frontend `client_request_id`
+    # ingested via /log.
+    request_id: str = ""
 
 
 class FinalAnswer(BaseModel):

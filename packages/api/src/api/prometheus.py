@@ -45,3 +45,30 @@ dashboard_cache_total = Counter(
     ["endpoint", "result"],
     registry=REGISTRY,
 )
+
+# ── Agent telemetry (HUG-200, api-layer counters) ───────────────────────────
+# Counters that fire from inside the agent itself (per-step, per-tool,
+# retries, step-cap) live in `nl_engine/agent/metrics.py` against the
+# default prometheus_client registry — `nl_engine` cannot import this
+# module without crossing the layer boundary. The /metrics route merges
+# both registries on response.
+
+agent_turn_duration_seconds = Histogram(
+    "hughes_agent_turn_duration_seconds",
+    "Wall-clock time for a complete user turn (user content -> final SSE).",
+    registry=REGISTRY,
+    buckets=(1, 5, 15, 30, 60, 120, 300, 600),
+)
+
+agent_steps_per_turn = Histogram(
+    "hughes_agent_steps_per_turn",
+    "Number of LLM steps in a completed turn (capped at MAX_STEPS_PER_TURN).",
+    registry=REGISTRY,
+    buckets=(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+)
+
+agent_error_frames_total = Counter(
+    "hughes_agent_error_frames_total",
+    "SSE error frames emitted to the client by the producer.",
+    registry=REGISTRY,
+)
