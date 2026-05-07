@@ -32,6 +32,10 @@ class ThreadMessage(BaseModel):
     openui_dsl: str | None = None
     mf_query: dict[str, Any] | None = None
     rows: list[dict[str, Any]] | None = None
+    # HUG-202 Phase 3 — chronological agent trace for the References
+    # modal. Each entry: {kind, label, at, ...kind-specific fields}.
+    # None for non-final-answer messages.
+    thinking_trace: list[dict[str, Any]] | None = None
     created_at: datetime
 
 

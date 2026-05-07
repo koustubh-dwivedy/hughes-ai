@@ -7,6 +7,7 @@ blocked by LLM latency. Persists every canonical message as it streams.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -17,7 +18,6 @@ import structlog.contextvars
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from nl_engine.agent.graph import build_graph
-from nl_engine.agent.persistence import to_canonical
 from nl_engine.agent.state import AgentState
 from nl_engine.agent.streaming import clear_token_sink, set_token_sink
 from nl_engine.logging import bind_request_id, get_logger
@@ -32,6 +32,11 @@ from api.services.agent_runner_events import (
     emit_step,
     emit_thinking,
     terminal_payload,
+    trace_entry,
+)
+from api.services.agent_runner_persistence import (
+    persist_assistant,
+    persist_tool,
 )
 from api.services.openui_validator import validate_openui_dsl
 from api.types.threads import ThreadMessage
@@ -51,48 +56,6 @@ class _PRODUCER_ERROR_SENTINEL:  # noqa: N801 — internal sentinel
 log = logging.getLogger(__name__)
 
 
-def _persist_assistant(thread_id: UUID, msg: AIMessage, db_url: str) -> ThreadMessage:
-    canonical = to_canonical(msg)
-    return threads_repo.append_message(
-        thread_id=thread_id,
-        role="assistant",
-        db_url=db_url,
-        content=canonical.get("content") or "",
-        tool_calls=canonical.get("tool_calls"),
-    )
-
-
-def _persist_tool(
-    thread_id: UUID,
-    msg: ToolMessage,
-    db_url: str,
-    terminal: dict[str, Any] | None = None,
-) -> ThreadMessage:
-    """Persist a tool message. When `terminal` is the decoded
-    `final_answer` payload, also propagate the rich fields (openui_dsl,
-    mf_query, rows) into their dedicated columns so reloading a thread
-    via GET /threads/:id renders with full fidelity instead of forcing
-    the frontend to re-parse the content blob (HUG-179)."""
-    canonical = to_canonical(msg)
-    extra: dict[str, Any] = {}
-    if terminal is not None:
-        dsl = terminal.get("openui_dsl")
-        if isinstance(dsl, str) and dsl:
-            extra["openui_dsl"] = dsl
-        mf = terminal.get("mf_query")
-        if isinstance(mf, dict):
-            extra["mf_query"] = mf
-        rows = terminal.get("rows")
-        if isinstance(rows, list):
-            extra["rows"] = rows
-    return threads_repo.append_message(
-        thread_id=thread_id,
-        role="tool",
-        db_url=db_url,
-        content=canonical.get("content") or "",
-        tool_results=canonical.get("tool_results"),
-        **extra,
-    )
 
 
 def _make_producer(graph: Any, initial: AgentState, queue: asyncio.Queue[Any]) -> Any:
@@ -168,6 +131,13 @@ def _emit_error_frame(message: str) -> dict[str, Any]:
     }
 
 
+def _token_frame(delta: str) -> dict[str, Any]:
+    return {
+        "event": "token",
+        "data": StreamToken(content_delta=delta).model_dump_json(),
+    }
+
+
 async def stream_user_turn(
     thread_id: UUID,
     user_content: str,
@@ -187,6 +157,9 @@ async def stream_user_turn(
     turn_start = time.monotonic()
     seen: set[int] = set()
     step_idx = 0
+    # HUG-202 Phase 3: chronological trace persisted on the final-
+    # answer ToolMessage. References modal reads from here.
+    trace: list[dict[str, Any]] = []
     try:
         while True:
             chunk = await queue.get()
@@ -196,12 +169,7 @@ async def stream_user_turn(
                 yield _emit_error_frame(chunk.message)
                 continue
             if isinstance(chunk, dict) and _TOKEN_SENTINEL_KEY in chunk:
-                yield {
-                    "event": "token",
-                    "data": StreamToken(
-                        content_delta=chunk[_TOKEN_SENTINEL_KEY]
-                    ).model_dump_json(),
-                }
+                yield _token_frame(chunk[_TOKEN_SENTINEL_KEY])
                 continue
             for msg in chunk.get("messages", []):
                 if id(msg) in seen or isinstance(msg, HumanMessage):
@@ -209,7 +177,9 @@ async def stream_user_turn(
                     continue
                 seen.add(id(msg))
                 step_idx += 1
-                for event in _process_message(msg, step_idx, thread_id, db_url):
+                for event in _process_message(
+                    msg, step_idx, thread_id, db_url, trace
+                ):
                     yield event
     finally:
         if request_id:
@@ -237,25 +207,44 @@ def _finalize_turn(
 
 
 def _process_message(
-    msg: Any, step_idx: int, thread_id: UUID, db_url: str
+    msg: Any,
+    step_idx: int,
+    thread_id: UUID,
+    db_url: str,
+    trace: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Per-message side effects: persist + emit thinking/step/final."""
+    """Per-message side effects: persist + emit thinking/step/final.
+
+    `trace` accumulates the chronological agent narration for the turn
+    and is persisted onto the final-answer ToolMessage so the
+    References modal can show the full audit trail post-completion.
+    """
     out: list[dict[str, Any]] = []
     thinking = emit_thinking(msg, step_idx)
     if thinking is not None:
         slog.info("agent.narration_emitted", step=step_idx, msg_kind=type(msg).__name__)
         out.append(thinking)
+        trace.append(trace_entry(msg, step_idx, _line_from(thinking)))
     step_event = emit_step(msg, step_idx)
     if step_event is not None:
         out.append(step_event)
     if isinstance(msg, AIMessage):
-        _persist_assistant(thread_id, msg, db_url)
+        persist_assistant(thread_id, msg, db_url)
     elif isinstance(msg, ToolMessage):
         terminal = terminal_payload(msg)
-        persisted = _persist_tool(thread_id, msg, db_url, terminal=terminal)
+        # Persist the trace ALONGSIDE the final-answer payload so future
+        # GET /threads/:id reads return the full audit trail.
+        persisted = persist_tool(
+            thread_id,
+            msg,
+            db_url,
+            terminal=terminal,
+            thinking_trace=trace if terminal is not None else None,
+        )
         if terminal is not None:
             dsl = terminal.get("openui_dsl")
             openui = validate_openui_dsl(dsl) if isinstance(dsl, str) and dsl else None
+            slog.info("agent.trace_persisted", entries=len(trace))
             out.append(
                 {
                     "event": "final",
@@ -265,6 +254,14 @@ def _process_message(
                 }
             )
     return out
+
+
+def _line_from(thinking_event: dict[str, Any]) -> str:
+    """Extract the line from a serialized SSE thinking event."""
+    try:
+        return str(json.loads(thinking_event.get("data", "{}")).get("line", ""))
+    except (ValueError, AttributeError):
+        return ""
 
 
 def _build_initial_state(

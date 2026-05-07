@@ -27,6 +27,14 @@ import {
 
 // ── Wire types (mirror api.types.threads / api.types.threads_api) ─────────
 
+export interface ThreadTraceEntry {
+	step: number;
+	kind: string;
+	label: string;
+	tool: string | null;
+	at: string;
+}
+
 export interface ThreadMessageWire {
 	message_id: string;
 	thread_id: string;
@@ -38,6 +46,10 @@ export interface ThreadMessageWire {
 	openui_dsl: string | null;
 	mf_query: Record<string, unknown> | null;
 	rows: Record<string, unknown>[] | null;
+	// HUG-202 Phase 3 — chronological agent narration trace, persisted on
+	// the final-answer ToolMessage. Optional so older threads (created
+	// before the column existed) don't break the wire type.
+	thinking_trace?: ThreadTraceEntry[] | null;
 	created_at: string;
 }
 

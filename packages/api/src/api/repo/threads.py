@@ -80,16 +80,18 @@ def append_message(
     openui_dsl: str | None = None,
     mf_query: dict[str, Any] | None = None,
     rows: list[dict[str, Any]] | None = None,
+    thinking_trace: list[dict[str, Any]] | None = None,
 ) -> ThreadMessage:
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
             "INSERT INTO thread_messages"
             " (thread_id, parent_message_id, role, content,"
-            "  tool_calls, tool_results, openui_dsl, mf_query, rows)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            "  tool_calls, tool_results, openui_dsl, mf_query, rows,"
+            "  thinking_trace)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             " RETURNING message_id, thread_id, parent_message_id, role,"
             " content, tool_calls, tool_results, openui_dsl, mf_query,"
-            " rows, created_at",
+            " rows, thinking_trace, created_at",
             (
                 str(thread_id),
                 str(parent_message_id) if parent_message_id else None,
@@ -100,6 +102,7 @@ def append_message(
                 openui_dsl,
                 Jsonb(mf_query) if mf_query is not None else None,
                 Jsonb(rows) if rows is not None else None,
+                Jsonb(thinking_trace) if thinking_trace is not None else None,
             ),
         )
         row = cur.fetchone()
@@ -113,16 +116,20 @@ def append_message(
     return _row_to_message(row)
 
 
+_MESSAGE_COLUMNS = (
+    " message_id, thread_id, parent_message_id, role, content,"
+    " tool_calls, tool_results, openui_dsl, mf_query, rows,"
+    " thinking_trace, created_at"
+)
+
+
 def latest_n_messages(
     thread_id: UUID, n: int, db_url: str
 ) -> list[ThreadMessage]:
     """Return the most-recent N messages for a thread, oldest-first."""
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT * FROM ("
-            " SELECT message_id, thread_id, parent_message_id, role,"
-            " content, tool_calls, tool_results, openui_dsl, mf_query,"
-            " rows, created_at"
+            f"SELECT * FROM (SELECT{_MESSAGE_COLUMNS}"  # noqa: S608
             " FROM thread_messages WHERE thread_id = %s"
             " ORDER BY created_at DESC LIMIT %s"
             ") AS recent ORDER BY created_at ASC",
@@ -136,11 +143,8 @@ def list_messages(thread_id: UUID, db_url: str) -> list[ThreadMessage]:
     """All messages for a thread in chronological order."""
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT message_id, thread_id, parent_message_id, role,"
-            " content, tool_calls, tool_results, openui_dsl, mf_query,"
-            " rows, created_at"
-            " FROM thread_messages WHERE thread_id = %s"
-            " ORDER BY created_at ASC",
+            f"SELECT{_MESSAGE_COLUMNS} FROM thread_messages"  # noqa: S608
+            " WHERE thread_id = %s ORDER BY created_at ASC",
             (str(thread_id),),
         )
         rows = cur.fetchall()
@@ -171,7 +175,8 @@ def _row_to_message(row: tuple[Any, ...]) -> ThreadMessage:
         openui_dsl=row[7],
         mf_query=_decode_jsonb(row[8]),
         rows=_decode_jsonb(row[9]),
-        created_at=row[10],
+        thinking_trace=_decode_jsonb(row[10]),
+        created_at=row[11],
     )
 
 

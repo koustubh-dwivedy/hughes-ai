@@ -1,13 +1,15 @@
-"""SSE event construction helpers for the agent runner.
+"""SSE event construction + trace-entry helpers for the agent runner.
 
 Lives outside `agent_runner.py` to keep that module under the 300-line
 structural cap; pure functions that turn agent messages into the
-`{event, data}` dicts the route layer hands to sse_starlette.
+`{event, data}` dicts the route layer hands to sse_starlette and into
+the persistent trace entries shown in the References modal.
 """
 
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 from langchain_core.messages import AIMessage, ToolMessage
@@ -48,6 +50,35 @@ def emit_thinking(msg: Any, step_idx: int) -> dict[str, Any] | None:
     return {
         "event": "thinking",
         "data": StreamThinking(step=step_idx, line=line).model_dump_json(),
+    }
+
+
+def trace_kind(msg: Any) -> str:
+    if isinstance(msg, AIMessage):
+        return "tool_call" if msg.tool_calls else "thinking_text"
+    if isinstance(msg, ToolMessage):
+        return "tool_result"
+    return "other"
+
+
+def tool_name(msg: Any) -> str | None:
+    if isinstance(msg, AIMessage) and msg.tool_calls:
+        first = msg.tool_calls[0]
+        name = first.get("name")
+        return name if isinstance(name, str) else None
+    if isinstance(msg, ToolMessage):
+        return msg.name
+    return None
+
+
+def trace_entry(msg: Any, step_idx: int, line: str) -> dict[str, Any]:
+    """Build a chronological audit entry for the References modal."""
+    return {
+        "step": step_idx,
+        "kind": trace_kind(msg),
+        "label": line,
+        "tool": tool_name(msg),
+        "at": datetime.now(UTC).isoformat(),
     }
 
 

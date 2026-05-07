@@ -287,6 +287,33 @@ if (!QUICK) {
 		addNote(`stale assistant answers visible: ${oldAnswer}`);
 	});
 
+	await withPage("trace-survives-in-references-after-completion", async ({ page, addNote }) => {
+		// HUG-202 Phase 3: the chronological trace persisted on the
+		// final-answer ToolMessage must surface inside the References
+		// modal, even after a fresh GET /threads/:id (i.e. on reload).
+		await page.goto(`${BASE}/intelligence`);
+		await page.waitForLoadState("networkidle");
+		await page.getByRole("button", { name: /loan-to-deposit/i }).click();
+		const terminal = page.locator('[aria-label="Assistant answer"]').first();
+		await terminal.waitFor({ state: "visible", timeout: 240_000 });
+		// Force a clean reload so the trace comes from GET /threads/:id,
+		// not in-flight slice state.
+		await page.reload();
+		await page.waitForLoadState("networkidle");
+		await page.locator('[aria-label="Assistant answer"]').first().waitFor({ state: "visible", timeout: 10_000 });
+		await page.getByRole("button", { name: /References/i }).click();
+		const dialog = page.getByRole("dialog", { name: /Answer references/i });
+		await dialog.waitFor({ state: "visible", timeout: 2000 });
+		const traceSection = dialog.locator('[data-testid="trace-section"]');
+		const traceCount = await traceSection.count();
+		addNote(`trace-section present after reload: ${traceCount > 0}`);
+		if (traceCount === 0) throw new Error("Thinking trace section missing from References after reload");
+		// Each trace entry must show its step badge + label.
+		const items = await traceSection.locator("li").count();
+		addNote(`trace entries: ${items}`);
+		if (items < 3) throw new Error(`expected ≥3 trace entries, got ${items}`);
+	});
+
 	await withPage("references-pill-and-modal", async ({ page, addNote }) => {
 		await page.goto(`${BASE}/intelligence`);
 		await page.waitForLoadState("networkidle");

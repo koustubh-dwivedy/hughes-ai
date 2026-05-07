@@ -33,6 +33,7 @@ interface FinalPayload {
 	openui_dsl?: string | null;
 	mf_query?: Record<string, unknown> | null;
 	rows?: Record<string, unknown>[] | null;
+	thinking_trace?: import("../api").ThreadTraceEntry[] | null;
 }
 
 const containerStyle: React.CSSProperties = {
@@ -87,6 +88,7 @@ function parseFinalPayload(msg: ThreadMessageWire): FinalPayload {
 		openui_dsl: msg.openui_dsl ?? blob.openui_dsl ?? null,
 		mf_query: msg.mf_query ?? blob.mf_query ?? null,
 		rows: msg.rows ?? blob.rows ?? null,
+		thinking_trace: msg.thinking_trace ?? blob.thinking_trace ?? null,
 	};
 }
 
@@ -121,8 +123,12 @@ function AssistantTerminal({ msg }: { msg: ThreadMessageWire }) {
 	const [showRefs, setShowRefs] = useState(false);
 	const hasRows = (payload.rows?.length ?? 0) > 0;
 	const hasMfQuery = payload.mf_query !== null && payload.mf_query !== undefined;
-	const hasReferences = hasRows || hasMfQuery;
-	const refCount = (payload.rows?.length ?? 0) + (hasMfQuery ? 1 : 0);
+	const hasTrace = (payload.thinking_trace?.length ?? 0) > 0;
+	const hasReferences = hasRows || hasMfQuery || hasTrace;
+	const refCount =
+		(payload.rows?.length ?? 0) +
+		(hasMfQuery ? 1 : 0) +
+		(payload.thinking_trace?.length ?? 0);
 	return (
 		<article aria-label="Assistant answer" style={assistantBubbleStyle}>
 			{summary !== "" && <div style={summaryStyle}>{summary}</div>}
@@ -147,6 +153,7 @@ function AssistantTerminal({ msg }: { msg: ThreadMessageWire }) {
 				onClose={() => setShowRefs(false)}
 				rows={payload.rows ?? null}
 				mfQuery={payload.mf_query ?? null}
+				thinkingTrace={payload.thinking_trace ?? null}
 			/>
 		</article>
 	);

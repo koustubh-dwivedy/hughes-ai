@@ -12,12 +12,14 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import JsonBlock from "../../../ui/primitives/JsonBlock/JsonBlock";
+import type { ThreadTraceEntry } from "../api";
 
 interface Props {
 	open: boolean;
 	onClose: () => void;
 	rows: Record<string, unknown>[] | null;
 	mfQuery: Record<string, unknown> | null;
+	thinkingTrace: ThreadTraceEntry[] | null;
 }
 
 const overlayStyle: React.CSSProperties = {
@@ -136,11 +138,91 @@ function RowsTable({ rows }: { rows: Record<string, unknown>[] }) {
 	);
 }
 
+const traceListStyle: React.CSSProperties = {
+	listStyle: "none",
+	margin: 0,
+	padding: spacing[3],
+	display: "flex",
+	flexDirection: "column",
+	gap: spacing[2],
+	border: `1px solid ${colors.slate[200]}`,
+	borderRadius: radii.md,
+	background: colors.slate[50],
+};
+
+const traceItemStyle: React.CSSProperties = {
+	display: "grid",
+	gridTemplateColumns: "auto 1fr",
+	columnGap: spacing[3],
+	rowGap: spacing[1],
+	fontSize: typography.size.xs,
+};
+
+const traceStepBadgeStyle: React.CSSProperties = {
+	background: colors.indigo[700],
+	color: colors.white,
+	borderRadius: radii.sm,
+	padding: `0 ${spacing[2]}`,
+	fontWeight: typography.weight.medium,
+	alignSelf: "start",
+	minWidth: 28,
+	textAlign: "center",
+};
+
+const traceLabelStyle: React.CSSProperties = {
+	color: colors.slate[800],
+	fontWeight: typography.weight.medium,
+};
+
+const traceMetaStyle: React.CSSProperties = {
+	gridColumn: "2 / -1",
+	color: colors.slate[500],
+	fontSize: typography.size.xs,
+};
+
+function _kindIcon(kind: string): string {
+	switch (kind) {
+		case "tool_call":
+			return "→";
+		case "tool_result":
+			return "←";
+		case "thinking_text":
+			return "•";
+		default:
+			return "·";
+	}
+}
+
+function TraceList({ entries }: { entries: ThreadTraceEntry[] }) {
+	return (
+		<ol style={traceListStyle}>
+			{entries.map((entry) => (
+				<li
+					key={`${entry.step}-${entry.kind}-${entry.at}`}
+					style={traceItemStyle}
+				>
+					<span style={traceStepBadgeStyle} aria-label={`step ${entry.step}`}>
+						{entry.step}
+					</span>
+					<span style={traceLabelStyle}>
+						{_kindIcon(entry.kind)} {entry.label}
+					</span>
+					<span style={traceMetaStyle}>
+						{entry.kind}
+						{entry.tool ? ` · ${entry.tool}` : ""}
+					</span>
+				</li>
+			))}
+		</ol>
+	);
+}
+
 export default function ReferencesModal({
 	open,
 	onClose,
 	rows,
 	mfQuery,
+	thinkingTrace,
 }: Props) {
 	useEffect(() => {
 		if (!open) return;
@@ -182,6 +264,14 @@ export default function ReferencesModal({
 						×
 					</button>
 				</header>
+				{thinkingTrace && thinkingTrace.length > 0 ? (
+					<section data-testid="trace-section">
+						<div style={sectionLabelStyle}>
+							Thinking trace ({thinkingTrace.length})
+						</div>
+						<TraceList entries={thinkingTrace} />
+					</section>
+				) : null}
 				{rows && rows.length > 0 ? (
 					<section>
 						<div style={sectionLabelStyle}>Source rows ({rows.length})</div>
