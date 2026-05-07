@@ -19,21 +19,24 @@ import os
 import time
 from typing import Any
 
+import structlog.contextvars
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
 
+from nl_engine.agent.history import ensure_system_prompt, truncate_history
 from nl_engine.agent.llm_invoke import (
     AGENT_STEP_DEFAULT_TIMEOUT_S,
     invoke_with_wall_timeout,
     is_transient_llm_error,
 )
 from nl_engine.agent.state import MAX_STEPS_PER_TURN, AgentState
-from nl_engine.agent.system_prompt import SYSTEM_PROMPT as _OPENUI_SYSTEM_PROMPT
 from nl_engine.agent.tools import ALL_TOOLS, serialize_tool_result
+from nl_engine.logging import bind_request_id, get_logger
 
 log = logging.getLogger(__name__)
+slog = get_logger().bind(component="agent.graph")
 
 _TERMINAL_TOOLS = {"final_answer", "clarify"}
 
@@ -64,103 +67,51 @@ def _route(state: AgentState) -> str:
 
 
 def _make_tools_node(tools: list[BaseTool]) -> Any:
+    from nl_engine.agent.metrics import (
+        agent_tool_calls_total,
+        agent_tool_duration_seconds,
+    )
+
     by_name = {t.name: t for t in tools}
 
     def run_tools(state: AgentState) -> dict[str, Any]:
+        if state.request_id:
+            structlog.contextvars.bind_contextvars(request_id=state.request_id)
         last_ai = _last_ai_message(state.messages)
         if last_ai is None or not last_ai.tool_calls:
             return {}
         new_messages: list[BaseMessage] = []
         for call in last_ai.tool_calls:
-            tool = by_name.get(call["name"])
+            name = call["name"]
+            agent_tool_calls_total.labels(tool=name).inc()
+            tool = by_name.get(name)
+            t0 = time.monotonic()
             if tool is None:
-                result: Any = {"error": f"unknown tool: {call['name']}"}
+                result: Any = {"error": f"unknown tool: {name}"}
+                slog.warning("agent.unknown_tool", tool=name)
             else:
                 try:
                     result = tool.invoke(call.get("args", {}))
                 except Exception as exc:  # noqa: BLE001 — surfaced to LLM
                     result = {"error": str(exc)}
+                    slog.warning(
+                        "agent.tool_exception",
+                        tool=name,
+                        error_type=type(exc).__name__,
+                        error=str(exc)[:300],
+                    )
+            elapsed = time.monotonic() - t0
+            agent_tool_duration_seconds.labels(tool=name).observe(elapsed)
             new_messages.append(
                 ToolMessage(
                     content=serialize_tool_result(result),
                     tool_call_id=call.get("id", "unknown"),
-                    name=call["name"],
+                    name=name,
                 )
             )
         return {"messages": new_messages}
 
     return run_tools
-
-
-def _ensure_system_prompt(messages: list[BaseMessage]) -> list[BaseMessage]:
-    """Return the message list with the OpenUI SystemMessage prepended.
-
-    Attached transiently per-call and not written back into graph state,
-    so checkpointed threads don't carry the ~20KB prompt on every row.
-    The check on `messages[0]` is defensive — if a thread is ever loaded
-    with a SystemMessage already at the head, it's left alone.
-    """
-    if messages and isinstance(messages[0], SystemMessage):
-        return messages
-    return [SystemMessage(content=_OPENUI_SYSTEM_PROMPT), *messages]
-
-
-# Token-overflow guard threshold (HUG-190 Phase C). Both Qwen 3 32B and
-# Gemma 4 31B have 128K-131K context windows; we trim long histories at
-# 100K to leave headroom for the system prompt + tool descriptions +
-# the LLM's own response. Heuristic estimate: ~4 chars per token.
-_TOKEN_BUDGET = 100_000
-_CHARS_PER_TOKEN_HEURISTIC = 4
-
-
-def _estimate_tokens(messages: list[BaseMessage]) -> int:
-    """Rough character-based token estimate. Fast (no tokenizer dep)
-    and good enough to decide when to truncate. Real budget happens
-    inside the LLM provider; this is just to avoid sending obviously-
-    over-budget requests."""
-    total_chars = 0
-    for msg in messages:
-        content = msg.content
-        if isinstance(content, str):
-            total_chars += len(content)
-        else:
-            # AIMessage with structured content (tool calls) — best-effort
-            # serialization length.
-            total_chars += len(str(content))
-    return total_chars // _CHARS_PER_TOKEN_HEURISTIC
-
-
-def _truncate_history(messages: list[BaseMessage]) -> list[BaseMessage]:
-    """If the message list exceeds the token budget, drop the oldest
-    non-system messages in pairs until it fits. Preserves the system
-    prompt (always kept) and the tail of the conversation (the most
-    recent context the LLM actually needs).
-
-    HUG-190 Phase C: prevents context-overflow exceptions from crashing
-    the agent on long threads.
-    """
-    if _estimate_tokens(messages) <= _TOKEN_BUDGET:
-        return messages
-    system: list[BaseMessage] = []
-    rest: list[BaseMessage] = []
-    for msg in messages:
-        if isinstance(msg, SystemMessage):
-            system.append(msg)
-        else:
-            rest.append(msg)
-    dropped = 0
-    while rest and _estimate_tokens(system + rest) > _TOKEN_BUDGET:
-        # Drop the oldest non-system message.
-        rest.pop(0)
-        dropped += 1
-    if dropped:
-        log.warning(
-            "agent history truncated: dropped %d oldest non-system messages "
-            "to fit %d-token budget",
-            dropped,
-            _TOKEN_BUDGET,
-        )
-    return system + rest
 
 
 _AGENT_ERROR_FALLBACK = (
@@ -173,6 +124,75 @@ _LLM_MAX_RETRIES = 2  # 1 original + 2 retries = 3 total attempts
 _LLM_RETRY_BACKOFF_BASE_S = 1.0  # exponential: 1s, 2s
 
 
+def _retry_reason(exc: Exception) -> str:
+    """Bucket the transient error for the `reason` Prometheus label."""
+    msg = (str(exc) + " " + type(exc).__name__).lower()
+    if "timeout" in msg or "timed out" in msg:
+        return "timeout"
+    if "503" in msg or "502" in msg or "504" in msg or "500" in msg:
+        return "5xx"
+    return "other"
+
+
+def _log_step_success(
+    response: Any, state: AgentState, t0: float, retries: int
+) -> tuple[float, int]:
+    from nl_engine.agent.metrics import agent_step_duration_seconds
+
+    elapsed = time.monotonic() - t0
+    agent_step_duration_seconds.observe(elapsed)
+    step_n = state.step_count + 1
+    tool_calls_count = len(getattr(response, "tool_calls", []) or [])
+    slog.info(
+        "agent.step",
+        step=step_n,
+        elapsed_ms=int(elapsed * 1000),
+        retry_count=retries,
+        has_tool_calls=tool_calls_count > 0,
+        tool_call_count=tool_calls_count,
+        content_len=len(str(response.content)) if response.content else 0,
+    )
+    return elapsed, step_n
+
+
+def _record_retry(exc: Exception, attempt: int) -> float:
+    from nl_engine.agent.metrics import agent_llm_retries_total
+
+    backoff: float = _LLM_RETRY_BACKOFF_BASE_S * (2**attempt)
+    reason = _retry_reason(exc)
+    agent_llm_retries_total.labels(reason=reason).inc()
+    slog.warning(
+        "agent.llm_retry",
+        attempt=attempt + 1,
+        max_attempts=_LLM_MAX_RETRIES + 1,
+        backoff_s=backoff,
+        reason=reason,
+        error=str(exc)[:200],
+    )
+    return backoff
+
+
+def _step_failed(
+    state: AgentState, t0: float, retries: int, exc: Exception | None
+) -> dict[str, Any]:
+    from nl_engine.agent.metrics import agent_step_duration_seconds
+
+    elapsed = time.monotonic() - t0
+    agent_step_duration_seconds.observe(elapsed)
+    slog.error(
+        "agent.step_failed",
+        step=state.step_count + 1,
+        elapsed_ms=int(elapsed * 1000),
+        retries=retries,
+        error_type=type(exc).__name__ if exc else "Unknown",
+        error=str(exc)[:300] if exc else "",
+    )
+    return {
+        "messages": [AIMessage(content=_AGENT_ERROR_FALLBACK)],
+        "step_count": state.step_count + 1,
+    }
+
+
 def _make_agent_step(llm: BaseChatModel, tools: list[BaseTool]) -> Any:
     bound = llm.bind_tools(tools)
     wall_timeout = float(
@@ -180,54 +200,50 @@ def _make_agent_step(llm: BaseChatModel, tools: list[BaseTool]) -> Any:
     )
 
     def agent_step(state: AgentState) -> dict[str, Any]:
-        msgs = _truncate_history(_ensure_system_prompt(state.messages))
+        if state.request_id:
+            structlog.contextvars.bind_contextvars(request_id=state.request_id)
+        msgs = truncate_history(ensure_system_prompt(state.messages))
         last_exc: Exception | None = None
+        retries = 0
+        t0 = time.monotonic()
         for attempt in range(_LLM_MAX_RETRIES + 1):
             try:
                 response = invoke_with_wall_timeout(bound, msgs, wall_timeout)
-                return {
-                    "messages": [response],
-                    "step_count": state.step_count + 1,
-                }
+                _, step_n = _log_step_success(response, state, t0, retries)
+                return {"messages": [response], "step_count": step_n}
             except Exception as exc:  # noqa: BLE001
                 last_exc = exc
                 if attempt < _LLM_MAX_RETRIES and is_transient_llm_error(exc):
-                    backoff = _LLM_RETRY_BACKOFF_BASE_S * (2**attempt)
-                    log.warning(
-                        "agent_step LLM transient error (attempt %d/%d, "
-                        "retrying in %.1fs): %s",
-                        attempt + 1,
-                        _LLM_MAX_RETRIES + 1,
-                        backoff,
-                        str(exc)[:200],
-                    )
-                    time.sleep(backoff)
+                    time.sleep(_record_retry(exc, attempt))
+                    retries += 1
                     continue
                 break
-        # Fall-through: non-transient error OR retries exhausted.
-        # Surface as graceful AIMessage so the SSE stream stays alive.
-        log.warning(
-            "agent_step LLM error after %d attempt(s) (%s): %s",
-            (_LLM_MAX_RETRIES + 1)
-            if last_exc and is_transient_llm_error(last_exc)
-            else 1,
-            type(last_exc).__name__ if last_exc else "Unknown",
-            str(last_exc)[:300] if last_exc else "",
-        )
-        return {
-            "messages": [AIMessage(content=_AGENT_ERROR_FALLBACK)],
-            "step_count": state.step_count + 1,
-        }
+        return _step_failed(state, t0, retries, last_exc)
 
     return agent_step
 
 
 def _step_cap_node(state: AgentState) -> dict[str, Any]:
+    from nl_engine.agent.metrics import agent_step_cap_hits_total
+
+    if state.request_id:
+        structlog.contextvars.bind_contextvars(request_id=state.request_id)
+    agent_step_cap_hits_total.inc()
+    slog.warning(
+        "agent.step_cap_hit",
+        cap=MAX_STEPS_PER_TURN,
+        thread_id=state.thread_id,
+    )
     return {
         "messages": [
             AIMessage(content=_STEP_CAP_MESSAGE.format(cap=MAX_STEPS_PER_TURN))
         ]
     }
+
+
+# Re-exported for tests; bind_request_id keeps the contextvar import
+# explicit so test setups can scope the binding.
+__all__ = ["build_graph", "bind_request_id"]
 
 
 def build_graph(

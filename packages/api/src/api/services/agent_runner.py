@@ -1,10 +1,7 @@
-"""Runs a user turn through the LangGraph agent and persists every
-canonical message as it streams back. Emits SSE-friendly events so the
-route layer just has to forward them.
+"""Run a user turn through the LangGraph agent + emit SSE events.
 
-The runner is async-friendly (FastAPI route is async) but the underlying
-graph is sync; we run the synchronous stream in a thread executor so
-the event loop isn't blocked by Cerebras latency.
+The graph is sync; we run it in a thread so the event loop isn't
+blocked by LLM latency. Persists every canonical message as it streams.
 """
 
 from __future__ import annotations
@@ -12,39 +9,44 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
 
+import structlog.contextvars
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from nl_engine.agent.graph import build_graph
 from nl_engine.agent.persistence import to_canonical
 from nl_engine.agent.state import AgentState
+from nl_engine.logging import bind_request_id, get_logger
 
+from api.prometheus import (
+    agent_error_frames_total,
+    agent_steps_per_turn,
+    agent_turn_duration_seconds,
+)
 from api.repo import threads as threads_repo
 from api.services.openui_validator import validate_openui_dsl
 from api.types.threads import ThreadMessage
 from api.types.threads_api import StreamError, StreamFinal, StreamStep
 
+slog = get_logger().bind(component="agent.runner")
 
-class _PRODUCER_ERROR_SENTINEL:  # noqa: N801 — internal sentinel, not a class API
-    """Marker placed on the producer queue when graph.stream raises.
 
-    The consumer translates this into an SSE `event: error` frame so the
-    frontend sees a clean error message instead of a silently-broken
-    stream. HUG-190 Phase C.
-    """
+class _PRODUCER_ERROR_SENTINEL:  # noqa: N801 — internal sentinel
+    """Queue marker for graph.stream crashes; consumer emits an SSE
+    `event: error` frame so the stream stays well-formed."""
 
     def __init__(self, message: str) -> None:
         self.message = message
 
+
 log = logging.getLogger(__name__)
 
 
-def _persist_assistant(
-    thread_id: UUID, msg: AIMessage, db_url: str
-) -> ThreadMessage:
+def _persist_assistant(thread_id: UUID, msg: AIMessage, db_url: str) -> ThreadMessage:
     canonical = to_canonical(msg)
     return threads_repo.append_message(
         thread_id=thread_id,
@@ -100,9 +102,7 @@ def _terminal_payload(msg: ToolMessage) -> dict[str, Any] | None:
     return decoded if isinstance(decoded, dict) else None
 
 
-def _make_producer(
-    graph: Any, initial: AgentState, queue: asyncio.Queue[Any]
-) -> Any:
+def _make_producer(graph: Any, initial: AgentState, queue: asyncio.Queue[Any]) -> Any:
     """Build the producer thread function. Crashes are converted into
     a sentinel placed on the queue so the consumer can yield an SSE
     error frame instead of silently breaking the stream (HUG-190 Phase C)."""
@@ -124,49 +124,100 @@ def _make_producer(
     return producer
 
 
+def _start_turn(
+    thread_id: UUID,
+    user_content: str,
+    db_url: str,
+    llm: BaseChatModel,
+    history: list[ThreadMessage],
+    request_id: str,
+) -> tuple[Any, asyncio.Queue[Any]]:
+    token = bind_request_id(request_id) if request_id else None
+    structlog.contextvars.bind_contextvars(
+        request_id=request_id, thread_id=str(thread_id)
+    )
+    slog.info(
+        "agent.turn_started",
+        thread_id=str(thread_id),
+        history_len=len(history),
+        user_content_len=len(user_content),
+    )
+    threads_repo.append_message(
+        thread_id=thread_id, role="user", db_url=db_url, content=user_content
+    )
+    initial = _build_initial_state(thread_id, user_content, history, request_id)
+    queue: asyncio.Queue[Any] = asyncio.Queue()
+    asyncio.create_task(
+        asyncio.to_thread(_make_producer(build_graph(llm), initial, queue))
+    )
+    return token, queue
+
+
+def _emit_error_frame(message: str) -> dict[str, Any]:
+    agent_error_frames_total.inc()
+    slog.warning("agent.error_frame_emitted", error=message[:300])
+    return {
+        "event": "error",
+        "data": StreamError(message=message).model_dump_json(),
+    }
+
+
 async def stream_user_turn(
     thread_id: UUID,
     user_content: str,
     db_url: str,
     llm: BaseChatModel,
     history: list[ThreadMessage],
+    request_id: str = "",
 ) -> AsyncIterator[dict[str, Any]]:
     """Persist the user message, run the agent, yield SSE events.
 
-    Each event is a dict ready for sse_starlette.EventSourceResponse:
-      {event: "step", data: <json>}, {event: "final", data: <json>},
-      or {event: "error", data: <json>} when the graph crashes.
+    `request_id` is bound into structlog contextvars + AgentState so
+    every log line + downstream node carries it.
     """
-    threads_repo.append_message(
-        thread_id=thread_id,
-        role="user",
-        db_url=db_url,
-        content=user_content,
+    token, queue = _start_turn(
+        thread_id, user_content, db_url, llm, history, request_id
     )
-    initial = _build_initial_state(thread_id, user_content, history)
-    graph = build_graph(llm)
-    queue: asyncio.Queue[Any] = asyncio.Queue()
-    asyncio.create_task(asyncio.to_thread(_make_producer(graph, initial, queue)))
+    turn_start = time.monotonic()
     seen: set[int] = set()
     step_idx = 0
-    while True:
-        chunk = await queue.get()
-        if chunk is None:
-            break
-        if isinstance(chunk, _PRODUCER_ERROR_SENTINEL):
-            yield {
-                "event": "error",
-                "data": StreamError(message=chunk.message).model_dump_json(),
-            }
-            continue
-        for msg in chunk.get("messages", []):
-            if id(msg) in seen or isinstance(msg, HumanMessage):
-                seen.add(id(msg))
+    try:
+        while True:
+            chunk = await queue.get()
+            if chunk is None:
+                break
+            if isinstance(chunk, _PRODUCER_ERROR_SENTINEL):
+                yield _emit_error_frame(chunk.message)
                 continue
-            seen.add(id(msg))
-            step_idx += 1
-            for event in _process_message(msg, step_idx, thread_id, db_url):
-                yield event
+            for msg in chunk.get("messages", []):
+                if id(msg) in seen or isinstance(msg, HumanMessage):
+                    seen.add(id(msg))
+                    continue
+                seen.add(id(msg))
+                step_idx += 1
+                for event in _process_message(msg, step_idx, thread_id, db_url):
+                    yield event
+    finally:
+        _finalize_turn(thread_id, turn_start, step_idx, token)
+
+
+def _finalize_turn(
+    thread_id: UUID, turn_start: float, step_idx: int, token: Any
+) -> None:
+    elapsed = time.monotonic() - turn_start
+    agent_turn_duration_seconds.observe(elapsed)
+    agent_steps_per_turn.observe(step_idx)
+    slog.info(
+        "agent.turn_completed",
+        thread_id=str(thread_id),
+        elapsed_ms=int(elapsed * 1000),
+        steps=step_idx,
+    )
+    structlog.contextvars.unbind_contextvars("request_id", "thread_id")
+    if token is not None:
+        from nl_engine.logging import _request_id  # noqa: PLC0415
+
+        _request_id.reset(token)
 
 
 def _process_message(
@@ -184,9 +235,7 @@ def _process_message(
         persisted = _persist_tool(thread_id, msg, db_url, terminal=terminal)
         if terminal is not None:
             dsl = terminal.get("openui_dsl")
-            openui = (
-                validate_openui_dsl(dsl) if isinstance(dsl, str) and dsl else None
-            )
+            openui = validate_openui_dsl(dsl) if isinstance(dsl, str) and dsl else None
             out.append(
                 {
                     "event": "final",
@@ -202,6 +251,7 @@ def _build_initial_state(
     thread_id: UUID,
     user_content: str,
     history: list[ThreadMessage],
+    request_id: str = "",
 ) -> AgentState:
     """Assemble the message list passed to the graph: prior messages
     (recovered from thread_messages) + the new user message."""
@@ -220,40 +270,30 @@ def _build_initial_state(
         if m.role in {"user", "assistant", "tool", "system"}
     ]
     prior.append(HumanMessage(content=user_content))
-    return AgentState(messages=prior, thread_id=str(thread_id))
+    return AgentState(
+        messages=prior,
+        thread_id=str(thread_id),
+        request_id=request_id,
+    )
 
 
 def _emit(msg: Any, step_idx: int) -> dict[str, Any] | None:
+    def _step(**kw: Any) -> dict[str, Any]:
+        data = StreamStep(step=step_idx, **kw).model_dump_json()
+        return {"event": "step", "data": data}
     if isinstance(msg, AIMessage) and msg.tool_calls:
         first = msg.tool_calls[0]
-        return {
-            "event": "step",
-            "data": StreamStep(
-                step=step_idx,
-                kind="tool_call",
-                name=first["name"],
-                args=first.get("args"),
-            ).model_dump_json(),
-        }
+        return _step(kind="tool_call", name=first["name"], args=first.get("args"))
     if isinstance(msg, ToolMessage):
         try:
             result = json.loads(str(msg.content))
         except (json.JSONDecodeError, TypeError):
             result = None
-        return {
-            "event": "step",
-            "data": StreamStep(
-                step=step_idx,
-                kind="tool_result",
-                name=msg.name,
-                result=result if isinstance(result, dict) else None,
-            ).model_dump_json(),
-        }
+        return _step(
+            kind="tool_result",
+            name=msg.name,
+            result=result if isinstance(result, dict) else None,
+        )
     if isinstance(msg, AIMessage):
-        return {
-            "event": "step",
-            "data": StreamStep(
-                step=step_idx, kind="thinking", result=None
-            ).model_dump_json(),
-        }
+        return _step(kind="thinking", result=None)
     return None

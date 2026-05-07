@@ -20,6 +20,7 @@ from langchain_core.messages import (
 )
 from langchain_core.outputs import ChatGeneration, ChatResult
 from nl_engine.agent import graph as graph_mod
+from nl_engine.agent import history as history_mod
 from nl_engine.agent.state import AgentState
 
 
@@ -60,12 +61,13 @@ def test_estimate_tokens_under_threshold_returns_messages_unchanged() -> None:
         SystemMessage(content="sys"),
         HumanMessage(content="hi"),
     ]
-    result = graph_mod._truncate_history(msgs)
+    result = history_mod.truncate_history(msgs)
     assert result == msgs
 
 
 def test_truncate_history_drops_oldest_non_system_when_over_budget() -> None:
-    big_chunk = "x" * (graph_mod._TOKEN_BUDGET * graph_mod._CHARS_PER_TOKEN_HEURISTIC)
+    chunk_size = history_mod._TOKEN_BUDGET * history_mod._CHARS_PER_TOKEN_HEURISTIC
+    big_chunk = "x" * chunk_size
     # Each non-system message is ~budget-sized; together they exceed budget.
     msgs: list[BaseMessage] = [
         SystemMessage(content="SYSTEM_PROMPT"),
@@ -73,7 +75,7 @@ def test_truncate_history_drops_oldest_non_system_when_over_budget() -> None:
         AIMessage(content=big_chunk),     # also dropped
         HumanMessage(content="recent"),   # kept
     ]
-    result = graph_mod._truncate_history(msgs)
+    result = history_mod.truncate_history(msgs)
     # System message preserved
     assert isinstance(result[0], SystemMessage)
     assert result[0].content == "SYSTEM_PROMPT"
@@ -257,7 +259,8 @@ def test_agent_step_prepends_system_prompt_and_truncates_in_one_pass() -> None:
     _reset_stub()
     llm = _StubLLM(response_content="ok")
     step = graph_mod._make_agent_step(llm, [])
-    big_chunk = "y" * (graph_mod._TOKEN_BUDGET * graph_mod._CHARS_PER_TOKEN_HEURISTIC)
+    chunk_size = history_mod._TOKEN_BUDGET * history_mod._CHARS_PER_TOKEN_HEURISTIC
+    big_chunk = "y" * chunk_size
     state = AgentState(
         messages=[
             HumanMessage(content=big_chunk),

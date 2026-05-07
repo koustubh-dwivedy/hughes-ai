@@ -86,12 +86,14 @@ async def post_message(
         raise HTTPException(status_code=404, detail="thread not found")
     history = threads_repo.latest_n_messages(thread_id, n=20, db_url=db_url)
     llm = _get_llm(request)
+    request_id = getattr(request.state, "request_id", "")
     stream = stream_user_turn(
         thread_id=thread_id,
         user_content=body.content,
         db_url=db_url,
         llm=llm,
         history=history,
+        request_id=request_id,
     )
     return EventSourceResponse(stream)
 
