@@ -18,6 +18,7 @@ import { useAppSelector } from "../../../shared/api/hooks";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import type { ThreadMessageWire } from "../api";
 import OpenUIRenderer from "../openui/OpenUIRenderer";
+import MarkdownText from "./MarkdownText";
 import ReferencesModal from "./ReferencesModal";
 
 interface Props {
@@ -131,7 +132,9 @@ function AssistantTerminal({ msg }: { msg: ThreadMessageWire }) {
 		(payload.thinking_trace?.length ?? 0);
 	return (
 		<article aria-label="Assistant answer" style={assistantBubbleStyle}>
-			{summary !== "" && <div style={summaryStyle}>{summary}</div>}
+			{summary !== "" && (
+				<MarkdownText style={summaryStyle}>{summary}</MarkdownText>
+			)}
 			{payload.openui_dsl && payload.openui_dsl.length > 0 ? (
 				<div data-testid="openui-renderer">
 					<OpenUIRenderer dsl={payload.openui_dsl} />
@@ -194,8 +197,8 @@ function StreamingAssistant() {
 	ensureCaretKeyframes();
 	return (
 		<article aria-label="Assistant answer (streaming)" style={assistantBubbleStyle}>
-			<div style={summaryStyle} data-testid="streaming-summary">
-				{text}
+			<div data-testid="streaming-summary">
+				<MarkdownText style={summaryStyle}>{text}</MarkdownText>
 				<span style={streamingCaretStyle} aria-hidden />
 			</div>
 		</article>

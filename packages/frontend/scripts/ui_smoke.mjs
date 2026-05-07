@@ -474,6 +474,41 @@ if (!QUICK) {
 		if (telemetry) addNote(telemetry);
 	});
 
+	await withPage("markdown-renders-tables-and-lists", async ({ page, addNote }) => {
+		// HUG-203: when the LLM emits Markdown in `summary` (tables,
+		// numbered lists, **bold**), it must render as actual HTML in
+		// the answer bubble — NOT as raw `**` / `|` / `1.` characters.
+		await page.goto(`${BASE}/intelligence`);
+		await page.waitForLoadState("networkidle");
+		const composer = page.getByLabel(/Ask Hughes/i);
+		await composer.fill("What's our origination volume this year by month?");
+		await page.getByRole("button", { name: /^Send$/ }).click();
+		const terminal = page.locator('[aria-label="Assistant answer"]').first();
+		await terminal.waitFor({ state: "visible", timeout: 240_000 });
+		const answer = await page.locator('[aria-label="Assistant answer"]').first();
+		// Tables: any GFM-style markdown table the LLM emits should render
+		// as a real <table>, not as `| Month | Volume |` text.
+		const tableCount = await answer.locator("table").count();
+		// Lists: numbered "1. X" / bulleted "- X" should render as <ol> / <ul>.
+		const listCount = await answer.locator("ol, ul").count();
+		// Bold: **N loans** should be inside a <strong>.
+		const strongCount = await answer.locator("strong").count();
+		addNote(`<table>: ${tableCount}, <ol|ul>: ${listCount}, <strong>: ${strongCount}`);
+		// At least one of these structures has to land for a metric-volume
+		// answer — otherwise we're back to plain text leaking markdown.
+		if (tableCount + listCount + strongCount === 0) {
+			throw new Error(
+				"answer rendered no <table>/<ol>/<ul>/<strong> — markdown is leaking as raw text",
+			);
+		}
+		// Belt-and-suspenders: the literal Markdown table delimiter `|---|`
+		// should NEVER appear in user-visible text after rendering.
+		const visibleText = (await answer.textContent()) ?? "";
+		if (/\|-+\|/.test(visibleText)) {
+			throw new Error(`raw markdown table syntax visible: "${visibleText.match(/\|-+\|/)?.[0]}"`);
+		}
+	});
+
 	await withPage("chart-question-renders-openui", async ({ page, addNote }) => {
 		await page.goto(`${BASE}/intelligence`);
 		await page.waitForLoadState("networkidle");
