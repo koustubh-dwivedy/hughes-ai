@@ -1,0 +1,88 @@
+{
+  "predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "augmented": true,
+        "rows": "[]",
+        "mf_query": "SELECT COUNT(*) AS origination_count\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)\n  AND funded_at <  DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '3 months'\n",
+        "metric_definition": "",
+        "summary": "There are no loan originations recorded in the first quarter of this year (Q1 {current_year})."
+      },
+      {
+        "augmented": true,
+        "rows": "[]",
+        "mf_query": "SELECT\n  product_type,\n  COUNT(*) AS loan_count,\n  ROUND(AVG(funded_amount), 2) AS avg_amount,\n  ROUND(SUM(funded_amount), 2) AS total_funded\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('quarter', CURRENT_DATE - INTERVAL '3 months')\n  AND funded_at <  DATE_TRUNC('quarter', CURRENT_DATE)\nGROUP BY product_type\nORDER BY loan_count DESC\n",
+        "metric_definition": "",
+        "summary": "Which product types had the highest origination volume in the last quarter?"
+      },
+      {
+        "augmented": true,
+        "rows": "[]",
+        "mf_query": "SELECT\n  DATE_TRUNC('month', funded_at) AS month,\n  COUNT(*) AS loan_count,\n  ROUND(SUM(funded_amount), 2) AS total_funded\nFROM fct_loan_originations\nWHERE funded_at >= CURRENT_DATE - INTERVAL '12 months'\nGROUP BY DATE_TRUNC('month', funded_at)\nORDER BY month\n",
+        "metric_definition": "",
+        "summary": "What is the origination volume and total funded amount by month over the past 12 months?"
+      },
+      {
+        "rows": "[]",
+        "mf_query": "SELECT ROUND(SUM(funded_amount), 2) AS total_funded_amount\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)\n  AND funded_at <  CURRENT_DATE + INTERVAL '1 day'\n",
+        "metric_definition": "",
+        "summary": "What is the total funded amount this year?"
+      },
+      {
+        "rows": "[]",
+        "mf_query": "SELECT\n  branch_name,\n  branch_region,\n  COUNT(*) AS loan_count,\n  ROUND(SUM(funded_amount), 2) AS total_funded\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)\nGROUP BY branch_name, branch_region\nORDER BY loan_count DESC\nLIMIT 5\n",
+        "metric_definition": "",
+        "summary": "Which branches had the highest origination volume this year?"
+      },
+      {
+        "rows": "[]",
+        "mf_query": "SELECT\n  channel,\n  COUNT(*) AS origination_count,\n  ROUND(SUM(funded_amount), 2) AS total_funded_amount\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)\nGROUP BY channel\nORDER BY origination_count DESC\n",
+        "metric_definition": "",
+        "summary": "Show origination volume by channel this year"
+      },
+      {
+        "rows": "[]",
+        "mf_query": "SELECT\n  COUNT(*) AS origination_count,\n  ROUND(SUM(funded_amount), 2) AS total_funded_amount\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('year', CURRENT_DATE)\n  AND funded_at <  CURRENT_DATE + INTERVAL '1 day'\n",
+        "metric_definition": "",
+        "summary": "What is our origination volume this year?"
+      },
+      {
+        "rows": "[]",
+        "mf_query": "SELECT COUNT(*) AS origination_count\nFROM fct_loan_originations\nWHERE funded_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')\n  AND funded_at <  DATE_TRUNC('month', CURRENT_DATE)\n",
+        "metric_definition": "",
+        "summary": "How many loans did we originate last month?"
+      }
+    ],
+    "signature": {
+      "instructions": "Write a 1-2 sentence answer that stands on its own.\n\nRules:\n  * State the metric value first (or the headline insight).\n  * Quote the time window and any active filter from the query.\n  * Use the metric definition to choose unit + framing — e.g.\n    ratios shown as percentages, currency shown with the right\n    precision.\n  * Avoid hedging (\"approximately\") unless the rows include nulls\n    or notes that justify it.\n  * Plain English. No markdown bullet lists or code blocks.",
+      "fields": [
+        {
+          "prefix": "Rows:",
+          "description": "JSON array of result rows (flat dicts)."
+        },
+        {
+          "prefix": "Mf Query:",
+          "description": "JSON of the MF query that produced these rows."
+        },
+        {
+          "prefix": "Metric Definition:",
+          "description": "Description of the metric (formula, unit, caveats). Sourced from docs/metrics.md / the catalog."
+        },
+        {
+          "prefix": "Summary:",
+          "description": "The 1-2 sentence answer ready to render to the user."
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.12",
+      "dspy": "3.2.1",
+      "cloudpickle": "3.1"
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "augmented": true,
+        "rows": "[]",
+        "intent": "How many loans did we originate last month?",
+        "rationale": "Single-value answer (count of loans last month) warrants a KPI visualization.",
+        "chart_spec": "{\"type\":\"kpi\",\"x\":\"\",\"y\":\"\"}"
+      },
+      {
+        "augmented": true,
+        "rows": "[]",
+        "intent": "What is our origination volume this year?",
+        "rationale": "No data available to display origination volume for this year.",
+        "chart_spec": ""
+      },
+      {
+        "augmented": true,
+        "rows": "[]",
+        "intent": "Show origination volume by channel this year",
+        "rationale": "Categorical breakdown of origination volume by channel (assuming ≤10 channels) warrants a bar chart for comparison.",
+        "chart_spec": "{\"type\":\"bar\", \"x\":\"channel\", \"y\":\"origination_volume\"}"
+      },
+      {
+        "augmented": true,
+        "rows": "[]",
+        "intent": "Which branches had the highest origination volume this year?",
+        "rationale": "No data available to display for the requested branches' origination volume.",
+        "chart_spec": ""
+      },
+      {
+        "rows": "[]",
+        "intent": "What is the total funded amount this year?",
+        "chart_spec": "",
+        "rationale": ""
+      },
+      {
+        "rows": "[]",
+        "intent": "How many loans did we fund in Q1 this year?",
+        "chart_spec": "",
+        "rationale": ""
+      },
+      {
+        "rows": "[]",
+        "intent": "Show origination trends by month over the last 12 months",
+        "chart_spec": "",
+        "rationale": ""
+      },
+      {
+        "rows": "[]",
+        "intent": "What is origination volume by product type last quarter?",
+        "chart_spec": "",
+        "rationale": ""
+      }
+    ],
+    "signature": {
+      "instructions": "Choose the most communicative visualization for a result set.\n\nRules:\n  * Single-value answer (1 row, 1 metric column): emit `kpi`.\n  * Time series (rows ordered by metric_time__*): emit `line`.\n  * Categorical breakdown with ≤10 rows: emit `bar`.\n  * Otherwise leave `chart_spec` empty so the answer renders as\n    prose only.\n\n`chart_spec` is a JSON object the agent will hand to OpenUI; an\nempty string means \"no chart, prose only\".",
+      "fields": [
+        {
+          "prefix": "Rows:",
+          "description": "JSON array of MetricFlow result rows (each a flat dict)."
+        },
+        {
+          "prefix": "Intent:",
+          "description": "The user's question, so the chart matches what was asked."
+        },
+        {
+          "prefix": "Rationale:",
+          "description": "One sentence on why this chart type (or prose-only) was chosen."
+        },
+        {
+          "prefix": "Chart Spec:",
+          "description": "JSON: {type:\"line\"|\"bar\"|\"kpi\", x:..., y:...} OR empty string for prose-only answers."
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.12",
+      "dspy": "3.2.1",
+      "cloudpickle": "3.1"
+    }
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "augmented": true,
+        "question": "How many loans did we originate last month?",
+        "metric_catalog": "",
+        "conversation_history": "",
+        "rationale": "The metric for loan origination count with no dimensions answers the question about the total number of loans originated last month.",
+        "metric": "loan_origination_count",
+        "dimensions": "[]",
+        "where": "\"{{ Dimension('metric_time__month') }} = 'last_month'\"",
+        "order": "",
+        "limit": 1
+      },
+      {
+        "augmented": true,
+        "question": "Show origination volume by channel this year",
+        "metric_catalog": "",
+        "conversation_history": "",
+        "rationale": "The metric \"origination_volume\" with dimension \"channel\" and a filter for the current year answers the question about origination volume by channel this year.",
+        "metric": "origination_volume",
+        "dimensions": "[\"channel\"]",
+        "where": "\"{{ Dimension('metric_time__year') }} = {{ 2023 }}\"",
+        "order": "-origination_volume",
+        "limit": 100
+      },
+      {
+        "augmented": true,
+        "question": "Which branches had the highest origination volume this year?",
+        "metric_catalog": "",
+        "conversation_history": "",
+        "rationale": "The 'origination_volume' metric with 'branch' dimension and this year's time filter identifies branches with highest origination volume.",
+        "metric": "origination_volume",
+        "dimensions": "[\"branch\"]",
+        "where": "\"{ Dimension('metric_time__year') }\" = '2023'",
+        "order": "-origination_volume",
+        "limit": 100
+      },
+      {
+        "question": "What is the total funded amount this year?",
+        "metric_catalog": "",
+        "conversation_history": "",
+        "metric": "",
+        "dimensions": "[]",
+        "where": "",
+        "order": "",
+        "limit": 100,
+        "rationale": ""
+      },
+      {
+        "question": "Show origination trends by month over the last 12 months",
+        "metric_catalog": "",
+        "conversation_history": "",
+        "metric": "",
+        "dimensions": "[]",
+        "where": "",
+        "order": "",
+        "limit": 100,
+        "rationale": ""
+      },
+      {
+        "question": "What is origination volume by product type last quarter?",
+        "metric_catalog": "",
+        "conversation_history": "",
+        "metric": "",
+        "dimensions": "[]",
+        "where": "",
+        "order": "",
+        "limit": 100,
+        "rationale": ""
+      },
+      {
+        "question": "How many loans did we fund in Q1 this year?",
+        "metric_catalog": "",
+        "conversation_history": "",
+        "metric": "",
+        "dimensions": "[]",
+        "where": "",
+        "order": "",
+        "limit": 100,
+        "rationale": ""
+      },
+      {
+        "question": "What is our origination volume this year?",
+        "metric_catalog": "",
+        "conversation_history": "",
+        "metric": "",
+        "dimensions": "[]",
+        "where": "",
+        "order": "",
+        "limit": 100,
+        "rationale": ""
+      }
+    ],
+    "signature": {
+      "instructions": "Translate a user's question into MetricFlow query arguments.\n\nRules:\n  * `metric` MUST be one of the metric names in `metric_catalog`.\n  * `dimensions` MUST be drawn verbatim from that metric's catalog\n    dimension list (e.g., `deposits_monthly_grain__branch`,\n    `metric_time__month`). NEVER paraphrase to user-friendly names.\n  * `where` uses Jinja Dimension() wrappers, e.g.\n    \"{{ Dimension('metric_time__day') }} >= '2026-01-01'\".\n  * `order` is a bare column for ASC, `-` prefix for DESC. Never\n    emit the words \"ASC\" or \"DESC\". The order column must already\n    be in `dimensions` or be the metric name itself.\n  * `limit` defaults to 100; lower to 1 for \"what's the X\" asks.",
+      "fields": [
+        {
+          "prefix": "Question:",
+          "description": "The latest user message."
+        },
+        {
+          "prefix": "Metric Catalog:",
+          "description": "JSON array of {name, dimensions} entries — the literal catalog returned by `list_metrics()`."
+        },
+        {
+          "prefix": "Conversation History:",
+          "description": "Prior turns for context (oldest first)."
+        },
+        {
+          "prefix": "Rationale:",
+          "description": "One sentence on why this metric + filter combo answers the question."
+        },
+        {
+          "prefix": "Metric:",
+          "description": "The metric name (verbatim from the catalog)."
+        },
+        {
+          "prefix": "Dimensions:",
+          "description": "JSON array of dimension strings (verbatim from the catalog), or '[]'."
+        },
+        {
+          "prefix": "Where:",
+          "description": "MetricFlow `where` predicate, or empty string."
+        },
+        {
+          "prefix": "Order:",
+          "description": "Order-by column (bare = ASC, `-` prefix = DESC), or empty string."
+        },
+        {
+          "prefix": "Limit:",
+          "description": "Row limit. 100 default; 1 for single-value."
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.12",
+      "dspy": "3.2.1",
+      "cloudpickle": "3.1"
+    }
+  }
+}

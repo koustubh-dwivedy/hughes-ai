@@ -1,0 +1,101 @@
+{
+  "predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "augmented": true,
+        "question": "How many loans did we originate last month?",
+        "available_metrics": "",
+        "conversation_history": "",
+        "rationale": "The question asks for a specific metric value related to loan origination.",
+        "action": "query_data"
+      },
+      {
+        "augmented": true,
+        "question": "What is our origination volume this year?",
+        "available_metrics": "",
+        "conversation_history": "",
+        "rationale": "The question asks for a metric value.",
+        "action": "query_data"
+      },
+      {
+        "augmented": true,
+        "question": "How many loans did we fund in Q1 this year?",
+        "available_metrics": "",
+        "conversation_history": "",
+        "rationale": "The question asks for a metric value.",
+        "action": "query_data"
+      },
+      {
+        "augmented": true,
+        "question": "Show origination volume by channel this year",
+        "available_metrics": "",
+        "conversation_history": "",
+        "rationale": "The question asks for a metric value (origination volume by channel) that can be queried directly.",
+        "action": "query_data"
+      },
+      {
+        "question": "What is the total funded amount this year?",
+        "available_metrics": "",
+        "conversation_history": "",
+        "action": "query_data",
+        "rationale": "The question asks for a metric value."
+      },
+      {
+        "question": "What is origination volume by product type last quarter?",
+        "available_metrics": "",
+        "conversation_history": "",
+        "action": "query_data",
+        "rationale": "The question asks for a metric value."
+      },
+      {
+        "question": "Show origination trends by month over the last 12 months",
+        "available_metrics": "",
+        "conversation_history": "",
+        "action": "query_data",
+        "rationale": "The question asks for a metric value."
+      },
+      {
+        "question": "Which branches had the highest origination volume this year?",
+        "available_metrics": "",
+        "conversation_history": "",
+        "action": "query_data",
+        "rationale": "The question asks for a metric value."
+      }
+    ],
+    "signature": {
+      "instructions": "Decide the next high-level action for the agent.\n\nRead the user's question + the prior conversation + the available\nmetric catalog. Pick the SINGLE action most likely to make progress.\nPrefer `query_data` whenever the question references a metric you\ncan resolve to a catalog entry. Use `clarify` only when multiple\ncatalog metrics could equally answer the question.",
+      "fields": [
+        {
+          "prefix": "Question:",
+          "description": "The latest user message."
+        },
+        {
+          "prefix": "Conversation History:",
+          "description": "Recent prior turns as 'role: content' lines, oldest first."
+        },
+        {
+          "prefix": "Available Metrics:",
+          "description": "Comma-separated list of metric names from the catalog."
+        },
+        {
+          "prefix": "Rationale:",
+          "description": "One sentence on why this action was chosen."
+        },
+        {
+          "prefix": "Action:",
+          "description": "One of: query_data, lookup_metric, clarify, final_answer."
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.12",
+      "dspy": "3.2.1",
+      "cloudpickle": "3.1"
+    }
+  }
+}

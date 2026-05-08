@@ -1,0 +1,89 @@
+{
+  "predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "augmented": true,
+        "question": "How many loans did we originate last month?",
+        "ambiguity": "",
+        "clarification": "",
+        "options": "[]"
+      },
+      {
+        "augmented": true,
+        "question": "How many loans did we fund in Q1 this year?",
+        "ambiguity": "",
+        "clarification": "Do you want the count of originated loans or funded loans for Q1 this year?",
+        "options": "[\"Originated\", \"Funded\"]"
+      },
+      {
+        "augmented": true,
+        "question": "What is origination volume by product type last quarter?",
+        "ambiguity": "",
+        "clarification": "Which specific product types would you like to include in the origination volume analysis for last quarter?",
+        "options": "[\"Auto Loans\", \"Mortgages\", \"Personal Loans\", \"Business Loans\"]"
+      },
+      {
+        "augmented": true,
+        "question": "Show origination trends by month over the last 12 months",
+        "ambiguity": "",
+        "clarification": "Are you referring to the trailing 12 months up to the current date or the previous calendar year (e.g., Jan-Dec 2023)?",
+        "options": "[\"Trailing 12 months (e.g., Aug 2023 - July 2024)\", \"Previous calendar year (e.g., Jan 2023 - Dec 2023)\"]"
+      },
+      {
+        "question": "What is the total funded amount this year?",
+        "ambiguity": "",
+        "clarification": "",
+        "options": "[]"
+      },
+      {
+        "question": "What is our origination volume this year?",
+        "ambiguity": "",
+        "clarification": "",
+        "options": "[]"
+      },
+      {
+        "question": "Which branches had the highest origination volume this year?",
+        "ambiguity": "",
+        "clarification": "",
+        "options": "[]"
+      },
+      {
+        "question": "Show origination volume by channel this year",
+        "ambiguity": "",
+        "clarification": "",
+        "options": "[]"
+      }
+    ],
+    "signature": {
+      "instructions": "Pose ONE concise clarification when the question maps to\nmultiple equally-plausible catalog entries or filter ranges.\n\nRules:\n  * Only emit a question when the ambiguity prevents progress —\n    if a reasonable default exists, the agent should answer\n    directly instead of asking.\n  * Frame the question to elicit a SHORT answer (a single\n    choice) rather than free-form prose.\n  * If you can offer 2-4 distinct options, populate `options`.\n    Otherwise leave it empty and let the user reply naturally.",
+      "fields": [
+        {
+          "prefix": "Question:",
+          "description": "The latest user message."
+        },
+        {
+          "prefix": "Ambiguity:",
+          "description": "Short description of the ambiguity (e.g. 'two metrics named ratio_x match', 'no time window specified')."
+        },
+        {
+          "prefix": "Clarification:",
+          "description": "The clarifying question to render to the user."
+        },
+        {
+          "prefix": "Options:",
+          "description": "JSON array of suggested answer choices, or '[]'."
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.12",
+      "dspy": "3.2.1",
+      "cloudpickle": "3.1"
+    }
+  }
+}
