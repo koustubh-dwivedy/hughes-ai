@@ -25,10 +25,15 @@ from langchain_core.language_models import BaseChatModel
 from nl_engine.llm.providers.google import make_google_llm
 from nl_engine.llm.providers.groq import make_groq_llm
 from nl_engine.llm.providers.ollama import make_ollama_llm
+from nl_engine.llm.providers.openai_compatible import (
+    make_openai_compatible_llm,
+)
 
-ProviderName = Literal["groq", "google", "ollama"]
+ProviderName = Literal["groq", "google", "ollama", "openai_compatible"]
 
-_VALID_PROVIDERS: frozenset[str] = frozenset({"groq", "google", "ollama"})
+_VALID_PROVIDERS: frozenset[str] = frozenset(
+    {"groq", "google", "ollama", "openai_compatible"}
+)
 
 _DEFAULT_PROVIDER: ProviderName = "groq"
 
@@ -44,6 +49,12 @@ class LLMConfig:
 
     provider: ProviderName
     model: str | None = None  # passes through to the provider; None = default
+    # HUG-206: env-var NAMES used by the openai_compatible provider to
+    # resolve credentials + endpoint at construction time. Ignored by
+    # other providers, which read their own canonical env vars
+    # (GROQ_API_KEY, GOOGLE_API_KEY, OLLAMA_API_KEY).
+    api_key_env: str = "OPENAI_API_KEY"
+    base_url_env: str = "OPENAI_BASE_URL"
 
 
 class LLMFactoryError(RuntimeError):
@@ -74,7 +85,12 @@ def _read_yaml_config() -> LLMConfig | None:
     raw = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8")) or {}
     provider = _validate_provider(raw.get("provider", ""), source="config/llm.yaml")
     model = raw.get("model")
-    return LLMConfig(provider=provider, model=model)
+    return LLMConfig(
+        provider=provider,
+        model=model,
+        api_key_env=raw.get("api_key_env") or "OPENAI_API_KEY",
+        base_url_env=raw.get("base_url_env") or "OPENAI_BASE_URL",
+    )
 
 
 def _read_env_config() -> LLMConfig:
@@ -96,12 +112,18 @@ def _resolve_config() -> LLMConfig:
     return _read_yaml_config() or _read_env_config()
 
 
-def _construct(provider: ProviderName, model: str | None) -> BaseChatModel:
-    if provider == "groq":
-        return make_groq_llm(model)
-    if provider == "google":
-        return make_google_llm(model)
-    return make_ollama_llm(model)
+def _construct(cfg: LLMConfig) -> BaseChatModel:
+    if cfg.provider == "groq":
+        return make_groq_llm(cfg.model)
+    if cfg.provider == "google":
+        return make_google_llm(cfg.model)
+    if cfg.provider == "openai_compatible":
+        return make_openai_compatible_llm(
+            cfg.model,
+            api_key_env=cfg.api_key_env,
+            base_url_env=cfg.base_url_env,
+        )
+    return make_ollama_llm(cfg.model)
 
 
 def make_llm(config: LLMConfig | None = None) -> BaseChatModel:
@@ -112,4 +134,4 @@ def make_llm(config: LLMConfig | None = None) -> BaseChatModel:
     `config/llm.yaml` (or env-var fallback) drive the construction.
     """
     cfg = config or _resolve_config()
-    return _construct(cfg.provider, cfg.model)
+    return _construct(cfg)

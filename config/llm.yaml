@@ -1,22 +1,30 @@
 # LLM configuration for Surface 2 (the LangGraph agent).
 #
-# To change which LLM the agent uses: edit this file and ensure the
-# `api_key_env` variable is set in your `.env` (or shell env). No code
+# Single source of truth for LLM selection. There is no fallback chain
+# (HUG-190, 2026-05-06) — one provider, one model, one predictable code
+# path. To change which LLM the agent uses: edit this file and ensure
+# the api_key_env variable is set in `.env` (or shell env). No code
 # changes required.
 #
-# This is the SINGLE source of truth for LLM selection. There is no
-# fallback chain (HUG-190, 2026-05-06). One provider, one model, one
-# predictable code path. If the provider experiences an outage, ops
-# swaps the file rather than relying on hidden multi-provider mixing.
-#
 # Schema:
-#   provider:     groq | google | ollama
+#   provider:     groq | google | ollama | openai_compatible
 #   model:        provider-specific identifier
-#   api_key_env:  env var holding the API key
+#   api_key_env:  env var holding the API key (kept out of source)
 #   base_url_env: optional; env var holding a base URL override
-#                 (defaults to the provider's default endpoint)
+#
+# Provider notes:
+#   - groq:              GROQ_API_KEY.   Default qwen/qwen3-32b.
+#   - google:            GOOGLE_API_KEY. Default gemma-4-31b-it.
+#   - ollama:            OLLAMA_API_KEY. Ollama Cloud or self-hosted
+#                        via OLLAMA_BASE_URL.
+#   - openai_compatible (HUG-206): generic provider for any endpoint
+#                        speaking the OpenAI HTTP wire protocol —
+#                        Cerebras, Together, Fireworks, Anyscale,
+#                        vLLM, OpenAI itself. Adding a new such
+#                        endpoint is a config change, not a code
+#                        change.
 
-provider: ollama
-model: glm-5.1
-api_key_env: OLLAMA_API_KEY
-base_url_env: OLLAMA_BASE_URL
+provider: openai_compatible
+model: zai-glm-4.7
+api_key_env: CEREBRAS_API_KEY
+base_url_env: CEREBRAS_BASE_URL

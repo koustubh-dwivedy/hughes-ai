@@ -154,3 +154,21 @@ Same as the 2026-05-05 list (BaseChatModel + LangChain tool-call shape + free-te
 ### Operational footnote — GLM-5.1 + Ollama Cloud
 
 `langchain-ollama`'s `ChatOllama` against Ollama Cloud's `https://ollama.com/api/chat` works for tool calling. The HTTP timeout configured via `client_kwargs["timeout"]` covers connect-phase hangs only — read-phase hangs (TCP open, no bytes) bypass it. Defense-in-depth: the agent's step now wraps `bound.invoke()` in a wall-clock daemon-thread timeout (`AGENT_STEP_TIMEOUT_S`, default 150s) so a hung Ollama connection cannot wedge the eval. See `nl_engine/agent/llm_invoke.py`.
+
+---
+
+## Amendment — 2026-05-10 (HUG-206): generic `openai_compatible` provider
+
+A fourth provider option, `openai_compatible`, has been added. It uses `langchain-openai`'s `ChatOpenAI` to talk to any HTTP endpoint that implements the OpenAI `/v1/chat/completions` wire protocol — Cerebras, Together, Fireworks, Anyscale, vLLM, OpenAI itself, etc. The endpoint URL and API key are read from env vars whose NAMES are specified in `config/llm.yaml` (`api_key_env`, `base_url_env`). **Adding a new OpenAI-compatible endpoint is a config-file change, not a code change.**
+
+The three original modules stay alongside the new one — they aren't migrated:
+
+- `groq.py` carries the ADR-0004 invariant `reasoning_format="hidden"` to strip Qwen's `<think>` blocks server-side. `ChatOpenAI` doesn't expose that parameter directly. Worth preserving the dedicated path until there's a reason to consolidate.
+- `google.py` uses Gemini's native protocol, which is **not** OpenAI-compat. Cannot be migrated.
+- `ollama.py` works against Ollama Cloud's native `/api/chat`. No incident motivates a refactor.
+
+GLM-4.7 on Cerebras — relevant findings from the pre-flight probe:
+
+- **Reasoning is structurally separate from content.** GLM-4.7 returns reasoning in a dedicated `message.reasoning` field (the OpenAI o1-series pattern). The user-facing `message.content` is clean — no `<think>` tags, no chain-of-thought leak. No client-side stripping needed.
+- **Tool-calling is OpenAI-compatible.** `finish_reason: tool_calls`, structured `tool_calls[].function.{name,arguments}` array. LangChain reads it natively.
+- **Prose alongside tool calls.** GLM-4.7 emits a sentence of justification in `message.content` when dispatching a tool call. HUG-204's frontend filter (hide AssistantText when `tool_calls` is non-empty) already handles this leak class.

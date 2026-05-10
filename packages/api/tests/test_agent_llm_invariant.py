@@ -21,6 +21,13 @@ def _provider_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GROQ_API_KEY", "test-key")
     monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
     monkeypatch.setenv("OLLAMA_API_KEY", "test-key")
+    # HUG-206: openai_compatible reads the env-var NAME from the YAML;
+    # for the test fixture, set every plausible name we might see in
+    # config/llm.yaml so the test stays robust to provider swaps.
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("CEREBRAS_API_KEY", "test-key")
+    monkeypatch.setenv("FIREWORKS_API_KEY", "test-key")
+    monkeypatch.setenv("TOGETHER_API_KEY", "test-key")
 
 
 def _read_configured_provider() -> tuple[str, str]:
@@ -48,6 +55,10 @@ def test_make_agent_llm_honors_config_yaml() -> None:
         "groq": "groq",
         "google": "google",
         "ollama": "ollama",
+        # HUG-206: any OpenAI-wire-compatible endpoint flows through
+        # langchain-openai's ChatOpenAI regardless of which model is
+        # behind it (Cerebras-GLM, Fireworks-Llama, OpenAI itself, etc).
+        "openai_compatible": "openai",
     }[provider]
     assert expected_class_substring in type_name, (
         f"config/llm.yaml selects provider={provider!r} but make_agent_llm "
