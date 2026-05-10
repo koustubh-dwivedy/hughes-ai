@@ -54,6 +54,7 @@ class RunOptions:
     write_ledger: bool
     run_id: str
     commit_sha: str
+    tier_filter: str = "all"  # "all" | "must-pass" | "long-tail"
 
 
 def _load_run_inputs(
@@ -61,7 +62,12 @@ def _load_run_inputs(
 ) -> tuple[str, list[Question], BaseChatModel]:
     db_url = os.environ["DATABASE_URL"]
     qf = load_questions(QUESTIONS_FILE)
-    return db_url, qf.questions, make_llm()
+    questions = qf.questions
+    if opts.tier_filter == "must-pass":
+        questions = [q for q in questions if q.must_pass]
+    elif opts.tier_filter == "long-tail":
+        questions = [q for q in questions if not q.must_pass]
+    return db_url, questions, make_llm()
 
 
 def _grade_all_questions(
@@ -172,6 +178,13 @@ def main() -> None:
         action="store_true",
         help="Append a row to .promotion-ledger.csv (main-branch CI only).",
     )
+    parser.add_argument(
+        "--tier",
+        type=str,
+        default="all",
+        choices=("all", "must-pass", "long-tail"),
+        help="Which tier of questions to run (default: all).",
+    )
     parser.add_argument("--run-id", type=str, default="")
     parser.add_argument("--commit-sha", type=str, default="")
     args = parser.parse_args()
@@ -186,6 +199,7 @@ def main() -> None:
                 write_ledger=args.write_ledger,
                 run_id=args.run_id or str(uuid4()),
                 commit_sha=args.commit_sha,
+                tier_filter=args.tier,
             )
         )
     )
