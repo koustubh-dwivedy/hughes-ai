@@ -14,6 +14,12 @@ MessageRole = Literal["user", "assistant", "tool", "system"]
 class Thread(BaseModel):
     thread_id: UUID
     session_id: str
+    # HUG-205 — durable identity that owns this thread, stored in the
+    # frontend's localStorage. Persists across tab close / browser
+    # restart, unlike `session_id` which is per-visit. Optional during
+    # the rollout window because backfilled rows from before the
+    # migration may inherit `session_id` here.
+    user_id: str | None = None
     title: str | None = None
     started_at: datetime
     last_active_at: datetime

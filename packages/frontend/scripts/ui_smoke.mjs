@@ -448,6 +448,49 @@ if (!QUICK) {
 		if (telemetry) addNote(telemetry);
 	});
 
+	await withPage("thread-history-persists-across-fresh-context", async ({ page, addNote, ctx }) => {
+		// HUG-205: closing the tab and reopening should NOT erase chat
+		// history. Simulate by capturing the localStorage user_id from
+		// one browser context, then opening a fresh context (clean
+		// cookies, clean sessionStorage), pre-seeding it with the same
+		// user_id, and asserting the prior thread surfaces in the rail.
+		await page.goto(`${BASE}/intelligence`);
+		await page.waitForLoadState("networkidle");
+		// Force a known user_id so we can assert the round-trip
+		// deterministically without relying on UUID generation order.
+		const knownUserId = `smoke-user-${Date.now()}`;
+		await page.evaluate((uid) => {
+			localStorage.setItem("hughes_user_id", uid);
+		}, knownUserId);
+		// Reload so the next request sends the seeded user_id.
+		await page.reload();
+		await page.waitForLoadState("networkidle");
+		await page.getByRole("button", { name: /loan-to-deposit/i }).click();
+		const terminal = page.locator('[aria-label="Assistant answer"]').first();
+		await terminal.waitFor({ state: "visible", timeout: 240_000 });
+		const threadUrl = page.url();
+		addNote(`thread created at: ${threadUrl}`);
+		// Now spawn a fresh browser context — no shared cookies, no
+		// shared sessionStorage. This is what reopening the browser
+		// would do.
+		const browser = ctx.browser();
+		const fresh = await browser.newContext();
+		const freshPage = await fresh.newPage();
+		await freshPage.goto(`${BASE}/intelligence`);
+		await freshPage.evaluate((uid) => {
+			localStorage.setItem("hughes_user_id", uid);
+		}, knownUserId);
+		await freshPage.reload();
+		await freshPage.waitForLoadState("networkidle");
+		// The thread rail must list the previous thread.
+		const railEntries = await freshPage.locator('aside[aria-label="Recent threads"] a').count();
+		addNote(`thread rail entries in fresh context: ${railEntries}`);
+		if (railEntries === 0) {
+			throw new Error("fresh context with same user_id saw zero threads — persistence broken");
+		}
+		await fresh.close();
+	});
+
 	await withPage("submit-from-empty-state-shows-acknowledgment", async ({ page, addNote }) => {
 		await page.goto(`${BASE}/intelligence`);
 		await page.waitForLoadState("networkidle");

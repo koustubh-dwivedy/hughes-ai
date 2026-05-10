@@ -30,15 +30,32 @@ def _session_id(x_hughes_session: str | None) -> str:
     return x_hughes_session
 
 
+def _user_id(
+    x_hughes_user: str | None, x_hughes_session: str | None
+) -> str:
+    """HUG-205: thread ownership uses the durable user_id from the
+    frontend's localStorage. During the rollout window we accept the
+    session_id as a fallback so older clients still work; once the
+    rollout completes we tighten this to require X-Hughes-User."""
+    if x_hughes_user:
+        return x_hughes_user
+    return _session_id(x_hughes_session)
+
+
 @router.post("/threads", response_model=CreateThreadResponse)
 def create_thread(
     body: CreateThreadRequest,
     request: Request,
     x_hughes_session: str | None = Header(default=None),
+    x_hughes_user: str | None = Header(default=None),
 ) -> CreateThreadResponse:
     sid = _session_id(x_hughes_session)
+    uid = _user_id(x_hughes_user, x_hughes_session)
     thread = threads_repo.create_thread(
-        session_id=sid, db_url=request.app.state.db_url, title=body.title
+        session_id=sid,
+        user_id=uid,
+        db_url=request.app.state.db_url,
+        title=body.title,
     )
     return CreateThreadResponse(
         thread_id=thread.thread_id,
@@ -52,10 +69,11 @@ def list_threads(
     request: Request,
     limit: int = 20,
     x_hughes_session: str | None = Header(default=None),
+    x_hughes_user: str | None = Header(default=None),
 ) -> ListThreadsResponse:
-    sid = _session_id(x_hughes_session)
-    summaries = threads_repo.list_threads_for_session(
-        sid, request.app.state.db_url, limit=limit
+    uid = _user_id(x_hughes_user, x_hughes_session)
+    summaries = threads_repo.list_threads_for_user(
+        uid, request.app.state.db_url, limit=limit
     )
     return ListThreadsResponse(threads=summaries)
 

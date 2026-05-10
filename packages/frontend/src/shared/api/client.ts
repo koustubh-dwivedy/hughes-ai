@@ -5,6 +5,7 @@ import {
 	reactHooksModule,
 } from "@reduxjs/toolkit/query/react";
 import { SESSION_HEADER, getSessionId } from "../telemetry/session";
+import { USER_HEADER, getUserId } from "../telemetry/user";
 import { TAG_TYPES } from "./tags";
 
 /**
@@ -25,10 +26,14 @@ export const baseApi = createApi({
 	reducerPath: "api",
 	baseQuery: fetchBaseQuery({
 		baseUrl,
-		// Tag every request with the per-tab session id so backend logs
-		// and frontend telemetry events can be correlated end-to-end.
 		prepareHeaders: (headers) => {
+			// X-Hughes-Session: ephemeral per-tab id used purely for
+			// log correlation across the stack.
 			headers.set(SESSION_HEADER, getSessionId());
+			// X-Hughes-User: durable per-browser id used to filter
+			// thread ownership so chat history persists across tab close
+			// (HUG-205). Both headers travel together on every request.
+			headers.set(USER_HEADER, getUserId());
 			return headers;
 		},
 	}),

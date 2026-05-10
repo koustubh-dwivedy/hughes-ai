@@ -21,14 +21,19 @@ def create_thread(
     session_id: str,
     db_url: str,
     title: str | None = None,
+    user_id: str | None = None,
 ) -> Thread:
+    """Create a thread. `user_id` (HUG-205) ties the thread to the
+    durable localStorage identity; falls back to session_id for
+    legacy clients that don't yet send X-Hughes-User."""
+    effective_user_id = user_id or session_id
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO threads (session_id, title)"
-            " VALUES (%s, %s)"
-            " RETURNING thread_id, session_id, title, started_at,"
+            "INSERT INTO threads (session_id, user_id, title)"
+            " VALUES (%s, %s, %s)"
+            " RETURNING thread_id, session_id, user_id, title, started_at,"
             " last_active_at, ended_at, slots",
-            (session_id, title),
+            (session_id, effective_user_id, title),
         )
         row = cur.fetchone()
     if row is None:
@@ -39,7 +44,7 @@ def create_thread(
 def get_thread(thread_id: UUID, db_url: str) -> Thread | None:
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT thread_id, session_id, title, started_at,"
+            "SELECT thread_id, session_id, user_id, title, started_at,"
             " last_active_at, ended_at, slots"
             " FROM threads WHERE thread_id = %s",
             (str(thread_id),),
@@ -50,9 +55,34 @@ def get_thread(thread_id: UUID, db_url: str) -> Thread | None:
     return _row_to_thread(row)
 
 
+def list_threads_for_user(
+    user_id: str, db_url: str, limit: int = 20
+) -> list[ThreadSummary]:
+    """HUG-205: thread list filtered by durable user_id. Backfilled
+    rows have user_id == session_id, so legacy callers that pass a
+    session_id here still get their own threads back."""
+    with psycopg.connect(db_url) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT thread_id, title, started_at, last_active_at"
+            " FROM threads WHERE user_id = %s"
+            " ORDER BY last_active_at DESC LIMIT %s",
+            (user_id, limit),
+        )
+        rows = cur.fetchall()
+    return [
+        ThreadSummary(
+            thread_id=r[0], title=r[1], started_at=r[2], last_active_at=r[3]
+        )
+        for r in rows
+    ]
+
+
 def list_threads_for_session(
     session_id: str, db_url: str, limit: int = 20
 ) -> list[ThreadSummary]:
+    """Legacy access path kept for backwards-compat with any caller
+    that hasn't moved to user_id yet (HUG-205). New code should call
+    `list_threads_for_user` instead."""
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT thread_id, title, started_at, last_active_at"
@@ -155,11 +185,12 @@ def _row_to_thread(row: tuple[Any, ...]) -> Thread:
     return Thread(
         thread_id=row[0],
         session_id=row[1],
-        title=row[2],
-        started_at=row[3],
-        last_active_at=row[4],
-        ended_at=row[5],
-        slots=_decode_jsonb(row[6]) or {},
+        user_id=row[2],
+        title=row[3],
+        started_at=row[4],
+        last_active_at=row[5],
+        ended_at=row[6],
+        slots=_decode_jsonb(row[7]) or {},
     )
 
 

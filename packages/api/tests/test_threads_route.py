@@ -119,6 +119,51 @@ def test_list_threads_returns_session_threads(client: Any) -> None:
     assert set(titles) == {"a", "b", "c"}
 
 
+def test_threads_filter_by_user_id_not_session_id(client: Any) -> None:
+    """HUG-205: a thread created by user A must be visible to user A's
+    later visits (different session_id) and invisible to user B."""
+    user_a = f"user-a-{uuid4()}"
+    user_b = f"user-b-{uuid4()}"
+    visit_1 = f"visit-1-{uuid4()}"
+    visit_2 = f"visit-2-{uuid4()}"
+    # User A creates a thread during visit 1.
+    client.post(
+        "/threads",
+        json={"title": "owned-by-a"},
+        headers={"X-Hughes-User": user_a, "X-Hughes-Session": visit_1},
+    )
+    # User A returns later in a different visit (fresh session_id, same user_id).
+    resp_a_revisit = client.get(
+        "/threads",
+        headers={"X-Hughes-User": user_a, "X-Hughes-Session": visit_2},
+    )
+    assert resp_a_revisit.status_code == 200
+    titles_a = [t["title"] for t in resp_a_revisit.json()["threads"]]
+    assert "owned-by-a" in titles_a
+    # User B in a different visit (different user_id) does NOT see it.
+    resp_b = client.get(
+        "/threads",
+        headers={"X-Hughes-User": user_b, "X-Hughes-Session": visit_2},
+    )
+    assert resp_b.status_code == 200
+    titles_b = [t["title"] for t in resp_b.json()["threads"]]
+    assert "owned-by-a" not in titles_b
+
+
+def test_threads_falls_back_to_session_id_when_user_header_absent(client: Any) -> None:
+    """Backwards-compat: a client that hasn't moved to X-Hughes-User
+    should still see its threads via the X-Hughes-Session fallback."""
+    sid = f"legacy-{uuid4()}"
+    client.post(
+        "/threads",
+        json={"title": "legacy-thread"},
+        headers={"X-Hughes-Session": sid},
+    )
+    resp = client.get("/threads", headers={"X-Hughes-Session": sid})
+    titles = [t["title"] for t in resp.json()["threads"]]
+    assert "legacy-thread" in titles
+
+
 def test_post_message_streams_final_event(client: Any) -> None:
     sid = f"pytest-{uuid4()}"
     created = client.post(

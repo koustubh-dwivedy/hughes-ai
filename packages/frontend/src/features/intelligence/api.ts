@@ -14,6 +14,7 @@
 
 import { baseApi } from "../../shared/api/client";
 import { SESSION_HEADER, getSessionId } from "../../shared/telemetry/session";
+import { USER_HEADER, getUserId } from "../../shared/telemetry/user";
 import {
 	type ThreadStreamFinal,
 	type ThreadStreamStep,
@@ -183,6 +184,7 @@ const slice = baseApi.injectEndpoints({
 						headers: {
 							"Content-Type": "application/json",
 							[SESSION_HEADER]: getSessionId(),
+							[USER_HEADER]: getUserId(),
 							Accept: "text/event-stream",
 						},
 						body: JSON.stringify({
