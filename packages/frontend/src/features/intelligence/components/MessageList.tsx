@@ -215,9 +215,15 @@ function UserBubble({ msg }: { msg: ThreadMessageWire }) {
 
 function AssistantText({ msg }: { msg: ThreadMessageWire }) {
 	if (!msg.content) return null;
+	// Intermediate reasoning the LLM emits alongside a tool call ("I
+	// found the metric, now let me probe for the date…") is NOT a
+	// final user-facing answer. It's part of the agent's chain-of-
+	// thought and lives in the Thinking trace via the References pill.
+	// Hide it from the chat so the conversation stays clean.
+	if (msg.tool_calls && msg.tool_calls.length > 0) return null;
 	return (
 		<article aria-label="Assistant message" style={assistantBubbleStyle}>
-			<div style={summaryStyle}>{msg.content}</div>
+			<MarkdownText style={summaryStyle}>{msg.content}</MarkdownText>
 		</article>
 	);
 }

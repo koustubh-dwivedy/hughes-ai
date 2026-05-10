@@ -108,17 +108,33 @@ describe("MessageList", () => {
 		expect(screen.queryByText(/Which branch/)).toBeNull();
 	});
 
-	it("renders an assistant-role text message without an OpenUI tree", () => {
+	it("renders an assistant-role text message without tool calls", () => {
 		const assistant: ThreadMessageWire = {
 			...userMsg,
 			role: "assistant",
-			content: "Reasoning step text",
+			content: "Plain prose answer text",
+			tool_calls: null,
 		};
 		render(<MessageList messages={[assistant]} />);
 		expect(screen.getByLabelText("Assistant message")).toHaveTextContent(
-			"Reasoning step text",
+			"Plain prose answer text",
 		);
 		expect(screen.queryByTestId("openui-renderer")).toBeNull();
+	});
+
+	it("hides assistant intermediate reasoning that comes alongside tool calls", () => {
+		// HUG-204: when the LLM emits reasoning text WITH a tool call
+		// ("I found the metric, now let me probe for the date…"), that
+		// content belongs in the Thinking trace, not in the chat.
+		const intermediate: ThreadMessageWire = {
+			...userMsg,
+			role: "assistant",
+			content: "I found the metric. Let me probe for the latest date.",
+			tool_calls: [{ name: "mf_query", args: {}, id: "c" }],
+		};
+		const { container } = render(<MessageList messages={[intermediate]} />);
+		expect(container.querySelector('[aria-label="Assistant message"]')).toBeNull();
+		expect(screen.queryByText(/probe for the latest date/)).toBeNull();
 	});
 
 	it("falls back to parsing content when persisted columns are empty (no DSL → no renderer)", () => {

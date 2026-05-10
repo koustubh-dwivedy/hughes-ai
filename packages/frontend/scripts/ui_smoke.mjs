@@ -507,6 +507,17 @@ if (!QUICK) {
 		if (/\|-+\|/.test(visibleText)) {
 			throw new Error(`raw markdown table syntax visible: "${visibleText.match(/\|-+\|/)?.[0]}"`);
 		}
+		// HUG-204: the agent's intermediate reasoning ("Let me probe for
+		// the latest date…", "Now let me get the total…") must NEVER
+		// surface in the conversation as a separate assistant bubble —
+		// only the final answer should appear. The reasoning lives in
+		// the References → Thinking trace.
+		const intermediateBubbles = await page.locator('[aria-label="Assistant message"]').count();
+		addNote(`intermediate reasoning bubbles in chat: ${intermediateBubbles}`);
+		if (intermediateBubbles > 0) {
+			const text = await page.locator('[aria-label="Assistant message"]').first().textContent();
+			throw new Error(`intermediate reasoning leaked into chat: "${text?.slice(0, 120)}…"`);
+		}
 	});
 
 	await withPage("chart-question-renders-openui", async ({ page, addNote }) => {
