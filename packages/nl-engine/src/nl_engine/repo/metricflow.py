@@ -14,6 +14,7 @@ import shutil
 import subprocess  # nosec B404 — `mf` CLI is the documented integration path
 import tempfile
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -128,8 +129,22 @@ def _list_entities_for(metric: str) -> list[str]:
     return entities
 
 
+@lru_cache(maxsize=1)
 def list_metrics() -> list[MfMetric]:
     """Return the metric catalog with each metric's FULL group-by surface.
+
+    PROCESS-LEVEL CACHED (`lru_cache`, size 1). The first call within a
+    process pays the full ~65-subprocess cost (~3-4 minutes on the
+    32-metric catalog); subsequent calls return the cached catalog in
+    microseconds. Safe because every eval invocation runs in a fresh
+    Python process and we don't hot-reload semantic models within a
+    process. Saves ~96 minutes per 24-question must-pass eval.
+
+    Production note (long-running API workers): the cache lives for the
+    worker lifetime. A redeploy / process restart clears it. If you
+    ever need a mid-process hot reload, call
+    `list_metrics.cache_clear()` (tests do this between cases via an
+    autouse fixture in `test_metricflow_list_entities.py`).
 
     Built in three passes per metric:
       1. `mf list metrics` for names (CLI truncates dim lists with "and

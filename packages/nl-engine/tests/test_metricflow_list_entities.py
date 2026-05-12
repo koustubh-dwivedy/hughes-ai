@@ -9,7 +9,17 @@ import subprocess
 from typing import Any
 from unittest.mock import patch
 
+import pytest
 from nl_engine.repo import metricflow as mf
+
+
+@pytest.fixture(autouse=True)
+def _clear_list_metrics_cache() -> Any:
+    """list_metrics is lru_cache'd at process scope. Tests that exercise
+    it with different fake _run fixtures need a fresh cache each time."""
+    mf.list_metrics.cache_clear()
+    yield
+    mf.list_metrics.cache_clear()
 
 
 def _fake_run_factory(stdout_by_args: dict[str, str]) -> Any:

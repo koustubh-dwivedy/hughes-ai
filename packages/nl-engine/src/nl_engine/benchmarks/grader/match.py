@@ -2,7 +2,18 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
+
+# Matches "YYYY-MM-DD HH:MM:SS" optionally with fractional seconds.
+# MetricFlow stringifies month-grain time dimensions as timestamps
+# (e.g. '2025-11-01 00:00:00'); ground-truth SQL run against Postgres
+# returns the same date as a bare DATE column ('2025-11-01'). Both
+# represent midnight on the same calendar day — we strip the trailing
+# midnight time component during value coercion so they compare equal.
+_MIDNIGHT_TIMESTAMP_RE = re.compile(
+    r"^(\d{4}-\d{2}-\d{2}) 00:00:00(\.\d+)?$"
+)
 
 # Thresholds for the structural fallback path (no ground_truth_rows).
 TABLE_EQUIV_THRESHOLD = 0.7
@@ -113,7 +124,13 @@ def _coerce_for_compare(v: Any) -> Any:
         try:
             return float(s)
         except (TypeError, ValueError):
-            return v
+            pass
+        # Normalize 'YYYY-MM-DD 00:00:00' → 'YYYY-MM-DD' so MF's
+        # timestamp-format month dims compare equal to GT date strings.
+        midnight = _MIDNIGHT_TIMESTAMP_RE.match(s)
+        if midnight:
+            return midnight.group(1)
+        return v
     return v
 
 
