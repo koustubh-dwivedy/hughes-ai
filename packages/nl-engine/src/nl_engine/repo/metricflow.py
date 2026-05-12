@@ -74,15 +74,16 @@ def _run(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProces
     return proc
 
 
-def list_metrics() -> list[MfMetric]:
-    """Return the metric catalog as parsed from `mf list metrics`.
+def _parse_metric_names() -> list[str]:
+    """Return just the names from `mf list metrics`.
 
-    Output line shape: `• metric_name: dim1, dim2 and N more`. We parse
-    everything before " and N more" since the CLI truncates long
-    dimension lists.
+    The output's per-metric dimension list is truncated by the CLI
+    ("and N more") at 5 entries, so we only consume the names here and
+    fetch each metric's full dimension set via `mf list dimensions
+    --metrics <name>` (which is NOT truncated).
     """
     proc = _run(["list", "metrics"])
-    metrics: list[MfMetric] = []
+    names: list[str] = []
     for line in proc.stdout.splitlines():
         line = line.strip()
         if not line.startswith("•"):
@@ -90,13 +91,74 @@ def list_metrics() -> list[MfMetric]:
         body = line.lstrip("• ").strip()
         if ":" not in body:
             continue
-        name, dims_text = body.split(":", 1)
-        # Strip "and N more" tail
-        dims_part = dims_text.strip()
-        if " and " in dims_part:
-            dims_part = dims_part.split(" and ")[0]
-        dimensions = [d.strip() for d in dims_part.split(",") if d.strip()]
-        metrics.append(MfMetric(name=name.strip(), dimensions=dimensions))
+        name, _ = body.split(":", 1)
+        names.append(name.strip())
+    return names
+
+
+def _list_dimensions_for(metric: str) -> list[str]:
+    proc = _run(["list", "dimensions", "--metrics", metric])
+    dims: list[str] = []
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if not line.startswith("•"):
+            continue
+        dims.append(line.lstrip("• ").strip())
+    return dims
+
+
+def _list_entities_for(metric: str) -> list[str]:
+    """Return the foreign entities a metric can be sliced by.
+
+    `mf list dimensions` does NOT enumerate entities, so for ratio
+    metrics with shared foreign entities (e.g., `delinquency_rate`
+    sliceable by `product_type`), the agent never sees them as group-by
+    candidates. This helper bridges that gap.
+    """
+    proc = _run(["list", "entities", "--metrics", metric])
+    entities: list[str] = []
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if not line.startswith("•"):
+            continue
+        body = line.lstrip("• ").strip()
+        if not body:
+            continue
+        entities.append(body.split()[0])
+    return entities
+
+
+def list_metrics() -> list[MfMetric]:
+    """Return the metric catalog with each metric's FULL group-by surface.
+
+    Built in three passes per metric:
+      1. `mf list metrics` for names (CLI truncates dim lists with "and
+         N more", so we discard its dim suffix).
+      2. `mf list dimensions --metrics <name>` for the full dimension
+         list (not truncated).
+      3. `mf list entities --metrics <name>` for foreign entities,
+         which `list dimensions` does not enumerate. Without this the
+         agent cannot see e.g. `product_type` as a slice for
+         `delinquency_rate`.
+
+    Both helpers fall back to empty on `MetricFlowError` with a
+    structured log entry.
+    """
+    names = _parse_metric_names()
+    metrics: list[MfMetric] = []
+    for name in names:
+        try:
+            dims = _list_dimensions_for(name)
+        except MetricFlowError:
+            log.exception("list_dimensions failed for metric %s", name)
+            dims = []
+        try:
+            ents = _list_entities_for(name)
+        except MetricFlowError:
+            log.exception("list_entities failed for metric %s", name)
+            ents = []
+        combined = sorted(set(dims) | set(ents))
+        metrics.append(MfMetric(name=name, dimensions=combined))
     return metrics
 
 

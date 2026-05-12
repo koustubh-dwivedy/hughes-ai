@@ -2,7 +2,10 @@ version: 2
 
 semantic_models:
   - name: delinquency_monthly
-    description: Monthly delinquency rollup by officer + branch + DPD bucket.
+    description: |
+      Monthly delinquency rollup by officer, branch, product_type, and
+      DPD bucket. Backs `delinquent_balance`, `delinquency_rate`,
+      `nonaccrual_balance`, and `past_due_loan_count` metrics.
     model: ref('fct_delinquency_monthly')
     defaults:
       agg_time_dimension: as_of_month
@@ -14,6 +17,9 @@ semantic_models:
       - name: branch
         type: foreign
         expr: branch_id
+      - name: product_type
+        type: foreign
+        expr: product_type
     dimensions:
       - name: as_of_month
         type: time
@@ -22,13 +28,31 @@ semantic_models:
       - name: delinquency_bucket
         type: categorical
         expr: bucket
+        description: |
+          DPD bucket at the snapshot ('15-29', '30-59', '60-89', or
+          '90+'). Use to slice `delinquent_balance` for an aging
+          distribution.
     measures:
       - name: delinquent_loan_count
         agg: sum
         expr: loan_count
+        description: Distinct loans delinquent in the bucket at period end.
       - name: delinquent_balance
         agg: sum
         expr: balance
+        description: |
+          Outstanding balance on delinquent loans (any DPD bucket). For
+          90+ DPD only use the `nonaccrual_balance` measure.
+      - name: nonaccrual_balance
+        agg: sum
+        expr: nonaccrual_balance
+        description: |
+          Outstanding balance on loans 90+ DPD (regulatory non-accrual).
+          Pre-filtered at mart level — does NOT include 15-29, 30-59, or
+          60-89 buckets.
       - name: past_due_loan_count
         agg: sum
         expr: past_due_loan_count
+        description: |
+          Count of loans 30+ DPD at period end (excludes 15-29 bucket
+          which is grace-period).

@@ -2,7 +2,12 @@ version: 2
 
 semantic_models:
   - name: executive_kpis
-    description: Pre-computed monthly executive KPIs (one row per month).
+    description: |
+      Pre-computed monthly executive KPIs. Mart guarantees one row per
+      month — `agg: max` on every measure is the documented choice
+      (cross-month rollups would silently misuse the `max`; if the grain
+      ever changes, all measures must change to `agg: average` or
+      `agg: sum` as appropriate).
     model: ref('fct_executive_kpis')
     defaults:
       agg_time_dimension: as_of_month
@@ -19,30 +24,42 @@ semantic_models:
       - name: total_loans_balance
         agg: max
         expr: total_loans_balance
+        description: Pre-computed total loan balance for the month.
       - name: total_deposits_balance
         agg: max
         expr: total_deposits_balance
+        description: Pre-computed total deposit balance for the month.
       - name: loan_to_deposit_ratio
         agg: max
         expr: loan_to_deposit_ratio
+        description: Pre-computed loans / deposits ratio for the month.
       - name: core_deposit_ratio
         agg: max
         expr: core_deposit_ratio
+        description: Pre-computed core deposits / total deposits ratio for the month.
       - name: blended_past_due_ratio
         agg: max
         expr: blended_past_due_ratio
+        description: Pre-computed blended past-due dollar ratio for the month.
       - name: monthly_loan_growth
         agg: max
         expr: monthly_loan_growth
+        description: Month-over-month dollar change in total loan balance.
       - name: monthly_deposit_growth
         agg: max
         expr: monthly_deposit_growth
+        description: Month-over-month dollar change in total deposit balance.
       - name: weighted_avg_loan_rate_kpi
         agg: max
         expr: weighted_avg_loan_rate
+        description: Pre-computed balance-weighted loan rate for the month.
       - name: weighted_avg_deposit_rate_kpi
         agg: max
         expr: weighted_avg_deposit_rate
+        description: Pre-computed balance-weighted deposit rate for the month.
       - name: rate_spread
         agg: max
         expr: rate_spread
+        description: |
+          Weighted-average loan rate minus weighted-average deposit rate
+          for the month.

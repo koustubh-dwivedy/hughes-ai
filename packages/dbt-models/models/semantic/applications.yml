@@ -2,7 +2,10 @@ version: 2
 
 semantic_models:
   - name: applications
-    description: Origence loan applications (raw stg layer); application-level metrics.
+    description: |
+      Origence loan applications (one row per submission). Backs
+      `application_count`, `requested_amount_total`, and `approval_rate`
+      (numerator side). Distinct from `fundings` which is post-funding.
     model: ref('stg_origence_applications')
     defaults:
       agg_time_dimension: applied_at
@@ -13,27 +16,47 @@ semantic_models:
       - name: member
         type: foreign
         expr: member_id
+      - name: product_type
+        type: foreign
+        expr: product_type
+      - name: branch
+        type: foreign
+        expr: branch_id
+      - name: officer
+        type: foreign
+        expr: officer_id
     dimensions:
       - name: applied_at
         type: time
         type_params:
           time_granularity: day
-      - name: product_type
-        type: categorical
       - name: channel
         type: categorical
-      - name: status
+        description: Origination channel ('direct' / 'indirect').
+      - name: application_status
         type: categorical
+        expr: status
+        description: |
+          Application pipeline status ('pending' / 'approved' /
+          'declined' / 'withdrawn' / 'funded'). Distinct from
+          `loan_status` (booked-loan lifecycle) and `officer_status`
+          (HR).
     measures:
       - name: application_count
         agg: count
         expr: application_id
+        description: Distinct submitted applications in the period.
       - name: requested_amount_total
         agg: sum
         expr: requested_amount
+        description: Sum of dollar amounts requested across applications.
 
   - name: fundings
-    description: Origence funding events.
+    description: |
+      Origence funding events (one row per funded loan). Backs
+      `funded_count`, `funded_amount_total`, `avg_loan_amount`, and
+      `approval_rate` (numerator side). Distinct from `applications`
+      which is the pre-decision pipeline.
     model: ref('stg_origence_fundings')
     defaults:
       agg_time_dimension: funded_at
@@ -42,15 +65,29 @@ semantic_models:
       - name: application
         type: foreign
         expr: application_id
+      - name: branch
+        type: foreign
+        expr: branch_id
+      - name: officer
+        type: foreign
+        expr: officer_id
+      - name: product_type
+        type: foreign
+        expr: product_type
     dimensions:
       - name: funded_at
         type: time
         type_params:
           time_granularity: day
+      - name: channel
+        type: categorical
+        description: Origination channel ('direct' / 'indirect').
     measures:
       - name: funded_count
         agg: count
         expr: funding_id
+        description: Number of loans funded in the period.
       - name: funded_amount_total
         agg: sum
         expr: funded_amount
+        description: Total dollar value of loans funded in the period.

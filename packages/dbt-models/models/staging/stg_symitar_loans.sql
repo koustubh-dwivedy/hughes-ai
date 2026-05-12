@@ -13,6 +13,7 @@ product_types AS (
 SELECT
     source.loan_id::TEXT                 AS loan_id,
     source.application_id::TEXT          AS application_id,
+    source.branch_id::INT                AS branch_id,
     branches.name::TEXT                  AS branch_name,
     branches.region::TEXT                AS branch_region,
     source.member_id::TEXT               AS member_id,

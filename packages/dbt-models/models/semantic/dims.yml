@@ -5,7 +5,9 @@ semantic_models:
   # Member dimension (row-level + joins)
   # ===================================================================
   - name: members
-    description: Member dimension; supports row-level lookups.
+    description: |
+      Member (customer) dimension; supports row-level lookups and joins
+      to `applications` via the `member` foreign entity.
     model: ref('dim_member')
     entities:
       - name: member
@@ -14,10 +16,13 @@ semantic_models:
     dimensions:
       - name: full_name
         type: categorical
+        description: Member's full name (last, first).
       - name: home_branch_name
         type: categorical
+        description: Name of the member's home branch.
       - name: home_branch_region
         type: categorical
+        description: Region of the member's home branch.
       - name: joined_at
         type: time
         type_params:
@@ -27,7 +32,9 @@ semantic_models:
   # Dealer dimension
   # ===================================================================
   - name: dealers
-    description: Auto dealer dimension (Origence indirect channel).
+    description: |
+      Auto dealer dimension (Origence indirect channel). Joins to
+      `loans_monthly` and `dim_loan` via the `dealer` foreign entity.
     model: ref('dim_dealer')
     entities:
       - name: dealer
@@ -36,25 +43,32 @@ semantic_models:
     dimensions:
       - name: dealer_name
         type: categorical
+        description: Dealer business name.
       - name: dealer_type
         type: categorical
+        description: Dealer category ('franchise' / 'independent' / 'used').
       - name: address_city
         type: categorical
+        description: Dealer city.
       - name: address_state
         type: categorical
+        description: Dealer state (US two-letter code).
       - name: markup_tier
         type: categorical
+        description: |
+          Dealer markup tier ('low' / 'medium' / 'high') used for
+          regulatory pricing-fairness analysis.
       - name: is_active
         type: categorical
         expr: is_active::TEXT
+        description: Whether the dealer is currently active ('true' / 'false').
 
   # ===================================================================
-  # Branch dimension — joined to deposits_monthly + loans_monthly via
-  # the foreign `branch` entity. Without this, "by branch" questions
-  # (HUG-190 must-pass-007) have no group-by surface.
+  # Branch dimension — joined to deposits_monthly + loans_monthly +
+  # delinquency_monthly + applications + fundings via foreign `branch`.
   # ===================================================================
   - name: branches
-    description: Branch dimension (location + region).
+    description: Branch dimension (location + region). Canonical branch surface.
     model: ref('dim_branch')
     entities:
       - name: branch
@@ -63,14 +77,35 @@ semantic_models:
     dimensions:
       - name: branch_name
         type: categorical
+        description: Human-readable branch name (e.g. 'Main Branch').
       - name: branch_region
         type: categorical
+        description: Branch region grouping ('North' / 'South' / 'East' / 'West').
+
+  # ===================================================================
+  # Product type dimension — joined to loans_monthly +
+  # delinquency_monthly + applications + fundings + dim_loan +
+  # loan_lifecycle_events via the foreign `product_type` entity. Required
+  # so ratio metrics like delinquency_rate (numerator on
+  # delinquency_monthly, denominator on loans_monthly) can be sliced by
+  # product_type.
+  # ===================================================================
+  - name: product_types
+    description: |
+      Loan / application product type dimension. Acts as the join target
+      for the `product_type` foreign entity across all loan-related
+      semantic models.
+    model: ref('dim_product_type')
+    entities:
+      - name: product_type
+        type: primary
+        expr: product_type
 
   # ===================================================================
   # Officer dimension
   # ===================================================================
   - name: officers
-    description: Loan officer dimension.
+    description: Loan officer dimension; joins via the `officer` foreign entity.
     model: ref('dim_officer')
     entities:
       - name: officer
@@ -79,30 +114,15 @@ semantic_models:
     dimensions:
       - name: officer_name
         type: categorical
+        description: Officer's full name.
       - name: officer_branch
         type: categorical
         expr: branch_name
-      - name: status
+        description: Name of the officer's home branch.
+      - name: officer_status
         type: categorical
-
-  # ===================================================================
-  # Household dimension
-  # ===================================================================
-  - name: households
-    description: Household dimension with member-count + type.
-    model: ref('dim_household')
-    entities:
-      - name: household
-        type: primary
-        expr: household_id
-    dimensions:
-      - name: household_name
-        type: categorical
-      - name: household_type
-        type: categorical
-      - name: total_members
-        type: categorical
-        expr: total_members::TEXT
-      - name: is_active
-        type: categorical
-        expr: is_active::TEXT
+        expr: status
+        description: |
+          Officer HR status ('active' / 'inactive'). Distinct from
+          `loan_status` (loan lifecycle) and `application_status`
+          (Origence pipeline).

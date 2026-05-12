@@ -48,6 +48,11 @@ def _install_fake_metricflow(
     fake_mf.query = _query  # type: ignore[attr-defined]
     fake_mf.list_metrics = lambda: []  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "nl_engine.repo.metricflow", fake_mf)
+    # `from nl_engine.repo import metricflow` resolves via the package's
+    # attribute once it has been set, NOT via sys.modules. Patch both so
+    # the fake takes effect regardless of prior import order.
+    import nl_engine.repo as _repo_pkg  # noqa: PLC0415
+    monkeypatch.setattr(_repo_pkg, "metricflow", fake_mf, raising=False)
 
 
 def test_mf_query_succeeds_on_first_try(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -66,7 +71,7 @@ def test_mf_query_transient_retries_once_then_succeeds(
         monkeypatch,
         [RuntimeError("timeout reading subprocess"), {"rows": [{"x": 2}]}],
     )
-    monkeypatch.setattr("nl_engine.agent.tools.time.sleep", lambda _s: None)
+    monkeypatch.setattr("nl_engine.agent.mf_query_runner.time.sleep", lambda _s: None)
     out = mf_query.invoke({"metric": "total_loans"})
     assert out["rows"] == [{"x": 2}]
 
@@ -96,7 +101,7 @@ def test_mf_query_transient_then_failure_returns_error_payload(
         monkeypatch,
         [RuntimeError("connection refused"), RuntimeError("connection refused 2")],
     )
-    monkeypatch.setattr("nl_engine.agent.tools.time.sleep", lambda _s: None)
+    monkeypatch.setattr("nl_engine.agent.mf_query_runner.time.sleep", lambda _s: None)
     out = mf_query.invoke({"metric": "total_loans"})
     assert isinstance(out, dict)
     assert "error" in out

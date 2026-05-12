@@ -55,6 +55,7 @@ class RunOptions:
     run_id: str
     commit_sha: str
     tier_filter: str = "all"  # "all" | "must-pass" | "long-tail"
+    question_ids: tuple[str, ...] = ()  # optional id allow-list
 
 
 def _load_run_inputs(
@@ -67,6 +68,9 @@ def _load_run_inputs(
         questions = [q for q in questions if q.must_pass]
     elif opts.tier_filter == "long-tail":
         questions = [q for q in questions if not q.must_pass]
+    if opts.question_ids:
+        allow = set(opts.question_ids)
+        questions = [q for q in questions if q.id in allow]
     return db_url, questions, make_llm()
 
 
@@ -164,34 +168,41 @@ def run(opts: RunOptions) -> int:
     return agent_exit
 
 
-def main() -> None:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run NL eval benchmark")
     parser.add_argument(
-        "--gate",
-        type=str,
-        default=_DEFAULT_GATE,
-        metavar="STR",
+        "--gate", type=str, default=_DEFAULT_GATE, metavar="STR",
         help=f"Tier thresholds. Default: {_DEFAULT_GATE!r}.",
     )
     parser.add_argument(
-        "--write-ledger",
-        action="store_true",
+        "--write-ledger", action="store_true",
         help="Append a row to .promotion-ledger.csv (main-branch CI only).",
     )
     parser.add_argument(
-        "--tier",
-        type=str,
-        default="all",
+        "--tier", type=str, default="all",
         choices=("all", "must-pass", "long-tail"),
         help="Which tier of questions to run (default: all).",
     )
+    parser.add_argument(
+        "--questions", type=str, default="", metavar="ID,ID,...",
+        help=(
+            "Comma-separated question IDs to run (resume a flaky run). "
+            "Applies AFTER --tier. Empty = run everything in the tier."
+        ),
+    )
     parser.add_argument("--run-id", type=str, default="")
     parser.add_argument("--commit-sha", type=str, default="")
+    return parser
+
+
+def main() -> None:
+    parser = _build_parser()
     args = parser.parse_args()
     try:
         gates = parse_gate_arg(args.gate)
     except ValueError as exc:
         parser.error(str(exc))
+    qids = tuple(q.strip() for q in args.questions.split(",") if q.strip())
     sys.exit(
         run(
             RunOptions(
@@ -200,6 +211,7 @@ def main() -> None:
                 run_id=args.run_id or str(uuid4()),
                 commit_sha=args.commit_sha,
                 tier_filter=args.tier,
+                question_ids=qids,
             )
         )
     )

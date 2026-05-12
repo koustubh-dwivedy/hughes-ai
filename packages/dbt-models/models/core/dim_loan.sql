@@ -15,6 +15,7 @@ SELECT
     loans.loan_id::TEXT                             AS loan_id,
     loans.product_type::TEXT                        AS product_type,
     COALESCE(apps.channel, 'unknown')::TEXT         AS channel,
+    loans.branch_id::INT                            AS branch_id,
     loans.branch_name::TEXT                         AS branch_name,
     loans.branch_region::TEXT                       AS branch_region,
     loans.dealer_id::TEXT                           AS dealer_id,

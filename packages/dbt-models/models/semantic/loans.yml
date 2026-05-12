@@ -5,7 +5,10 @@ semantic_models:
   # Aggregated loan portfolio (monthly grain)
   # ===================================================================
   - name: loans_monthly
-    description: Monthly rollup of loan portfolio by product, branch, officer.
+    description: |
+      Monthly rollup of loan portfolio by product, branch, officer,
+      channel, and dealer. Backs portfolio-balance and loan-count
+      metrics at month grain.
     model: ref('fct_loans_monthly')
     defaults:
       agg_time_dimension: as_of_month
@@ -17,35 +20,52 @@ semantic_models:
       - name: officer
         type: foreign
         expr: officer_id
+      - name: product_type
+        type: foreign
+        expr: product_type
+      - name: dealer
+        type: foreign
+        expr: dealer_id
     dimensions:
       - name: as_of_month
         type: time
         type_params:
           time_granularity: month
-      - name: product_type
+      - name: channel
         type: categorical
+        description: |
+          Origination channel for the loan ('direct' / 'indirect'). Used
+          for indirect-vs-direct portfolio analysis.
     measures:
       - name: loan_count
         agg: sum
         expr: loan_count
+        description: Distinct loans in the portfolio at period end.
       - name: total_loan_balance
         agg: sum
         expr: total_balance
+        description: Sum of outstanding loan balances at period end.
       - name: avg_loan_balance
         agg: average
         expr: avg_balance
+        description: Average outstanding balance across loans at period end.
       - name: weighted_avg_loan_rate
         agg: average
         expr: weighted_avg_rate
+        description: Balance-weighted average interest rate at period end.
       - name: single_loan_customer_count
         agg: sum
         expr: single_loan_customer_count
+        description: Count of customers holding exactly one loan at period end.
 
   # ===================================================================
   # Per-loan snapshot grain (joins to dim_loan via loan_id)
   # ===================================================================
   - name: loan_performance
-    description: Monthly per-loan balance + DPD snapshots.
+    description: |
+      Monthly per-loan balance + DPD snapshots. Grain is loan x
+      snapshot_date. Use with `order` and `limit` for top-N borrower
+      analysis via the `borrower_loan_balance` metric.
     model: ref('fct_loan_performance')
     defaults:
       agg_time_dimension: snapshot_date
@@ -61,22 +81,31 @@ semantic_models:
           time_granularity: day
       - name: delinquency_bucket
         type: categorical
+        description: |
+          DPD bucket for the loan at the snapshot date — values include
+          '15-29', '30-59', '60-89', '90+'.
       - name: is_delinquent
         type: categorical
         expr: is_delinquent::TEXT
+        description: Whether the loan was delinquent at the snapshot date ('true' / 'false').
     measures:
       - name: loan_balance_snapshot
         agg: sum
         expr: balance
+        description: Per-loan outstanding balance at the snapshot date.
       - name: days_past_due_max
         agg: max
         expr: days_past_due
+        description: Maximum DPD observed for the loan at the snapshot.
 
   # ===================================================================
   # Loan dimension: row-level attributes (no measures)
   # ===================================================================
   - name: loans
-    description: Loan dimension with product, channel, branch, dealer, NCUA tags.
+    description: |
+      Per-loan dimension with product, channel, branch, dealer, NCUA tags.
+      Use for row-level lookups; aggregate metrics live on
+      `loans_monthly`.
     model: ref('dim_loan')
     entities:
       - name: loan
@@ -85,26 +114,36 @@ semantic_models:
       - name: dealer
         type: foreign
         expr: dealer_id
-    dimensions:
       - name: product_type
-        type: categorical
+        type: foreign
+        expr: product_type
+      - name: branch
+        type: foreign
+        expr: branch_id
+    dimensions:
       - name: channel
         type: categorical
-      - name: branch_name
-        type: categorical
-      - name: branch_region
-        type: categorical
+        description: Origination channel for the loan ('direct' / 'indirect').
       - name: rate_type
         type: categorical
-      - name: status
+        description: Loan rate type ('fixed' / 'variable').
+      - name: loan_status
         type: categorical
+        expr: status
+        description: |
+          Loan lifecycle status ('current' / 'delinquent' /
+          'charged_off' / 'paid_off'). Distinct from `application_status`
+          (Origence pipeline) and `officer_status` (HR).
       - name: term_months
         type: categorical
         expr: term_months::TEXT
+        description: Loan term in months (categorical for grouping; e.g. '36', '60').
       - name: ncua_5300_line_code
         type: categorical
+        description: NCUA 5300 call-report line code for the loan.
       - name: cecl_segment_code
         type: categorical
+        description: CECL segment classification for the loan.
       - name: originated_at
         type: time
         type_params:

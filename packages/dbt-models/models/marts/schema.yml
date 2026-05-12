@@ -20,6 +20,9 @@ models:
         data_tests: [not_null]
       - name: branch_id
         data_tests: [not_null]
+      - name: channel
+        data_tests: [not_null]
+      - name: dealer_id
       - name: loan_count
         data_tests: [not_null]
       - name: total_balance
@@ -98,6 +101,8 @@ models:
               field: officer_id
       - name: branch_id
         data_tests: [not_null]
+      - name: product_type
+        data_tests: [not_null]
       - name: bucket
         data_tests:
           - not_null
@@ -106,6 +111,8 @@ models:
       - name: loan_count
         data_tests: [not_null]
       - name: balance
+        data_tests: [not_null]
+      - name: nonaccrual_balance
         data_tests: [not_null]
       - name: past_due_loan_count
         data_tests: [not_null]

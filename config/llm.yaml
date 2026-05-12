@@ -24,7 +24,7 @@
 #                        endpoint is a config change, not a code
 #                        change.
 
-provider: openai_compatible
-model: zai-glm-4.7
-api_key_env: CEREBRAS_API_KEY
-base_url_env: CEREBRAS_BASE_URL
+provider: ollama
+model: glm-5.1
+api_key_env: OLLAMA_API_KEY
+base_url_env: OLLAMA_BASE_URL

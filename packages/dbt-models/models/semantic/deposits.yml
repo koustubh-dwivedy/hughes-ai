@@ -2,7 +2,11 @@ version: 2
 
 semantic_models:
   - name: deposits_monthly
-    description: Monthly rollup of deposit portfolio by product + branch.
+    description: |
+      Monthly rollup of deposit portfolio by deposit_product and branch.
+      Backs `total_deposit_balance`, `avg_deposit_balance`,
+      `deposit_account_balance`, `mtd_deposit_change`, and
+      `ytd_deposit_change` metrics.
     model: ref('fct_deposits_monthly')
     defaults:
       agg_time_dimension: as_of_month
@@ -19,34 +23,41 @@ semantic_models:
         type: time
         type_params:
           time_granularity: month
-      - name: is_core_deposit
-        type: categorical
-        expr: is_core_deposit::TEXT
     measures:
       - name: account_count
         agg: sum
         expr: account_count
+        description: Distinct deposit accounts at period end.
       - name: total_deposit_balance
         agg: sum
         expr: total_balance
+        description: Sum of outstanding deposit balances at period end.
       - name: avg_deposit_balance
         agg: average
         expr: avg_balance_per_customer
+        description: Average deposit account balance at period end.
       - name: deposit_mtd_change
         agg: sum
         expr: mtd_change
+        description: Month-to-date dollar change in deposit balance.
       - name: deposit_ytd_change
         agg: sum
         expr: ytd_change
+        description: Year-to-date dollar change in deposit balance.
       - name: opened_count
         agg: sum
         expr: opened_count
+        description: Distinct deposit accounts opened in the period.
       - name: closed_count
         agg: sum
         expr: closed_count
+        description: Distinct deposit accounts closed in the period.
 
   - name: deposit_products
-    description: Share product dimension with NCUA tagging.
+    description: |
+      Share-product dimension with NCUA tagging. Use for
+      `total_deposit_balance` group-by-product breakdowns. Joined to
+      `deposits_monthly` via the `deposit_product` foreign entity.
     model: ref('dim_deposit_product')
     entities:
       - name: deposit_product
@@ -55,10 +66,18 @@ semantic_models:
     dimensions:
       - name: product_name
         type: categorical
+        description: Human-readable deposit product name (e.g. 'Money Market', 'Time Deposits').
       - name: deposit_category
         type: categorical
+        description: |
+          Deposit category ('checking' / 'savings' / 'money_market' /
+          'cd' / 'ira').
       - name: is_core_deposit
         type: categorical
         expr: is_core_deposit::TEXT
+        description: |
+          Whether the product is a core deposit ('true' / 'false') per
+          NCUA core-deposit definition.
       - name: ncua_5300_line_code
         type: categorical
+        description: NCUA 5300 call-report line code for the product.

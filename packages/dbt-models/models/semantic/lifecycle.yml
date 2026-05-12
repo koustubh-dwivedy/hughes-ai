@@ -2,7 +2,10 @@ version: 2
 
 semantic_models:
   - name: loan_lifecycle_events
-    description: Loan lifecycle events (new / active / renewed / paid_off) by month.
+    description: |
+      Loan lifecycle events (`new`, `paid_off`) by month — the mart does
+      NOT currently emit `renewed` events. Backs the
+      `lifecycle_event_count` metric.
     model: ref('fct_loan_lifecycle_events')
     defaults:
       agg_time_dimension: event_month
@@ -10,6 +13,9 @@ semantic_models:
       - name: event
         type: primary
         expr: row_id
+      - name: product_type
+        type: foreign
+        expr: product_type
     dimensions:
       - name: event_month
         type: time
@@ -18,12 +24,17 @@ semantic_models:
           time_granularity: month
       - name: event_type
         type: categorical
-      - name: product_type
-        type: categorical
+        description: |
+          Lifecycle event type. Current values emitted by the mart are
+          `new` and `paid_off` only.
     measures:
       - name: lifecycle_event_count
         agg: sum
         expr: loan_count
+        description: Count of lifecycle events of the given type in the month.
       - name: lifecycle_event_amount
         agg: sum
         expr: total_amount
+        description: |
+          Total dollar amount associated with the lifecycle events in
+          the month.

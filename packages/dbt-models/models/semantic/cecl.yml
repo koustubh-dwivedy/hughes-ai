@@ -2,7 +2,9 @@ version: 2
 
 semantic_models:
   - name: cecl_allowance
-    description: CECL allowance roll-forward by month and segment.
+    description: |
+      CECL allowance roll-forward by month and segment. Backs
+      `cecl_allowance_balance` and `cecl_provision_ytd` metrics.
     model: ref('fct_cecl_allowance_rollforward')
     defaults:
       agg_time_dimension: period_end_month
@@ -20,24 +22,32 @@ semantic_models:
       - name: cecl_beginning_balance
         agg: sum
         expr: beginning_balance
+        description: CECL allowance balance at month start.
       - name: cecl_charge_offs
         agg: sum
         expr: charge_offs
+        description: Charge-offs against the allowance in the month.
       - name: cecl_recoveries
         agg: sum
         expr: recoveries
+        description: Recoveries credited back to the allowance in the month.
       - name: cecl_net_charge_offs
         agg: sum
         expr: net_charge_offs
+        description: Charge-offs minus recoveries in the month.
       - name: cecl_provision_expense
         agg: sum
         expr: provision_expense
+        description: Provision expense booked to the allowance in the month.
       - name: cecl_ending_balance
         agg: sum
         expr: ending_balance
+        description: CECL allowance balance at month end.
 
   - name: cecl_segments
-    description: CECL segment dimension with DPD-band loss rates.
+    description: |
+      CECL segment dimension with DPD-band loss rates. Joined to
+      `cecl_allowance` via the `cecl_segment` foreign entity.
     model: ref('dim_cecl_segment')
     entities:
       - name: cecl_segment
@@ -46,3 +56,6 @@ semantic_models:
     dimensions:
       - name: segment_label
         type: categorical
+        description: |
+          Human-readable CECL segment label (e.g. 'consumer_auto',
+          'real_estate_1st').
