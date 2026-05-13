@@ -41,3 +41,16 @@ export function formatAxisDate(v: string): string {
 	if (monthIdx < 0 || monthIdx > 11) return v;
 	return `${MONTHS[monthIdx]} '${year}`;
 }
+
+/**
+ * Truncate a categorical-axis label to `max` characters, appending an
+ * ellipsis when it had to cut. Useful for product names / branch
+ * names on a packed x-axis. The Tooltip still shows the full label
+ * because it reads `payload[0].payload.<dataKey>`, not the tick text.
+ */
+export function truncateLabel(max: number) {
+	return (v: unknown): string => {
+		const s = String(v ?? "");
+		return s.length <= max ? s : `${s.slice(0, Math.max(0, max - 1))}…`;
+	};
+}

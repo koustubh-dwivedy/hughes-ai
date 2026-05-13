@@ -10,6 +10,10 @@ import {
 	YAxis,
 } from "recharts";
 import { colors, typography } from "../theme/tokens";
+import {
+	CHART_MARGIN,
+	categoricalXAxisProps,
+} from "../ui/charts/CategoricalXAxis";
 
 interface ComboDataPoint {
 	period: string;
@@ -23,6 +27,14 @@ interface ComboProps {
 	lineLabel?: string;
 	title?: string;
 	loading?: boolean;
+	/**
+	 * "date" (default) renders a recharts XAxis with auto-skipped
+	 * labels — fine for short, well-spaced date strings like "Jan-24".
+	 * "categorical" renders the shared angled+truncating axis — use
+	 * when `period` is a long categorical label (product name, branch
+	 * name) that would otherwise collide.
+	 */
+	xAxisType?: "date" | "categorical";
 }
 
 /**
@@ -43,6 +55,7 @@ export default function Combo({
 	lineLabel = "Line",
 	title,
 	loading = false,
+	xAxisType = "date",
 }: ComboProps) {
 	if (loading) {
 		return (
@@ -80,12 +93,19 @@ export default function Combo({
 				</figcaption>
 			)}
 			<ResponsiveContainer width="100%" height={300}>
-				<ComposedChart data={data}>
+				<ComposedChart
+					data={data}
+					margin={xAxisType === "categorical" ? CHART_MARGIN : undefined}
+				>
 					<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
-					<XAxis
-						dataKey="period"
-						tick={{ fontSize: 11, fill: colors.slate[500] }}
-					/>
+					{xAxisType === "categorical" ? (
+						<XAxis {...categoricalXAxisProps({ dataKey: "period" })} />
+					) : (
+						<XAxis
+							dataKey="period"
+							tick={{ fontSize: 11, fill: colors.slate[500] }}
+						/>
+					)}
 					<YAxis
 						yAxisId="left"
 						tick={{ fontSize: 11, fill: colors.slate[500] }}

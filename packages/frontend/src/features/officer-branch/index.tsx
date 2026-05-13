@@ -116,19 +116,16 @@ function KpiRow({
 	);
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: dashboard render — conditional sections (loading/error/tab data) are intrinsic
 export default function OfficerBranch() {
 	const { asOfDate } = useDashboardContext();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const tab = searchParams.get("tab");
 	const branchId = searchParams.get("branch_id") ?? "";
-	const officerId = searchParams.get("officer_id") ?? "";
 
 	const { data, loading, isError } = useOfficerBranch({
 		asOfDate,
 		tab: tab ?? undefined,
 		branchId: branchId ? Number(branchId) : undefined,
-		officerId: officerId || undefined,
 	});
 
 	if (isError)
@@ -150,11 +147,7 @@ export default function OfficerBranch() {
 			<Banner message="Demo data only — borrower names are synthetic and do not represent real members." />
 
 			<KpiRow tiles={buildKpiTiles(data)} loading={loading} />
-			<FiltersRow
-				branchId={branchId}
-				officerId={officerId}
-				setSearchParams={setSearchParams}
-			/>
+			<FiltersRow branchId={branchId} setSearchParams={setSearchParams} />
 
 			<Tabs
 				value={tab ?? "new"}
@@ -200,6 +193,7 @@ export default function OfficerBranch() {
 						barLabel="Balance ($M)"
 						lineLabel="Avg rate (%)"
 						loading={loading}
+						xAxisType="categorical"
 					/>
 				</ChartCard>
 			</div>

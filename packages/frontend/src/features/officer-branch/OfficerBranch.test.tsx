@@ -103,14 +103,15 @@ describe("OfficerBranch — filter dropdowns", () => {
 		expect(select.value).toBe("");
 	});
 
-	it("officer filter renders with All Officers default", async () => {
+	it("officer filter is NOT rendered — hardcoded IDs didn't match synth data, so the dropdown was removed", async () => {
 		vi.spyOn(api, "getOfficerBranch").mockResolvedValue(ENVELOPE);
 		renderPage();
+		// Wait for the page to settle (the Branch filter is the
+		// canonical "filters rendered" signal).
 		await waitFor(() =>
-			expect(screen.getByLabelText("Officer filter")).toBeInTheDocument(),
+			expect(screen.getByLabelText("Branch filter")).toBeInTheDocument(),
 		);
-		const select = screen.getByLabelText("Officer filter") as HTMLSelectElement;
-		expect(select.value).toBe("");
+		expect(screen.queryByLabelText("Officer filter")).not.toBeInTheDocument();
 	});
 });
 
@@ -147,25 +148,6 @@ describe("OfficerBranch — telemetry", () => {
 				type: "filter.changed",
 				filter_name: "branch_id",
 				value: "1",
-			}),
-		);
-	});
-
-	it("emits filter.changed when changing officer filter", async () => {
-		vi.spyOn(api, "getOfficerBranch").mockResolvedValue(ENVELOPE);
-		const emitSpy = vi.spyOn(telemetry, "emit");
-		renderPage();
-		await waitFor(() =>
-			expect(screen.getByLabelText("Officer filter")).toBeInTheDocument(),
-		);
-		fireEvent.change(screen.getByLabelText("Officer filter"), {
-			target: { value: "off-02" },
-		});
-		expect(emitSpy).toHaveBeenCalledWith(
-			expect.objectContaining({
-				type: "filter.changed",
-				filter_name: "officer_id",
-				value: "off-02",
 			}),
 		);
 	});

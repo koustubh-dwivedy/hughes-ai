@@ -186,6 +186,7 @@ export default function PastDue() {
 						data={officerBarData}
 						series={[{ key: "balance" }]}
 						loading={loading}
+						xAxisType="categorical"
 					/>
 				</ChartCard>
 				<ChartCard

@@ -9,6 +9,10 @@ import {
 	YAxis,
 } from "recharts";
 import { colors, typography } from "../theme/tokens";
+import {
+	CHART_MARGIN,
+	categoricalXAxisProps,
+} from "../ui/charts/CategoricalXAxis";
 
 const PALETTE = [
 	colors.indigo[500],
@@ -34,6 +38,14 @@ interface StackedBarProps {
 	series: StackedBarSeries[];
 	title?: string;
 	loading?: boolean;
+	/**
+	 * "date" (default) renders a recharts XAxis with auto-skipped
+	 * labels — fine for short date strings like "Jan-24".
+	 * "categorical" renders the shared angled+truncating axis — use
+	 * when `period` is a long categorical label (officer name, branch
+	 * name) that would otherwise collide.
+	 */
+	xAxisType?: "date" | "categorical";
 }
 
 /**
@@ -52,6 +64,7 @@ export default function StackedBar({
 	series,
 	title,
 	loading = false,
+	xAxisType = "date",
 }: StackedBarProps) {
 	if (loading) {
 		return (
@@ -89,12 +102,19 @@ export default function StackedBar({
 				</figcaption>
 			)}
 			<ResponsiveContainer width="100%" height={300}>
-				<BarChart data={data}>
+				<BarChart
+					data={data}
+					margin={xAxisType === "categorical" ? CHART_MARGIN : undefined}
+				>
 					<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
-					<XAxis
-						dataKey="period"
-						tick={{ fontSize: 11, fill: colors.slate[500] }}
-					/>
+					{xAxisType === "categorical" ? (
+						<XAxis {...categoricalXAxisProps({ dataKey: "period" })} />
+					) : (
+						<XAxis
+							dataKey="period"
+							tick={{ fontSize: 11, fill: colors.slate[500] }}
+						/>
+					)}
 					<YAxis tick={{ fontSize: 11, fill: colors.slate[500] }} />
 					<Tooltip />
 					<Legend />

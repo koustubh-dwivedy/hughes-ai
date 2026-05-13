@@ -9,6 +9,10 @@ import {
 	YAxis,
 } from "recharts";
 import { colors, typography } from "../theme/tokens";
+import {
+	CHART_MARGIN,
+	categoricalXAxisProps,
+} from "../ui/charts/CategoricalXAxis";
 
 const STEP_POSITIVE = "#16a34a";
 const STEP_NEGATIVE = "#dc2626";
@@ -111,13 +115,9 @@ export default function Waterfall({
 				</figcaption>
 			)}
 			<ResponsiveContainer width="100%" height={300}>
-				<BarChart data={chartData}>
+				<BarChart data={chartData} margin={CHART_MARGIN}>
 					<CartesianGrid strokeDasharray="3 3" stroke={colors.slate[200]} />
-					<XAxis
-						dataKey="label"
-						interval={0}
-						tick={{ fontSize: 11, fill: colors.slate[500] }}
-					/>
+					<XAxis {...categoricalXAxisProps({ dataKey: "label" })} />
 					<YAxis tick={{ fontSize: 11, fill: colors.slate[500] }} />
 					<Tooltip />
 					<Bar

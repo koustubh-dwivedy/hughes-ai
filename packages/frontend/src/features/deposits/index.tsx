@@ -107,6 +107,7 @@ export default function DepositPortfolio() {
 					series={[{ key: "balance" }]}
 					title="Deposits by Branch"
 					loading={loading}
+					xAxisType="categorical"
 				/>
 				<Waterfall
 					data={waterfallData}
