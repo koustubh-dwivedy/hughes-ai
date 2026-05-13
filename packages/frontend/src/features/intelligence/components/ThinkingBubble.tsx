@@ -73,7 +73,13 @@ function ensureKeyframes(): void {
 
 export default function ThinkingBubble() {
 	const streaming = useAppSelector((s) => s.thread.streaming);
+	const streamingThreadId = useAppSelector((s) => s.thread.streamingThreadId);
+	const currentThreadId = useAppSelector((s) => s.thread.currentThreadId);
 	const narration = useAppSelector((s) => s.thread.narrationLine);
+	// Only render the bubble on the thread that owns the in-flight
+	// stream. Otherwise a user who's submitted on A and clicked over to
+	// B would see B sprouting A's "Thinking…" indicator.
+	const liveOnThisThread = streaming && streamingThreadId === currentThreadId;
 	const visibleLine = narration ?? DEFAULT_LINE;
 	const [displayLine, setDisplayLine] = useState(visibleLine);
 	const [opacity, setOpacity] = useState(1);
@@ -91,7 +97,7 @@ export default function ThinkingBubble() {
 		return () => window.clearTimeout(swap);
 	}, [visibleLine]);
 
-	if (!streaming) return null;
+	if (!liveOnThisThread) return null;
 	ensureKeyframes();
 	return (
 		<article
@@ -101,13 +107,13 @@ export default function ThinkingBubble() {
 		>
 			<span style={dotsStyle}>
 				<span style={{ ...dotBaseStyle, animationDelay: "0s" }} aria-hidden />
-				<span style={{ ...dotBaseStyle, animationDelay: "0.15s" }} aria-hidden />
+				<span
+					style={{ ...dotBaseStyle, animationDelay: "0.15s" }}
+					aria-hidden
+				/>
 				<span style={{ ...dotBaseStyle, animationDelay: "0.3s" }} aria-hidden />
 			</span>
-			<span
-				data-testid="thinking-line"
-				style={{ ...lineWrapStyle, opacity }}
-			>
+			<span data-testid="thinking-line" style={{ ...lineWrapStyle, opacity }}>
 				{displayLine}
 			</span>
 		</article>

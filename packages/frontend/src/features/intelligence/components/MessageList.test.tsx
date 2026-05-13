@@ -133,7 +133,9 @@ describe("MessageList", () => {
 			tool_calls: [{ name: "mf_query", args: {}, id: "c" }],
 		};
 		const { container } = render(<MessageList messages={[intermediate]} />);
-		expect(container.querySelector('[aria-label="Assistant message"]')).toBeNull();
+		expect(
+			container.querySelector('[aria-label="Assistant message"]'),
+		).toBeNull();
 		expect(screen.queryByText(/probe for the latest date/)).toBeNull();
 	});
 

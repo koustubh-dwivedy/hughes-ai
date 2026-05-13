@@ -15,7 +15,7 @@ import { skipToken } from "@reduxjs/toolkit/query";
 import { useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../shared/api/hooks";
-import { colors, radii, spacing, typography } from "../../theme/tokens";
+import { colors, spacing } from "../../theme/tokens";
 import {
 	type ThreadMessageWire,
 	useCreateThreadMutation,
@@ -24,6 +24,7 @@ import {
 } from "./api";
 import ClarificationControl from "./components/ClarificationControl";
 import ComposerInput from "./components/ComposerInput";
+import EmptyState from "./components/EmptyState";
 import MessageList from "./components/MessageList";
 import ThinkingBubble from "./components/ThinkingBubble";
 import ThreadRail from "./components/ThreadRail";
@@ -55,59 +56,6 @@ const conversationStyle: React.CSSProperties = {
 	minHeight: 0,
 };
 
-const STARTER_QUESTIONS: readonly string[] = [
-	"What's our loan-to-deposit ratio this month?",
-	"Show deposit balance by branch as of the latest month.",
-	"What's our origination volume this year?",
-	"Top 5 deposit products by total balance.",
-];
-
-const emptyStateStyle: React.CSSProperties = {
-	flex: 1,
-	display: "flex",
-	flexDirection: "column",
-	alignItems: "center",
-	justifyContent: "center",
-	gap: spacing[4],
-	padding: spacing[6],
-	textAlign: "center",
-};
-
-const emptyHeadingStyle: React.CSSProperties = {
-	fontSize: typography.size.xl,
-	fontWeight: typography.weight.medium,
-	color: colors.slate[800],
-	margin: 0,
-};
-
-const emptySubheadStyle: React.CSSProperties = {
-	fontSize: typography.size.sm,
-	color: colors.slate[600],
-	maxWidth: 480,
-	margin: 0,
-};
-
-const suggestionsRowStyle: React.CSSProperties = {
-	display: "grid",
-	gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-	gap: spacing[2],
-	width: "min(720px, 100%)",
-	marginTop: spacing[2],
-};
-
-const suggestionButtonStyle: React.CSSProperties = {
-	background: colors.white,
-	color: colors.slate[800],
-	border: `1px solid ${colors.slate[200]}`,
-	borderRadius: radii.md,
-	padding: `${spacing[3]} ${spacing[4]}`,
-	cursor: "pointer",
-	fontSize: typography.size.sm,
-	fontFamily: typography.fontFamily,
-	textAlign: "left",
-	lineHeight: 1.4,
-};
-
 function lastClarifyMessage(
 	messages: ThreadMessageWire[],
 ): ThreadMessageWire | null {
@@ -132,7 +80,14 @@ export default function IntelligencePage() {
 
 	const threadId = params.threadId ?? null;
 	const streaming = useAppSelector((s) => s.thread.streaming);
+	const streamingThreadId = useAppSelector((s) => s.thread.streamingThreadId);
 	const pendingQuestion = useAppSelector((s) => s.thread.pendingQuestion);
+	// True iff the in-flight stream belongs to the thread the user is
+	// currently viewing. Used to gate the auto-scroll triggers and the
+	// optimistic pending-bubble. Without this gate, switching to a
+	// different thread mid-stream made the source-thread's streaming
+	// UI disappear (because setCurrentThread used to wipe buffers).
+	const liveOnThisThread = streaming && streamingThreadId === threadId;
 	const conversationRef = useRef<HTMLDivElement | null>(null);
 	// True iff the user was scrolled to (or near) the bottom of the
 	// conversation *before* the most recent re-render. We sample this
@@ -184,44 +139,56 @@ export default function IntelligencePage() {
 	const showEmptyState =
 		!threadId && messages.length === 0 && pendingQuestion === null;
 
-	// Pending bubble: only show while the persisted history doesn't yet
-	// include the user's submitted message. RTK Query refetches `thread`
-	// on stream close — the moment `messages` includes our pending content
-	// we drop the bubble.
+	// Pending bubble: only show on the thread that submitted it and
+	// only while the persisted history doesn't yet include the user's
+	// message. RTK Query refetches `thread` on stream close — the
+	// moment `messages` includes our pending content we drop the
+	// bubble. The threadId filter prevents A's optimistic bubble from
+	// surfacing on thread B if the user switches mid-stream.
 	const pendingUserContent = useMemo(() => {
 		if (!pendingQuestion) return null;
+		if (pendingQuestion.threadId !== threadId) return null;
 		const matched = messages.some(
 			(m) => m.role === "user" && m.content === pendingQuestion.content,
 		);
 		return matched ? null : pendingQuestion.content;
-	}, [pendingQuestion, messages]);
+	}, [pendingQuestion, messages, threadId]);
 
 	useEffect(() => {
-		if (pendingQuestion && pendingUserContent === null) {
+		// Only clear the pendingQuestion once its source thread has
+		// caught up — i.e. we're viewing it AND its persisted user-row
+		// has landed. Wrong-thread views keep the question alive so the
+		// bubble reappears when the user returns to the source thread.
+		if (
+			pendingQuestion &&
+			pendingQuestion.threadId === threadId &&
+			pendingUserContent === null
+		) {
 			dispatch(pendingQuestionCleared());
 		}
-	}, [pendingQuestion, pendingUserContent, dispatch]);
+	}, [pendingQuestion, pendingUserContent, threadId, dispatch]);
 
 	// USER-INITIATED auto-scroll. When the user submits a new turn the
-	// streaming flag flips false→true and `pendingUserContent` flips
-	// null→set. Both signal the user wants to follow the new turn;
-	// always pin to the tail, regardless of where their scroll was —
-	// otherwise the ThinkingBubble lands below the fold whenever the
-	// user had scrolled up to re-read history before clicking Send.
-	const prevStreamingRef = useRef(streaming);
+	// `liveOnThisThread` flag flips false→true and `pendingUserContent`
+	// flips null→set. Both signal the user wants to follow the new
+	// turn; always pin to the tail, regardless of where their scroll
+	// was. The live flag (vs the bare `streaming`) also makes the
+	// bubble auto-scroll into view when the user *returns* to a thread
+	// whose stream is still alive after they had clicked away.
+	const prevLiveRef = useRef(liveOnThisThread);
 	const prevPendingRef = useRef(pendingUserContent);
 	useEffect(() => {
 		const el = conversationRef.current;
 		if (!el) return;
-		const streamingStarted = streaming && !prevStreamingRef.current;
+		const liveStarted = liveOnThisThread && !prevLiveRef.current;
 		const pendingArrived =
 			pendingUserContent !== null && prevPendingRef.current === null;
-		prevStreamingRef.current = streaming;
+		prevLiveRef.current = liveOnThisThread;
 		prevPendingRef.current = pendingUserContent;
-		if (streamingStarted || pendingArrived) {
+		if (liveStarted || pendingArrived) {
 			el.scrollTop = el.scrollHeight;
 		}
-	}, [streaming, pendingUserContent]);
+	}, [liveOnThisThread, pendingUserContent]);
 
 	// PASSIVE auto-scroll. New persisted messages can arrive mid-turn
 	// (e.g. when the SSE close triggers a refetch). Only follow the
@@ -255,25 +222,7 @@ export default function IntelligencePage() {
 					data-testid="conversation-pane"
 				>
 					{showEmptyState ? (
-						<div style={emptyStateStyle}>
-							<h2 style={emptyHeadingStyle}>Ask Hughes</h2>
-							<p style={emptySubheadStyle}>
-								Open-ended questions about loans, deposits, originations,
-								delinquency, and portfolio performance.
-							</p>
-							<div style={suggestionsRowStyle}>
-								{STARTER_QUESTIONS.map((q) => (
-									<button
-										key={q}
-										type="button"
-										style={suggestionButtonStyle}
-										onClick={() => void handleSubmit(q)}
-									>
-										{q}
-									</button>
-								))}
-							</div>
-						</div>
+						<EmptyState onSelect={(q) => void handleSubmit(q)} />
 					) : (
 						<>
 							<MessageList

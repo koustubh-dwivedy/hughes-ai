@@ -4,10 +4,13 @@ import { describe, expect, it } from "vitest";
 import { createStore } from "../../../shared/api/store";
 import {
 	type ThreadStreamStep,
+	setCurrentThread,
 	streamStarted,
 	streamStep,
 } from "../threadSlice";
 import StepIndicator from "./StepIndicator";
+
+const TID = "t1";
 
 function renderWithStore(store: ReturnType<typeof createStore>) {
 	return render(
@@ -15,6 +18,12 @@ function renderWithStore(store: ReturnType<typeof createStore>) {
 			<StepIndicator />
 		</ReduxProvider>,
 	);
+}
+
+function storeViewing(threadId: string): ReturnType<typeof createStore> {
+	const s = createStore();
+	s.dispatch(setCurrentThread(threadId));
+	return s;
 }
 
 const callList: ThreadStreamStep = {
@@ -43,15 +52,15 @@ describe("StepIndicator", () => {
 	it("renders nothing while streaming if no step events have arrived yet", () => {
 		// HUG-201: the generic "Thinking…" copy moved to <ThinkingBubble>.
 		// StepIndicator only renders once concrete tool-call events exist.
-		const store = createStore();
-		store.dispatch(streamStarted());
+		const store = storeViewing(TID);
+		store.dispatch(streamStarted({ threadId: TID }));
 		const { container } = renderWithStore(store);
 		expect(container).toBeEmptyDOMElement();
 	});
 
 	it("renders human labels for known tool kinds", () => {
-		const store = createStore();
-		store.dispatch(streamStarted());
+		const store = storeViewing(TID);
+		store.dispatch(streamStarted({ threadId: TID }));
 		store.dispatch(streamStep(callList));
 		store.dispatch(streamStep(callMf));
 		renderWithStore(store);
@@ -62,8 +71,8 @@ describe("StepIndicator", () => {
 	});
 
 	it("falls back to a tool name when the step is an unknown tool_call", () => {
-		const store = createStore();
-		store.dispatch(streamStarted());
+		const store = storeViewing(TID);
+		store.dispatch(streamStarted({ threadId: TID }));
 		store.dispatch(
 			streamStep({
 				step: 1,

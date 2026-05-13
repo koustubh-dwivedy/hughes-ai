@@ -43,24 +43,40 @@ describe("threadSlice", () => {
 		expect(state).toEqual(initialThreadState);
 	});
 
-	it("setCurrentThread from one thread to another clears transient buffers", () => {
+	it("setCurrentThread from one thread to another preserves in-flight streaming state", () => {
+		// Pre-fix this reducer wiped the streaming buffers, which broke
+		// the "submit on A → click B → click A back → see live progress"
+		// flow because the SSE was still alive but the slice forgot.
+		// Now buffers belong to whichever thread `streamingThreadId`
+		// points at; setCurrentThread only updates the view target.
 		const dirty: ThreadState = {
 			currentThreadId: "t-old",
 			draftInput: "hello",
 			streaming: true,
+			streamingThreadId: "t-old",
 			steps: [sampleStep],
 			lastFinal: sampleFinal,
 			error: "boom",
-			pendingQuestion: null,
-			narrationLine: null,
-			streamingSummary: "",
+			pendingQuestion: {
+				content: "Q",
+				threadId: "t-old",
+				submittedAt: 1,
+			},
+			narrationLine: "Looking up…",
+			streamingSummary: "partial answer ",
 		};
 		const next = reducer(dirty, setCurrentThread("t-new"));
 		expect(next.currentThreadId).toBe("t-new");
-		expect(next.steps).toEqual([]);
-		expect(next.lastFinal).toBeNull();
+		// Streaming buffers must survive — they belong to t-old.
+		expect(next.streaming).toBe(true);
+		expect(next.streamingThreadId).toBe("t-old");
+		expect(next.steps).toEqual([sampleStep]);
+		expect(next.lastFinal).toEqual(sampleFinal);
+		expect(next.pendingQuestion?.content).toBe("Q");
+		expect(next.narrationLine).toBe("Looking up…");
+		expect(next.streamingSummary).toBe("partial answer ");
+		// `error` is genuinely transient; it's fine to drop on view switch.
 		expect(next.error).toBeNull();
-		expect(next.streaming).toBe(false);
 		expect(next.draftInput).toBe("hello");
 	});
 
@@ -73,6 +89,7 @@ describe("threadSlice", () => {
 			currentThreadId: null,
 			draftInput: "",
 			streaming: true,
+			streamingThreadId: null,
 			steps: [sampleStep],
 			lastFinal: null,
 			error: null,
@@ -106,15 +123,16 @@ describe("threadSlice", () => {
 		expect(next.streaming).toBe(false);
 	});
 
-	it("streamStarted flips the flag and clears prior buffers", () => {
+	it("streamStarted flips the flag, tags the thread, and clears prior buffers", () => {
 		const dirty: ThreadState = {
 			...initialThreadState,
 			steps: [sampleStep],
 			lastFinal: sampleFinal,
 			error: "stale",
 		};
-		const next = reducer(dirty, streamStarted());
+		const next = reducer(dirty, streamStarted({ threadId: "t-active" }));
 		expect(next.streaming).toBe(true);
+		expect(next.streamingThreadId).toBe("t-active");
 		expect(next.steps).toEqual([]);
 		expect(next.lastFinal).toBeNull();
 		expect(next.error).toBeNull();
@@ -137,11 +155,16 @@ describe("threadSlice", () => {
 		expect(b.steps[1].step).toBe(2);
 	});
 
-	it("streamFinal stores the terminal payload and ends streaming", () => {
-		const mid: ThreadState = { ...initialThreadState, streaming: true };
+	it("streamFinal stores the terminal payload, ends streaming, untags the thread", () => {
+		const mid: ThreadState = {
+			...initialThreadState,
+			streaming: true,
+			streamingThreadId: "t-active",
+		};
 		const next = reducer(mid, streamFinal(sampleFinal));
 		expect(next.lastFinal).toEqual(sampleFinal);
 		expect(next.streaming).toBe(false);
+		expect(next.streamingThreadId).toBeNull();
 	});
 
 	it("streamCleared resets buffers but keeps thread id and draft", () => {
@@ -149,6 +172,7 @@ describe("threadSlice", () => {
 			currentThreadId: "t1",
 			draftInput: "in flight",
 			streaming: false,
+			streamingThreadId: null,
 			steps: [sampleStep],
 			lastFinal: sampleFinal,
 			error: "x",
@@ -164,11 +188,16 @@ describe("threadSlice", () => {
 		expect(next.draftInput).toBe("in flight");
 	});
 
-	it("streamError records the message and stops streaming", () => {
-		const mid: ThreadState = { ...initialThreadState, streaming: true };
+	it("streamError records the message, stops streaming, untags the thread", () => {
+		const mid: ThreadState = {
+			...initialThreadState,
+			streaming: true,
+			streamingThreadId: "t-active",
+		};
 		const next = reducer(mid, streamError("network down"));
 		expect(next.error).toBe("network down");
 		expect(next.streaming).toBe(false);
+		expect(next.streamingThreadId).toBeNull();
 	});
 
 	it("streamThinking replaces narrationLine in place (rolling display)", () => {
@@ -204,8 +233,9 @@ describe("threadSlice", () => {
 			...initialThreadState,
 			narrationLine: "carry-over from previous turn",
 		};
-		const next = reducer(mid, streamStarted());
+		const next = reducer(mid, streamStarted({ threadId: "t1" }));
 		expect(next.narrationLine).toBeNull();
 		expect(next.streaming).toBe(true);
+		expect(next.streamingThreadId).toBe("t1");
 	});
 });

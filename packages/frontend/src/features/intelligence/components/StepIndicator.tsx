@@ -53,8 +53,13 @@ function labelForStep(step: ThreadStreamStep): string {
 
 export default function StepIndicator() {
 	const streaming = useAppSelector((s) => s.thread.streaming);
+	const streamingThreadId = useAppSelector((s) => s.thread.streamingThreadId);
+	const currentThreadId = useAppSelector((s) => s.thread.currentThreadId);
 	const steps = useAppSelector((s) => s.thread.steps);
-	if (!streaming && steps.length === 0) return null;
+	// Same per-thread gate as ThinkingBubble — don't leak A's step
+	// indicator onto B when the user switches mid-stream.
+	const liveOnThisThread = streaming && streamingThreadId === currentThreadId;
+	if (!liveOnThisThread && steps.length === 0) return null;
 	if (steps.length === 0) return null;
 	return (
 		<output aria-live="polite" style={wrapperStyle}>

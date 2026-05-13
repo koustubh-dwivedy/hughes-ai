@@ -21,9 +21,10 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStore } from "../../shared/api/store";
 import IntelligencePage from "./IntelligencePage";
-import { streamStarted } from "./threadSlice";
+import { setCurrentThread, streamStarted } from "./threadSlice";
 
 afterEach(() => {
+	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 });
 
@@ -40,46 +41,53 @@ vi.mock("shiki", () => ({
 const FIXED_SCROLL_HEIGHT = 800;
 
 function mockThreadFetch(): void {
-	// Each render fetches /threads (sidebar list) and /threads/:id
-	// (hydrate). Return the minimum payload each one needs.
-	vi.spyOn(global, "fetch").mockImplementation(
-		async (input: RequestInfo | URL) => {
-			const url = typeof input === "string" ? input : input.toString();
-			if (url.endsWith("/threads") || url.includes("/threads?")) {
-				return new Response(JSON.stringify({ threads: [] }), {
-					status: 200,
-					headers: { "Content-Type": "application/json" },
-				});
-			}
-			// /threads/:id — keep messages.length == 1 so the first auto-scroll
-			// effect fires once on mount and we can verify the second-turn
-			// behavior in isolation.
-			return new Response(
-				JSON.stringify({
-					thread_id: "t1",
-					title: "test thread",
-					started_at: "2026-05-13T00:00:00Z",
-					last_active_at: "2026-05-13T00:00:00Z",
-					messages: [
-						{
-							message_id: "m1",
-							thread_id: "t1",
-							parent_message_id: null,
-							role: "user",
-							content: "prior question",
-							tool_calls: null,
-							tool_results: null,
-							openui_dsl: null,
-							mf_query: null,
-							rows: null,
-							created_at: "2026-05-13T00:00:00Z",
-						},
-					],
-				}),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			);
-		},
-	);
+	// Replace global.fetch via vi.stubGlobal so it survives clean
+	// across the suite's afterEach (vi.spyOn on the setup file's
+	// vi.fn fetch doesn't always re-attach reliably between tests —
+	// causing the singleton fallback's `{}` body to leak through and
+	// crash ThreadRail on `data.threads.length`).
+	const stub = vi.fn(async (input: RequestInfo | URL) => {
+		const url =
+			typeof input === "string"
+				? input
+				: input instanceof URL
+					? input.href
+					: input.url;
+		if (url.endsWith("/threads") || url.includes("/threads?")) {
+			return new Response(JSON.stringify({ threads: [] }), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			});
+		}
+		// /threads/:id — keep messages.length == 1 so the first
+		// auto-scroll effect fires once on mount and we can verify
+		// the second-turn behavior in isolation.
+		return new Response(
+			JSON.stringify({
+				thread_id: "t1",
+				title: "test thread",
+				started_at: "2026-05-13T00:00:00Z",
+				last_active_at: "2026-05-13T00:00:00Z",
+				messages: [
+					{
+						message_id: "m1",
+						thread_id: "t1",
+						parent_message_id: null,
+						role: "user",
+						content: "prior question",
+						tool_calls: null,
+						tool_results: null,
+						openui_dsl: null,
+						mf_query: null,
+						rows: null,
+						created_at: "2026-05-13T00:00:00Z",
+					},
+				],
+			}),
+			{ status: 200, headers: { "Content-Type": "application/json" } },
+		);
+	});
+	vi.stubGlobal("fetch", stub);
 }
 
 function pinScrollHeight(el: HTMLElement, value: number): void {
@@ -106,6 +114,57 @@ function renderAt(threadId: string) {
 	return { store, ...utils };
 }
 
+describe("IntelligencePage — cross-thread streaming visibility", () => {
+	it("shows the thinking bubble on the streaming thread but NOT on a different one", async () => {
+		// Issue 3 root case: A's stream is alive; user is viewing A.
+		// Bubble is present. They switch to B (route change) — bubble
+		// must not bleed across.
+		mockThreadFetch();
+		const { store } = renderAt("t1");
+		await waitFor(() =>
+			expect(screen.getByTestId("conversation-pane")).toBeInTheDocument(),
+		);
+		act(() => {
+			store.dispatch(streamStarted({ threadId: "t1" }));
+		});
+		expect(screen.getByLabelText("Assistant is thinking")).toBeInTheDocument();
+		// Now simulate switching to a different thread by dispatching
+		// setCurrentThread directly. The thinking-bubble selector
+		// should no longer match.
+		act(() => {
+			store.dispatch(setCurrentThread("t-other"));
+		});
+		expect(
+			screen.queryByLabelText("Assistant is thinking"),
+		).not.toBeInTheDocument();
+	});
+
+	it("preserves streaming state across thread switches — bubble reappears when user returns", async () => {
+		// The slice no longer wipes buffers on setCurrentThread, so
+		// streaming should resume rendering when the user navigates
+		// back to the source thread mid-stream.
+		mockThreadFetch();
+		const { store } = renderAt("t1");
+		await waitFor(() =>
+			expect(screen.getByTestId("conversation-pane")).toBeInTheDocument(),
+		);
+		act(() => {
+			store.dispatch(streamStarted({ threadId: "t1" }));
+		});
+		act(() => {
+			store.dispatch(setCurrentThread("t-other"));
+		});
+		// State must still know streaming is alive on t1.
+		expect(store.getState().thread.streaming).toBe(true);
+		expect(store.getState().thread.streamingThreadId).toBe("t1");
+		// User returns to t1.
+		act(() => {
+			store.dispatch(setCurrentThread("t1"));
+		});
+		expect(screen.getByLabelText("Assistant is thinking")).toBeInTheDocument();
+	});
+});
+
 describe("IntelligencePage — follow-tail auto-scroll", () => {
 	it("scrolls the conversation pane to the bottom on streamStarted when user was at the tail", async () => {
 		mockThreadFetch();
@@ -121,7 +180,7 @@ describe("IntelligencePage — follow-tail auto-scroll", () => {
 		// stream-start effect in isolation.
 		pane.scrollTop = 0;
 		act(() => {
-			store.dispatch(streamStarted());
+			store.dispatch(streamStarted({ threadId: "t1" }));
 		});
 		await waitFor(() => expect(pane.scrollTop).toBe(FIXED_SCROLL_HEIGHT));
 	});
@@ -149,7 +208,7 @@ describe("IntelligencePage — follow-tail auto-scroll", () => {
 		pane.scrollTop = 100;
 		// User submits a follow-up — streaming flips true.
 		act(() => {
-			store.dispatch(streamStarted());
+			store.dispatch(streamStarted({ threadId: "t1" }));
 		});
 		// Force-scroll fires regardless of prior scroll position.
 		await waitFor(() => expect(pane.scrollTop).toBe(FIXED_SCROLL_HEIGHT));

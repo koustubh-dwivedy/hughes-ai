@@ -172,7 +172,7 @@ const slice = baseApi.injectEndpoints({
 		postMessage: build.mutation<void, PostMessageArg>({
 			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSE custom queryFn — every branch is a soft-skip path that needs explicit handling.
 			queryFn: async ({ threadId, content, parentMessageId }, api) => {
-				api.dispatch(streamStarted());
+				api.dispatch(streamStarted({ threadId }));
 				const baseUrl =
 					typeof window !== "undefined"
 						? `${window.location.origin}/api`

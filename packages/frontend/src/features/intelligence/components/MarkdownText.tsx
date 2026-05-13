@@ -89,9 +89,7 @@ const listStyle: React.CSSProperties = {
 	lineHeight: 1.55,
 };
 
-const headingStyle = (
-	scale: "lg" | "base" | "sm",
-): React.CSSProperties => ({
+const headingStyle = (scale: "lg" | "base" | "sm"): React.CSSProperties => ({
 	fontSize:
 		scale === "lg"
 			? typography.size.lg

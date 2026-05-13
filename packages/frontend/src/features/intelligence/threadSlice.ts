@@ -62,6 +62,13 @@ export interface ThreadState {
 	currentThreadId: string | null;
 	draftInput: string;
 	streaming: boolean;
+	// Which thread the in-flight stream belongs to. Set by streamStarted,
+	// cleared by streamFinal / streamError. Lets the UI render the live
+	// bubble on its source thread regardless of which thread the user
+	// is currently viewing — and avoids the "switch threads mid-stream,
+	// everything disappears" bug where setCurrentThread used to wipe
+	// streaming state on every view change.
+	streamingThreadId: string | null;
 	steps: ThreadStreamStep[];
 	lastFinal: ThreadStreamFinal | null;
 	error: string | null;
@@ -82,6 +89,7 @@ export const initialThreadState: ThreadState = {
 	currentThreadId: null,
 	draftInput: "",
 	streaming: false,
+	streamingThreadId: null,
 	steps: [],
 	lastFinal: null,
 	error: null,
@@ -95,26 +103,15 @@ const slice = createSlice({
 	initialState: initialThreadState,
 	reducers: {
 		setCurrentThread(state, action: PayloadAction<string | null>) {
-			// Preserve the in-flight pending question / streaming state when
-			// the URL transitions from no-thread → just-created-thread. This
-			// is the "user submitted from the empty state, we created a thread
-			// and navigated to it" case — wiping the buffers would yank the
-			// optimistic bubble + thinking indicator off-screen the moment
-			// they appeared (HUG-201 follow-up).
-			const transitioningFromEmpty =
-				state.currentThreadId === null && action.payload !== null;
+			// Just update which thread the UI is currently viewing.
+			// Streaming buffers are tagged with `streamingThreadId` and
+			// stay alive across view-switches — the UI gates rendering
+			// on equality with `currentThreadId`. Wiping buffers here
+			// caused the "switch away mid-stream → everything vanishes"
+			// bug, because the SSE was still running for the original
+			// thread but the slice no longer knew about it.
 			state.currentThreadId = action.payload;
-			if (transitioningFromEmpty) return;
-			// Otherwise this is a real context switch (back to empty,
-			// switching threads, etc.) — drop transient buffers so stale
-			// steps don't bleed into the new view.
-			state.steps = [];
-			state.lastFinal = null;
 			state.error = null;
-			state.streaming = false;
-			state.pendingQuestion = null;
-			state.narrationLine = null;
-			state.streamingSummary = "";
 		},
 		pendingQuestionSubmitted(
 			state,
@@ -132,8 +129,9 @@ const slice = createSlice({
 		setDraft(state, action: PayloadAction<string>) {
 			state.draftInput = action.payload;
 		},
-		streamStarted(state) {
+		streamStarted(state, action: PayloadAction<{ threadId: string }>) {
 			state.streaming = true;
+			state.streamingThreadId = action.payload.threadId;
 			state.steps = [];
 			state.lastFinal = null;
 			state.error = null;
@@ -143,7 +141,10 @@ const slice = createSlice({
 		streamStep(state, action: PayloadAction<ThreadStreamStep>) {
 			state.steps.push(action.payload);
 		},
-		streamThinking(state, action: PayloadAction<{ step: number; line: string }>) {
+		streamThinking(
+			state,
+			action: PayloadAction<{ step: number; line: string }>,
+		) {
 			state.narrationLine = action.payload.line;
 		},
 		streamToken(state, action: PayloadAction<{ content_delta: string }>) {
@@ -152,6 +153,7 @@ const slice = createSlice({
 		streamFinal(state, action: PayloadAction<ThreadStreamFinal>) {
 			state.lastFinal = action.payload;
 			state.streaming = false;
+			state.streamingThreadId = null;
 			state.narrationLine = null;
 			// Keep streamingSummary populated briefly so the bubble
 			// doesn't flash empty between final-event landing and the
@@ -168,6 +170,7 @@ const slice = createSlice({
 		streamError(state, action: PayloadAction<string>) {
 			state.error = action.payload;
 			state.streaming = false;
+			state.streamingThreadId = null;
 			state.narrationLine = null;
 			state.streamingSummary = "";
 		},

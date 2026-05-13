@@ -4,7 +4,9 @@ import MarkdownText from "./MarkdownText";
 
 describe("MarkdownText", () => {
 	it("renders **bold** as <strong>", () => {
-		const { container } = render(<MarkdownText>{"Hello **world**!"}</MarkdownText>);
+		const { container } = render(
+			<MarkdownText>{"Hello **world**!"}</MarkdownText>,
+		);
 		const strong = container.querySelector("strong");
 		expect(strong).not.toBeNull();
 		expect(strong?.textContent).toBe("world");

@@ -123,7 +123,8 @@ function AssistantTerminal({ msg }: { msg: ThreadMessageWire }) {
 	const summary = payload.summary ?? "";
 	const [showRefs, setShowRefs] = useState(false);
 	const hasRows = (payload.rows?.length ?? 0) > 0;
-	const hasMfQuery = payload.mf_query !== null && payload.mf_query !== undefined;
+	const hasMfQuery =
+		payload.mf_query !== null && payload.mf_query !== undefined;
 	const hasTrace = (payload.thinking_trace?.length ?? 0) > 0;
 	const hasReferences = hasRows || hasMfQuery || hasTrace;
 	const refCount =
@@ -196,7 +197,10 @@ function StreamingAssistant() {
 	if (!text) return null;
 	ensureCaretKeyframes();
 	return (
-		<article aria-label="Assistant answer (streaming)" style={assistantBubbleStyle}>
+		<article
+			aria-label="Assistant answer (streaming)"
+			style={assistantBubbleStyle}
+		>
 			<div data-testid="streaming-summary">
 				<MarkdownText style={summaryStyle}>{text}</MarkdownText>
 				<span style={streamingCaretStyle} aria-hidden />
@@ -228,12 +232,15 @@ function AssistantText({ msg }: { msg: ThreadMessageWire }) {
 	);
 }
 
-export default function MessageList({
-	messages,
-	pendingUserContent,
-}: Props) {
+export default function MessageList({ messages, pendingUserContent }: Props) {
 	const streaming = useAppSelector((s) => s.thread.streaming);
+	const streamingThreadId = useAppSelector((s) => s.thread.streamingThreadId);
+	const currentThreadId = useAppSelector((s) => s.thread.currentThreadId);
 	const streamingSummary = useAppSelector((s) => s.thread.streamingSummary);
+	// Live-bubble belongs to whichever thread owns the in-flight stream.
+	// Without this gate, viewing thread B while A is still streaming
+	// would surface A's streamingSummary inside B's MessageList.
+	const liveOnThisThread = streaming && streamingThreadId === currentThreadId;
 	// Find the last persisted final-answer tool message — when it
 	// matches the streaming summary's content, switch from the in-flight
 	// bubble to the persisted one to avoid double-render.
@@ -245,7 +252,10 @@ export default function MessageList({
 		return false;
 	})();
 	const showStreamingBubble =
-		streaming || (streamingSummary.length > 0 && !persistedHasMatchingTerminal);
+		liveOnThisThread ||
+		(streamingSummary.length > 0 &&
+			streamingThreadId === currentThreadId &&
+			!persistedHasMatchingTerminal);
 	return (
 		<div style={containerStyle} role="log" aria-live="polite">
 			{messages.map((msg) => {
