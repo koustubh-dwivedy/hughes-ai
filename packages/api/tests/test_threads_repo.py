@@ -123,3 +123,23 @@ def test_fk_violation_on_unknown_thread() -> None:
 
     with pytest.raises(psycopg.errors.ForeignKeyViolation):
         repo.append_message(uuid4(), "user", _db_url(), content="orphan")
+
+
+def test_update_thread_title_idempotent(session_id: str) -> None:
+    """Title update is conditional on title IS NULL — second call no-ops."""
+    db_url = _db_url()
+    thread = repo.create_thread(session_id, db_url)
+    assert thread.title is None
+
+    first = repo.update_thread_title(thread.thread_id, "First title", db_url)
+    assert first is True
+    refreshed = repo.get_thread(thread.thread_id, db_url)
+    assert refreshed is not None
+    assert refreshed.title == "First title"
+
+    # A second call must not overwrite; conditional WHERE guards this.
+    second = repo.update_thread_title(thread.thread_id, "Second title", db_url)
+    assert second is False
+    refreshed2 = repo.get_thread(thread.thread_id, db_url)
+    assert refreshed2 is not None
+    assert refreshed2.title == "First title"

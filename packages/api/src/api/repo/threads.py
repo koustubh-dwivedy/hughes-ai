@@ -99,6 +99,23 @@ def list_threads_for_session(
     ]
 
 
+def update_thread_title(thread_id: UUID, title: str, db_url: str) -> bool:
+    """Set a thread's title — but only if it's still NULL.
+
+    The conditional WHERE makes title generation idempotent: if two
+    concurrent fire-and-forget tasks fire for the same thread, the
+    first commit wins, the second's UPDATE matches zero rows. Returns
+    True if this call was the writer, False otherwise.
+    """
+    with psycopg.connect(db_url) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE threads SET title = %s"
+            " WHERE thread_id = %s AND title IS NULL",
+            (title, str(thread_id)),
+        )
+        return cur.rowcount == 1
+
+
 def append_message(
     thread_id: UUID,
     role: MessageRole,

@@ -44,9 +44,7 @@ class _FakeLLM(BaseChatModel):
     def _llm_type(self) -> str:
         return "fake"
 
-    def bind_tools(  # type: ignore[override]
-        self, tools: Sequence[Any], **kwargs: Any
-    ) -> _FakeLLM:
+    def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> _FakeLLM:  # type: ignore[override]
         return self
 
 
@@ -185,6 +183,102 @@ def test_post_message_streams_final_event(client: Any) -> None:
     fetched = client.get(f"/threads/{thread_id}").json()
     roles = [m["role"] for m in fetched["messages"]]
     assert roles == ["user", "assistant", "tool"]
+
+
+def test_post_message_stamps_thread_title_in_background(
+    client: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """First user message on a title=None thread triggers a
+    background LLM call that stamps a sidebar title."""
+    import time
+
+    from api.routes import threads as routes_threads
+
+    monkeypatch.setattr(
+        routes_threads, "generate_title",
+        lambda msg, _llm: f"Title for: {msg[:30]}",
+    )
+    sid = f"pytest-{uuid4()}"
+    created = client.post(
+        "/threads", json={"title": None}, headers={"X-Hughes-Session": sid}
+    )
+    thread_id = created.json()["thread_id"]
+    with client.stream(
+        "POST",
+        f"/threads/{thread_id}/messages",
+        json={"content": "what is the delinquency rate"},
+    ) as stream:
+        list(_parse_sse(stream.iter_lines()))
+
+    # Background task runs concurrent with response cleanup. Poll the
+    # DB briefly until the title appears (or give up after 2 seconds).
+    title = None
+    for _ in range(20):
+        fetched = client.get(f"/threads/{thread_id}").json()
+        title = fetched["title"]
+        if title is not None:
+            break
+        time.sleep(0.1)
+    assert title == "Title for: what is the delinquency rate"
+
+
+def test_post_message_emits_title_sse_event(
+    client: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Wrapper yields a `title` SSE event after `final` so the frontend
+    re-fetches without a fallback timer."""
+    from api.routes import threads as routes_threads
+
+    monkeypatch.setattr(
+        routes_threads, "generate_title", lambda msg, _llm: f"SSE title: {msg[:24]}"
+    )
+    sid = f"pytest-{uuid4()}"
+    created = client.post(
+        "/threads", json={"title": None}, headers={"X-Hughes-Session": sid}
+    )
+    thread_id = created.json()["thread_id"]
+    with client.stream(
+        "POST",
+        f"/threads/{thread_id}/messages",
+        json={"content": "approval rate by branch"},
+    ) as stream:
+        events = list(_parse_sse(stream.iter_lines()))
+    kinds = [e["event"] for e in events]
+    assert "title" in kinds, f"no title event in stream; got {kinds}"
+    payload = json.loads(next(e for e in events if e["event"] == "title")["data"])
+    assert payload == {
+        "thread_id": thread_id,
+        "title": "SSE title: approval rate by branch",
+    }
+    assert kinds.index("title") > kinds.index("final")
+
+
+def test_post_message_does_not_overwrite_existing_title(
+    client: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If a thread already has a title (manually-set or previously
+    auto-generated), subsequent messages must not re-stamp it."""
+    from api.routes import threads as routes_threads
+
+    monkeypatch.setattr(
+        routes_threads, "generate_title", lambda *_args, **_kw: "Should not appear"
+    )
+
+    sid = f"pytest-{uuid4()}"
+    created = client.post(
+        "/threads",
+        json={"title": "Manually named"},
+        headers={"X-Hughes-Session": sid},
+    )
+    thread_id = created.json()["thread_id"]
+    with client.stream(
+        "POST",
+        f"/threads/{thread_id}/messages",
+        json={"content": "first message"},
+    ) as stream:
+        list(_parse_sse(stream.iter_lines()))
+    fetched = client.get(f"/threads/{thread_id}").json()
+    assert fetched["title"] == "Manually named"
 
 
 def _parse_sse(lines: Any) -> Any:

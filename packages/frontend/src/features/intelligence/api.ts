@@ -240,6 +240,8 @@ const slice = baseApi.injectEndpoints({
 						"ThreadList",
 					]),
 				);
+				// Real-time title arrives via the SSE `title` event
+				// handled in dispatchSseEvent; no setTimeout fallback.
 				return { data: undefined };
 			},
 		}),
@@ -265,6 +267,18 @@ function dispatchSseEvent(
 		dispatch(streamToken(parsed as { content_delta: string }));
 	} else if (ev.event === "final") {
 		dispatch(streamFinal(parsed as ThreadStreamFinal));
+	} else if (ev.event === "title") {
+		// Real-time sidebar title arrives after the agent's last step.
+		// Re-invalidate ThreadList so the sidebar refetches the new
+		// title, and the specific Thread cache in case the chat header
+		// renders the title too.
+		const titlePayload = parsed as { thread_id: string; title: string };
+		dispatch(
+			baseApi.util.invalidateTags([
+				"ThreadList",
+				{ type: "Thread", id: titlePayload.thread_id },
+			]) as unknown as { type: string; payload?: unknown },
+		);
 	}
 }
 
