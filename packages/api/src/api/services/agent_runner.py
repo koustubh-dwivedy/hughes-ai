@@ -91,7 +91,7 @@ def _start_turn(
     llm: BaseChatModel,
     history: list[ThreadMessage],
     request_id: str,
-) -> tuple[Any, asyncio.Queue[Any]]:
+) -> tuple[Any, asyncio.Queue[Any], int]:
     token = bind_request_id(request_id) if request_id else None
     structlog.contextvars.bind_contextvars(
         request_id=request_id, thread_id=str(thread_id)
@@ -106,6 +106,7 @@ def _start_turn(
         thread_id=thread_id, role="user", db_url=db_url, content=user_content
     )
     initial = _build_initial_state(thread_id, user_content, history, request_id)
+    initial_history_len = len(initial.messages)
     queue: asyncio.Queue[Any] = asyncio.Queue()
     # HUG-202 Phase 2: token deltas → asyncio queue → SSE `token` frames.
     if request_id:
@@ -120,7 +121,7 @@ def _start_turn(
     asyncio.create_task(
         asyncio.to_thread(_make_producer(build_graph(llm), initial, queue))
     )
-    return token, queue
+    return token, queue, initial_history_len
 
 
 def _emit_error_frame(message: str) -> dict[str, Any]:
@@ -152,11 +153,11 @@ async def stream_user_turn(
     `request_id` is bound into structlog contextvars + AgentState so
     every log line + downstream node carries it.
     """
-    token, queue = _start_turn(
+    token, queue, initial_history_len = _start_turn(
         thread_id, user_content, db_url, llm, history, request_id
     )
     turn_start = time.monotonic()
-    state = TurnState()
+    state = TurnState(initial_history_len=initial_history_len)
     try:
         async for event in consume_queue(
             queue,

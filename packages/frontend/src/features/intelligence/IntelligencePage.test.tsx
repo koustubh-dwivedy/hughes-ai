@@ -126,7 +126,12 @@ describe("IntelligencePage — follow-tail auto-scroll", () => {
 		await waitFor(() => expect(pane.scrollTop).toBe(FIXED_SCROLL_HEIGHT));
 	});
 
-	it("does NOT auto-scroll when the user has scrolled up to re-read history", async () => {
+	it("force-scrolls on user submit even when the user had scrolled up to re-read history (issue 1 fix)", async () => {
+		// Pre-fix the wasAtBottomRef guard returned early when the user
+		// had scrolled up, so the new ThinkingBubble landed below the
+		// fold. User-initiated transitions (streaming false→true,
+		// pendingUserContent null→set) must override the guard because
+		// they're a strong signal the user wants to follow the new turn.
 		mockThreadFetch();
 		const { store } = renderAt("t1");
 		await waitFor(() =>
@@ -138,17 +143,15 @@ describe("IntelligencePage — follow-tail auto-scroll", () => {
 			configurable: true,
 			get: () => 200,
 		});
-		// Simulate user scrolling up: scrollTop way below the bottom
-		// threshold (scrollHeight - clientHeight - 40 = 560).
+		// Simulate the user scrolling up to re-read prior history.
 		pane.scrollTop = 100;
 		fireEvent.scroll(pane);
-		// Force a "before commit" snapshot value the effect will read.
 		pane.scrollTop = 100;
+		// User submits a follow-up — streaming flips true.
 		act(() => {
 			store.dispatch(streamStarted());
 		});
-		// Effect runs; should NOT touch scrollTop.
-		await new Promise((r) => setTimeout(r, 0));
-		expect(pane.scrollTop).toBe(100);
+		// Force-scroll fires regardless of prior scroll position.
+		await waitFor(() => expect(pane.scrollTop).toBe(FIXED_SCROLL_HEIGHT));
 	});
 });

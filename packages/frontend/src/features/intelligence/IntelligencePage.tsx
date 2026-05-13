@@ -202,21 +202,38 @@ export default function IntelligencePage() {
 		}
 	}, [pendingQuestion, pendingUserContent, dispatch]);
 
-	// Auto-scroll the conversation pane to the bottom when new content
-	// lands (new turn starts, optimistic bubble appears, persisted
-	// message arrives). Without this the ThinkingBubble lands below
-	// the fold on follow-up turns because `overflow-y: auto` containers
-	// don't auto-scroll on content growth. We only follow the tail when
-	// the user is already at the bottom — `wasAtBottomRef` is sampled
-	// before each commit so a user scrolled up to re-read history is
-	// never yanked down.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: streaming/messages.length/pendingUserContent are trigger signals — we don't read their values inside the effect, we just want the effect to re-fire whenever any of them change.
+	// USER-INITIATED auto-scroll. When the user submits a new turn the
+	// streaming flag flips false→true and `pendingUserContent` flips
+	// null→set. Both signal the user wants to follow the new turn;
+	// always pin to the tail, regardless of where their scroll was —
+	// otherwise the ThinkingBubble lands below the fold whenever the
+	// user had scrolled up to re-read history before clicking Send.
+	const prevStreamingRef = useRef(streaming);
+	const prevPendingRef = useRef(pendingUserContent);
+	useEffect(() => {
+		const el = conversationRef.current;
+		if (!el) return;
+		const streamingStarted = streaming && !prevStreamingRef.current;
+		const pendingArrived =
+			pendingUserContent !== null && prevPendingRef.current === null;
+		prevStreamingRef.current = streaming;
+		prevPendingRef.current = pendingUserContent;
+		if (streamingStarted || pendingArrived) {
+			el.scrollTop = el.scrollHeight;
+		}
+	}, [streaming, pendingUserContent]);
+
+	// PASSIVE auto-scroll. New persisted messages can arrive mid-turn
+	// (e.g. when the SSE close triggers a refetch). Only follow the
+	// tail if the user is already there; never yank them down if
+	// they're reading earlier history.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: messages.length is a trigger signal; we don't read its value inside the effect.
 	useEffect(() => {
 		const el = conversationRef.current;
 		if (!el) return;
 		if (!wasAtBottomRef.current) return;
 		el.scrollTop = el.scrollHeight;
-	}, [streaming, messages.length, pendingUserContent]);
+	}, [messages.length]);
 
 	function handleScroll(): void {
 		const el = conversationRef.current;
