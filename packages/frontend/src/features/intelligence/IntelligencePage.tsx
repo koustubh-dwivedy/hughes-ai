@@ -12,7 +12,7 @@
  */
 
 import { skipToken } from "@reduxjs/toolkit/query";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../shared/api/hooks";
 import { colors, radii, spacing, typography } from "../../theme/tokens";
@@ -133,6 +133,13 @@ export default function IntelligencePage() {
 	const threadId = params.threadId ?? null;
 	const streaming = useAppSelector((s) => s.thread.streaming);
 	const pendingQuestion = useAppSelector((s) => s.thread.pendingQuestion);
+	const conversationRef = useRef<HTMLDivElement | null>(null);
+	// True iff the user was scrolled to (or near) the bottom of the
+	// conversation *before* the most recent re-render. We sample this
+	// in a layout-phase effect so that the subsequent commit-phase
+	// auto-scroll only fires when the user is following the live tail —
+	// it never yanks someone who scrolled up to re-read history.
+	const wasAtBottomRef = useRef(true);
 
 	const { data: thread } = useGetThreadQuery(threadId ?? skipToken);
 	const [createThread] = useCreateThreadMutation();
@@ -147,9 +154,7 @@ export default function IntelligencePage() {
 		let activeThreadId = threadId;
 		// Optimistic UI: show the user's bubble immediately so the chat
 		// doesn't feel dead while the network round-trips (HUG-201 A).
-		dispatch(
-			pendingQuestionSubmitted({ content, threadId: activeThreadId }),
-		);
+		dispatch(pendingQuestionSubmitted({ content, threadId: activeThreadId }));
 		if (!activeThreadId) {
 			const created = await createThread({}).unwrap();
 			activeThreadId = created.thread_id;
@@ -197,11 +202,41 @@ export default function IntelligencePage() {
 		}
 	}, [pendingQuestion, pendingUserContent, dispatch]);
 
+	// Auto-scroll the conversation pane to the bottom when new content
+	// lands (new turn starts, optimistic bubble appears, persisted
+	// message arrives). Without this the ThinkingBubble lands below
+	// the fold on follow-up turns because `overflow-y: auto` containers
+	// don't auto-scroll on content growth. We only follow the tail when
+	// the user is already at the bottom — `wasAtBottomRef` is sampled
+	// before each commit so a user scrolled up to re-read history is
+	// never yanked down.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: streaming/messages.length/pendingUserContent are trigger signals — we don't read their values inside the effect, we just want the effect to re-fire whenever any of them change.
+	useEffect(() => {
+		const el = conversationRef.current;
+		if (!el) return;
+		if (!wasAtBottomRef.current) return;
+		el.scrollTop = el.scrollHeight;
+	}, [streaming, messages.length, pendingUserContent]);
+
+	function handleScroll(): void {
+		const el = conversationRef.current;
+		if (!el) return;
+		// 40 px of slack so the user doesn't have to land exactly on
+		// the bottom edge to stay anchored to the tail.
+		wasAtBottomRef.current =
+			el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
+	}
+
 	return (
 		<div style={layoutStyle}>
 			<ThreadRail currentThreadId={threadId} onNewThread={handleNewThread} />
 			<div style={mainStyle}>
-				<div style={conversationStyle}>
+				<div
+					ref={conversationRef}
+					onScroll={handleScroll}
+					style={conversationStyle}
+					data-testid="conversation-pane"
+				>
 					{showEmptyState ? (
 						<div style={emptyStateStyle}>
 							<h2 style={emptyHeadingStyle}>Ask Hughes</h2>

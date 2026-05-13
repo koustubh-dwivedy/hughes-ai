@@ -78,4 +78,17 @@ describe("ComposerInput", () => {
 		});
 		expect(onSubmit).not.toHaveBeenCalled();
 	});
+
+	it("Send button is proportionate to the textarea (min 44px tall, 96px wide)", () => {
+		// Pre-fix the button was `padding: '0 1rem'` with no min sizing —
+		// it collapsed to ~22 px tall and looked lost next to a 60-px
+		// textarea. This regression guard pins the new sizing in place.
+		const store = createStore();
+		renderWithStore(store, { onSubmit: vi.fn() });
+		const send = screen.getByRole("button", { name: "Send" });
+		expect(send.style.minHeight).toBe("44px");
+		expect(send.style.minWidth).toBe("96px");
+		// Padding switched from horizontal-only to vertical+horizontal.
+		expect(send.style.padding).toMatch(/0\.75rem 1\.25rem/);
+	});
 });
