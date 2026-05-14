@@ -196,11 +196,24 @@ jobs:
       # `-m db` matches every file with `pytestmark = pytest.mark.db`
       # (HUG-229) — supersedes the old hand-maintained file list. Two
       # invocations because of the `tests.*` module-name collision (see
-      # unit-test job above).
+      # unit-test job above). Exit code 5 ("no tests collected") is
+      # treated as success — nl-engine has no DB tests today (all mocks).
       - name: Run package integration tests (api, DB-backed)
-        run: uv run pytest packages/api/tests/ -m db -v
+        run: |
+          set +e
+          uv run pytest packages/api/tests/ -m db -v
+          EXIT=$?
+          set -e
+          if [ $EXIT -eq 5 ]; then echo "No api DB tests collected"; exit 0; fi
+          exit $EXIT
       - name: Run package integration tests (nl-engine, DB-backed)
-        run: uv run pytest packages/nl-engine/tests/ -m db -v
+        run: |
+          set +e
+          uv run pytest packages/nl-engine/tests/ -m db -v
+          EXIT=$?
+          set -e
+          if [ $EXIT -eq 5 ]; then echo "No nl-engine DB tests collected"; exit 0; fi
+          exit $EXIT
 
   e2e-test:
     name: E2E Tests
