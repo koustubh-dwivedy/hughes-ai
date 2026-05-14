@@ -93,3 +93,25 @@ Original Phase B order: `230 → 233 → 228 → 229 → 234 → 231 → 232`.
 **Decision worth flagging.** Used `getattr(r, "path", "")` in app-boot instead of `r.path` directly — FastAPI's `BaseRoute` type doesn't strict-type the `path` attribute (only certain subclasses have it). The getattr keeps mypy strict happy without weakening the assertion.
 
 **Note.** New tests/structural/ files are not in CI's typecheck scope (that runs only against `packages/`), so a pre-existing `test_ts_file_size_limits.py:24` mypy issue stays invisible to CI. Tracking that as "noticed but not in scope" — could be a future cleanup issue.
+
+### HUG-229 — `@pytest.mark.db` classification (Phase B-4) ✓
+
+**Commits:** `befc017`, `07d066f` · **CI run:** 25887558653 — all 10 green.
+
+**What landed.** Replaced the ignore-list anti-pattern with a uniform marker:
+- `pyproject.toml`: registered the `db` marker.
+- 10 test files tagged with `pytestmark = pytest.mark.db` (6 in `packages/api/tests/`, 4 in `tests/integration/`).
+- `ci.yml`: unit-test runs `-m "not db"`; integration runs `-m db`. Dropped the hardcoded `--ignore=test_threads_repo.py --ignore=test_threads_route.py --deselect=test_routes.py::test_get_history_returns_list` flags.
+- `tests/structural/test_db_marker_required.py`: enforces the invariant — any test file calling `psycopg.connect()` (real, not patched) must declare the marker. 54 cases pass.
+
+**Decisions worth flagging.**
+
+1. **Excluded mocked-psycopg from the rule.** `nl-engine/tests/test_executor.py` does `patch("nl_engine.executor.psycopg.connect", ...)` — it does NOT need the marker. The structural gate's `_is_real_db_test()` filter explicitly excludes lines where `patch(` co-occurs with `psycopg.connect(`. The line-tagged comments in the gate document the rule.
+
+2. **Kept the runtime `pytest.skip("DATABASE_URL not set")` fallbacks.** They still serve local-dev: if a developer runs a specific DB-marked file without `DATABASE_URL`, the skip is more useful than a connection-refused traceback. Two layers: marker → CI routing, skip → local-dev safety.
+
+3. **Two per-package pytest invocations (not consolidated).** Both `packages/api/tests/__init__.py` and `packages/nl-engine/tests/__init__.py` exist; running them in one pytest call collides at the `tests.*` module name (`ModuleNotFoundError: No module named 'tests.test_tool_docstring_invariants'`). Documented inline in `ci.yml`.
+
+4. **Exit-5 handling for empty nl-engine DB step.** With the marker partition, `pytest packages/nl-engine/tests/ -m db` collects 0 tests today (all DB-touching code is mocked). Pytest returns exit 5 which CI treats as failure. Wrapped in the same exit-5 → 0 pattern as the top-level unit step.
+
+**Note.** `astral-sh/setup-uv@v6` still triggers a "Node.js 20 deprecated" warning in security-scan step. Bumping further (v7+) is a HUG-230 follow-up; current run is green so leaving it.
