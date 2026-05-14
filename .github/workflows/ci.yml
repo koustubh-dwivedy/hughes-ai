@@ -61,8 +61,20 @@ jobs:
           run_install: false
       - run: pnpm install --frozen-lockfile
         working-directory: packages/frontend
-      - run: pnpm test
+      - name: Run unit tests with coverage
         working-directory: packages/frontend
+        run: pnpm test --coverage
+      - name: Check frontend coverage baseline (HUG-234)
+        working-directory: packages/frontend
+        run: |
+          PCT=$(jq '.total.lines.pct' coverage/coverage-summary.json)
+          # Baseline 84 − tolerance 2pp = floor 82 (see
+          # tests/coverage_baselines.toml — frontend gate is awk-only
+          # because this job has no Python).
+          FLOOR=82
+          echo "Frontend line coverage: ${PCT}% (floor ${FLOOR}%)"
+          awk -v pct="$PCT" -v floor="$FLOOR" \
+            'BEGIN { if (pct < floor) { print "❌ below floor"; exit 1 } print "✅ ok" }'
 
   unit-test:
     name: Unit Tests
@@ -73,10 +85,16 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
+      # Three invocations, all with `--cov-append` so coverage data
+      # accumulates into one .coverage data file. Final XML emitted by
+      # `coverage xml` for the baseline-check step (HUG-234).
       - name: Run unit tests (top-level)
         run: |
           set +e
-          uv run pytest tests/ --ignore=tests/structural/ --ignore=tests/integration/ -m "not db" -v
+          uv run pytest tests/ --ignore=tests/structural/ --ignore=tests/integration/ \
+            -m "not db" -v \
+            --cov=packages/api/src --cov=packages/nl-engine/src \
+            --cov-report=
           EXIT=$?
           set -e
           if [ $EXIT -eq 5 ]; then echo "No unit tests yet — skipping"; exit 0; fi
@@ -86,9 +104,19 @@ jobs:
       # at the `tests.*` module name. Tests tagged `@pytest.mark.db` run
       # in the integration-test job against live Postgres (HUG-229).
       - name: Run package unit tests (nl-engine, no DB)
-        run: uv run pytest packages/nl-engine/tests/ -m "not db" -v
+        run: |
+          uv run pytest packages/nl-engine/tests/ -m "not db" -v \
+            --cov=packages/api/src --cov=packages/nl-engine/src \
+            --cov-append --cov-report=
       - name: Run package unit tests (api, no DB)
-        run: uv run pytest packages/api/tests/ -m "not db" -v
+        run: |
+          uv run pytest packages/api/tests/ -m "not db" -v \
+            --cov=packages/api/src --cov=packages/nl-engine/src \
+            --cov-append --cov-report=
+      - name: Check Python coverage baselines (HUG-234)
+        run: |
+          uv run coverage xml -o coverage.xml
+          uv run python scripts/check_coverage.py --xml coverage.xml
 
   structural-test:
     name: Structural Tests

@@ -23,5 +23,18 @@ export default defineConfig({
 				"src/app/**/*.test.{ts,tsx}",
 				"src/features/**/*.test.{ts,tsx}",
 			],
+		coverage: {
+			provider: "v8",
+			reporter: ["text", "lcov", "json-summary"],
+			include: ["src/**/*.{ts,tsx}"],
+			exclude: [
+				"src/**/*.test.{ts,tsx}",
+				"src/**/*.stories.{ts,tsx}",
+				"src/test/**",
+				"src/**/__tests__/**",
+				"src/main.tsx",
+				"src/**/index.ts",
+			],
+		},
 	},
 });
