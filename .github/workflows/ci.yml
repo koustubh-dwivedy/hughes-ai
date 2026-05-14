@@ -245,10 +245,17 @@ jobs:
             echo "→ applying $f"
             psql "$DATABASE_URL" -f "$f"
           done
+      - name: Seed synthetic data
+        run: uv run python scripts/seed.py --profile small_cu
+      - name: Build dbt models (generates semantic manifest for API warmup)
+        run: |
+          cd packages/dbt-models
+          uv run dbt seed --profiles-dir .
+          uv run dbt build --profiles-dir .
       - name: Start API server
         run: |
           uv run uvicorn api.main:app --host 127.0.0.1 --port 8000 &
-          timeout 30 bash -c 'until curl -sf http://127.0.0.1:8000/health; do sleep 2; done'
+          timeout 60 bash -c 'until curl -sf http://127.0.0.1:8000/health; do sleep 2; done'
       - name: Install Playwright browsers (Chromium full + Firefox/WebKit smoke)
         working-directory: packages/frontend
         run: pnpm exec playwright install chromium firefox webkit --with-deps
