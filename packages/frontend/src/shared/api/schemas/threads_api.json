@@ -1,0 +1,670 @@
+{
+  "CreateThreadRequest": {
+    "properties": {
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Title"
+      }
+    },
+    "title": "CreateThreadRequest",
+    "type": "object"
+  },
+  "CreateThreadResponse": {
+    "properties": {
+      "started_at": {
+        "format": "date-time",
+        "title": "Started At",
+        "type": "string"
+      },
+      "thread_id": {
+        "format": "uuid",
+        "title": "Thread Id",
+        "type": "string"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      }
+    },
+    "required": [
+      "thread_id",
+      "title",
+      "started_at"
+    ],
+    "title": "CreateThreadResponse",
+    "type": "object"
+  },
+  "GetThreadResponse": {
+    "$defs": {
+      "ThreadMessage": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "message_id": {
+            "format": "uuid",
+            "title": "Message Id",
+            "type": "string"
+          },
+          "mf_query": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mf Query"
+          },
+          "openui_dsl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Openui Dsl"
+          },
+          "parent_message_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Message Id"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant",
+              "tool",
+              "system"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rows"
+          },
+          "thinking_trace": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thinking Trace"
+          },
+          "thread_id": {
+            "format": "uuid",
+            "title": "Thread Id",
+            "type": "string"
+          },
+          "tool_calls": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Calls"
+          },
+          "tool_results": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Results"
+          }
+        },
+        "required": [
+          "message_id",
+          "thread_id",
+          "role",
+          "created_at"
+        ],
+        "title": "ThreadMessage",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "last_active_at": {
+        "format": "date-time",
+        "title": "Last Active At",
+        "type": "string"
+      },
+      "messages": {
+        "items": {
+          "$ref": "#/$defs/ThreadMessage"
+        },
+        "title": "Messages",
+        "type": "array"
+      },
+      "started_at": {
+        "format": "date-time",
+        "title": "Started At",
+        "type": "string"
+      },
+      "thread_id": {
+        "format": "uuid",
+        "title": "Thread Id",
+        "type": "string"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      }
+    },
+    "required": [
+      "thread_id",
+      "title",
+      "started_at",
+      "last_active_at",
+      "messages"
+    ],
+    "title": "GetThreadResponse",
+    "type": "object"
+  },
+  "ListThreadsResponse": {
+    "$defs": {
+      "ThreadSummary": {
+        "description": "Compact thread view returned by GET /threads.",
+        "properties": {
+          "last_active_at": {
+            "format": "date-time",
+            "title": "Last Active At",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "thread_id": {
+            "format": "uuid",
+            "title": "Thread Id",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "thread_id",
+          "title",
+          "started_at",
+          "last_active_at"
+        ],
+        "title": "ThreadSummary",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "threads": {
+        "items": {
+          "$ref": "#/$defs/ThreadSummary"
+        },
+        "title": "Threads",
+        "type": "array"
+      }
+    },
+    "title": "ListThreadsResponse",
+    "type": "object"
+  },
+  "PostMessageRequest": {
+    "properties": {
+      "content": {
+        "title": "Content",
+        "type": "string"
+      },
+      "parent_message_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Parent Message Id"
+      }
+    },
+    "required": [
+      "content"
+    ],
+    "title": "PostMessageRequest",
+    "type": "object"
+  },
+  "StreamError": {
+    "description": "SSE event emitted when the agent runner's graph stream crashes\n(HUG-190 Phase C). Frontend renders this as a user-visible error\ninstead of leaving the stream silently incomplete.",
+    "properties": {
+      "message": {
+        "title": "Message",
+        "type": "string"
+      }
+    },
+    "required": [
+      "message"
+    ],
+    "title": "StreamError",
+    "type": "object"
+  },
+  "StreamFinal": {
+    "$defs": {
+      "OpenUIDslPayload": {
+        "description": "Server-side envelope around an LLM-emitted OpenUI DSL string.",
+        "properties": {
+          "dsl_text": {
+            "title": "Dsl Text",
+            "type": "string"
+          },
+          "validated": {
+            "default": false,
+            "title": "Validated",
+            "type": "boolean"
+          },
+          "validated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Validated At"
+          },
+          "validation_errors": {
+            "items": {
+              "$ref": "#/$defs/OpenUIValidationError"
+            },
+            "title": "Validation Errors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dsl_text"
+        ],
+        "title": "OpenUIDslPayload",
+        "type": "object"
+      },
+      "OpenUIValidationError": {
+        "description": "One error reported by the OpenUI server-side parser.\n\nMirrors `@openuidev/lang-core`'s `OpenUIError` shape so the frontend\ncan render parse-error context without re-parsing the DSL.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "OpenUIValidationError",
+        "type": "object"
+      },
+      "ThreadMessage": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "message_id": {
+            "format": "uuid",
+            "title": "Message Id",
+            "type": "string"
+          },
+          "mf_query": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mf Query"
+          },
+          "openui_dsl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Openui Dsl"
+          },
+          "parent_message_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Message Id"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant",
+              "tool",
+              "system"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rows"
+          },
+          "thinking_trace": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thinking Trace"
+          },
+          "thread_id": {
+            "format": "uuid",
+            "title": "Thread Id",
+            "type": "string"
+          },
+          "tool_calls": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Calls"
+          },
+          "tool_results": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Results"
+          }
+        },
+        "required": [
+          "message_id",
+          "thread_id",
+          "role",
+          "created_at"
+        ],
+        "title": "ThreadMessage",
+        "type": "object"
+      }
+    },
+    "description": "Terminal SSE event carrying the persisted assistant message and,\nwhen the agent emitted OpenUI Lang DSL, the validated payload (HUG-178\nPhase B). `openui` is None when the agent's `final_answer` did not\npopulate `openui_dsl`.",
+    "properties": {
+      "message": {
+        "$ref": "#/$defs/ThreadMessage"
+      },
+      "openui": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/OpenUIDslPayload"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "message"
+    ],
+    "title": "StreamFinal",
+    "type": "object"
+  },
+  "StreamStep": {
+    "description": "Intermediate SSE event: a single agent step or tool result.",
+    "properties": {
+      "args": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Args"
+      },
+      "kind": {
+        "title": "Kind",
+        "type": "string"
+      },
+      "name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Name"
+      },
+      "result": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Result"
+      },
+      "step": {
+        "title": "Step",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "step",
+      "kind"
+    ],
+    "title": "StreamStep",
+    "type": "object"
+  },
+  "StreamThinking": {
+    "description": "SSE event carrying a single narration line for the Thinking box\n(HUG-202). The box shows ONE line at a time \u2014 each new event REPLACES\nthe previous line rather than appending. The full ordered history is\npreserved server-side as the `thinking_trace` and surfaced in the\nReferences modal once the turn completes.",
+    "properties": {
+      "line": {
+        "title": "Line",
+        "type": "string"
+      },
+      "step": {
+        "title": "Step",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "step",
+      "line"
+    ],
+    "title": "StreamThinking",
+    "type": "object"
+  },
+  "StreamToken": {
+    "description": "SSE event carrying a content delta for the assistant's\nstreaming summary (HUG-202 Phase 2). The frontend appends each\ndelta to the in-flight answer bubble's text. The full canonical\nsummary lands in the subsequent `final` event when the turn ends.",
+    "properties": {
+      "content_delta": {
+        "title": "Content Delta",
+        "type": "string"
+      }
+    },
+    "required": [
+      "content_delta"
+    ],
+    "title": "StreamToken",
+    "type": "object"
+  }
+}

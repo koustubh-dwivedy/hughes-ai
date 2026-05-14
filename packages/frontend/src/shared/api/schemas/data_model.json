@@ -1,0 +1,479 @@
+{
+  "ColumnInfo": {
+    "properties": {
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string"
+      },
+      "type": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Type"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "title": "ColumnInfo",
+    "type": "object"
+  },
+  "DashboardLink": {
+    "properties": {
+      "id": {
+        "title": "Id",
+        "type": "string"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string"
+      },
+      "route": {
+        "title": "Route",
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "route"
+    ],
+    "title": "DashboardLink",
+    "type": "object"
+  },
+  "GraphEdge": {
+    "properties": {
+      "source": {
+        "title": "Source",
+        "type": "string"
+      },
+      "target": {
+        "title": "Target",
+        "type": "string"
+      }
+    },
+    "required": [
+      "source",
+      "target"
+    ],
+    "title": "GraphEdge",
+    "type": "object"
+  },
+  "GraphNode": {
+    "properties": {
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "id": {
+        "title": "Id",
+        "type": "string"
+      },
+      "kind": {
+        "enum": [
+          "source",
+          "staging",
+          "core",
+          "mart",
+          "dashboard"
+        ],
+        "title": "Kind",
+        "type": "string"
+      },
+      "layer": {
+        "enum": [
+          "Sources",
+          "Staging",
+          "Core",
+          "Marts",
+          "Dashboards"
+        ],
+        "title": "Layer",
+        "type": "string"
+      },
+      "materialization": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Materialization"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string"
+      },
+      "nl_query_count_30d": {
+        "default": 0,
+        "title": "Nl Query Count 30D",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "kind",
+      "layer"
+    ],
+    "title": "GraphNode",
+    "type": "object"
+  },
+  "GraphResponse": {
+    "$defs": {
+      "GraphEdge": {
+        "properties": {
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target"
+        ],
+        "title": "GraphEdge",
+        "type": "object"
+      },
+      "GraphNode": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "source",
+              "staging",
+              "core",
+              "mart",
+              "dashboard"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "layer": {
+            "enum": [
+              "Sources",
+              "Staging",
+              "Core",
+              "Marts",
+              "Dashboards"
+            ],
+            "title": "Layer",
+            "type": "string"
+          },
+          "materialization": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Materialization"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "nl_query_count_30d": {
+            "default": 0,
+            "title": "Nl Query Count 30D",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "layer"
+        ],
+        "title": "GraphNode",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "audit_id": {
+        "title": "Audit Id",
+        "type": "string"
+      },
+      "edges": {
+        "items": {
+          "$ref": "#/$defs/GraphEdge"
+        },
+        "title": "Edges",
+        "type": "array"
+      },
+      "generated_at": {
+        "format": "date-time",
+        "title": "Generated At",
+        "type": "string"
+      },
+      "nodes": {
+        "items": {
+          "$ref": "#/$defs/GraphNode"
+        },
+        "title": "Nodes",
+        "type": "array"
+      }
+    },
+    "required": [
+      "nodes",
+      "edges",
+      "generated_at",
+      "audit_id"
+    ],
+    "title": "GraphResponse",
+    "type": "object"
+  },
+  "NodeDetail": {
+    "$defs": {
+      "ColumnInfo": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Type"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ColumnInfo",
+        "type": "object"
+      },
+      "DashboardLink": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "route": {
+            "title": "Route",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "route"
+        ],
+        "title": "DashboardLink",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "children": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "title": "Children",
+        "type": "array"
+      },
+      "columns": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/ColumnInfo"
+        },
+        "title": "Columns",
+        "type": "array"
+      },
+      "dashboards": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/DashboardLink"
+        },
+        "title": "Dashboards",
+        "type": "array"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "file_path": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "File Path"
+      },
+      "id": {
+        "title": "Id",
+        "type": "string"
+      },
+      "kind": {
+        "enum": [
+          "source",
+          "staging",
+          "core",
+          "mart",
+          "dashboard"
+        ],
+        "title": "Kind",
+        "type": "string"
+      },
+      "last_run_at": {
+        "anyOf": [
+          {
+            "format": "date-time",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Last Run At"
+      },
+      "layer": {
+        "enum": [
+          "Sources",
+          "Staging",
+          "Core",
+          "Marts",
+          "Dashboards"
+        ],
+        "title": "Layer",
+        "type": "string"
+      },
+      "materialization": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Materialization"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string"
+      },
+      "nl_query_count_30d": {
+        "default": 0,
+        "title": "Nl Query Count 30D",
+        "type": "integer"
+      },
+      "parents": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "title": "Parents",
+        "type": "array"
+      },
+      "sql": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Sql"
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "kind",
+      "layer"
+    ],
+    "title": "NodeDetail",
+    "type": "object"
+  }
+}

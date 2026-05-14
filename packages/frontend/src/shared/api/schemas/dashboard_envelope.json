@@ -1,0 +1,33 @@
+{
+  "DashboardEnvelope": {
+    "description": "Wrapper returned by every /api/dashboards/* endpoint.",
+    "properties": {
+      "as_of_date": {
+        "format": "date",
+        "title": "As Of Date",
+        "type": "string"
+      },
+      "audit_id": {
+        "format": "uuid",
+        "title": "Audit Id",
+        "type": "string"
+      },
+      "data": {
+        "title": "Data"
+      },
+      "generated_at": {
+        "format": "date-time",
+        "title": "Generated At",
+        "type": "string"
+      }
+    },
+    "required": [
+      "data",
+      "as_of_date",
+      "generated_at",
+      "audit_id"
+    ],
+    "title": "DashboardEnvelope",
+    "type": "object"
+  }
+}

@@ -1,0 +1,202 @@
+{
+  "ExecutiveSummaryData": {
+    "$defs": {
+      "KpiTrendPoint": {
+        "properties": {
+          "blended_past_due_ratio": {
+            "title": "Blended Past Due Ratio",
+            "type": "number"
+          },
+          "month": {
+            "format": "date",
+            "title": "Month",
+            "type": "string"
+          },
+          "rate_spread": {
+            "title": "Rate Spread",
+            "type": "number"
+          },
+          "total_deposits_balance": {
+            "title": "Total Deposits Balance",
+            "type": "number"
+          },
+          "total_loans_balance": {
+            "title": "Total Loans Balance",
+            "type": "number"
+          }
+        },
+        "required": [
+          "month",
+          "total_loans_balance",
+          "total_deposits_balance",
+          "blended_past_due_ratio",
+          "rate_spread"
+        ],
+        "title": "KpiTrendPoint",
+        "type": "object"
+      },
+      "PastDueAgingBucket": {
+        "properties": {
+          "balance": {
+            "title": "Balance",
+            "type": "number"
+          },
+          "bucket": {
+            "title": "Bucket",
+            "type": "string"
+          },
+          "loan_count": {
+            "title": "Loan Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bucket",
+          "balance",
+          "loan_count"
+        ],
+        "title": "PastDueAgingBucket",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "blended_past_due_ratio": {
+        "title": "Blended Past Due Ratio",
+        "type": "number"
+      },
+      "core_deposit_ratio": {
+        "title": "Core Deposit Ratio",
+        "type": "number"
+      },
+      "kpi_trend_13_months": {
+        "items": {
+          "$ref": "#/$defs/KpiTrendPoint"
+        },
+        "title": "Kpi Trend 13 Months",
+        "type": "array"
+      },
+      "loan_to_deposit_ratio": {
+        "title": "Loan To Deposit Ratio",
+        "type": "number"
+      },
+      "monthly_deposit_growth": {
+        "title": "Monthly Deposit Growth",
+        "type": "number"
+      },
+      "monthly_loan_growth": {
+        "title": "Monthly Loan Growth",
+        "type": "number"
+      },
+      "past_due_aging": {
+        "items": {
+          "$ref": "#/$defs/PastDueAgingBucket"
+        },
+        "title": "Past Due Aging",
+        "type": "array"
+      },
+      "rate_spread": {
+        "title": "Rate Spread",
+        "type": "number"
+      },
+      "total_deposits_balance": {
+        "title": "Total Deposits Balance",
+        "type": "number"
+      },
+      "total_loans_balance": {
+        "title": "Total Loans Balance",
+        "type": "number"
+      },
+      "weighted_avg_deposit_rate": {
+        "title": "Weighted Avg Deposit Rate",
+        "type": "number"
+      },
+      "weighted_avg_loan_rate": {
+        "title": "Weighted Avg Loan Rate",
+        "type": "number"
+      },
+      "ytd_deposit_growth": {
+        "title": "Ytd Deposit Growth",
+        "type": "number"
+      },
+      "ytd_loan_growth": {
+        "title": "Ytd Loan Growth",
+        "type": "number"
+      }
+    },
+    "required": [
+      "total_loans_balance",
+      "total_deposits_balance",
+      "loan_to_deposit_ratio",
+      "core_deposit_ratio",
+      "blended_past_due_ratio",
+      "monthly_loan_growth",
+      "monthly_deposit_growth",
+      "ytd_loan_growth",
+      "ytd_deposit_growth",
+      "weighted_avg_loan_rate",
+      "weighted_avg_deposit_rate",
+      "rate_spread",
+      "kpi_trend_13_months",
+      "past_due_aging"
+    ],
+    "title": "ExecutiveSummaryData",
+    "type": "object"
+  },
+  "KpiTrendPoint": {
+    "properties": {
+      "blended_past_due_ratio": {
+        "title": "Blended Past Due Ratio",
+        "type": "number"
+      },
+      "month": {
+        "format": "date",
+        "title": "Month",
+        "type": "string"
+      },
+      "rate_spread": {
+        "title": "Rate Spread",
+        "type": "number"
+      },
+      "total_deposits_balance": {
+        "title": "Total Deposits Balance",
+        "type": "number"
+      },
+      "total_loans_balance": {
+        "title": "Total Loans Balance",
+        "type": "number"
+      }
+    },
+    "required": [
+      "month",
+      "total_loans_balance",
+      "total_deposits_balance",
+      "blended_past_due_ratio",
+      "rate_spread"
+    ],
+    "title": "KpiTrendPoint",
+    "type": "object"
+  },
+  "PastDueAgingBucket": {
+    "properties": {
+      "balance": {
+        "title": "Balance",
+        "type": "number"
+      },
+      "bucket": {
+        "title": "Bucket",
+        "type": "string"
+      },
+      "loan_count": {
+        "title": "Loan Count",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "bucket",
+      "balance",
+      "loan_count"
+    ],
+    "title": "PastDueAgingBucket",
+    "type": "object"
+  }
+}

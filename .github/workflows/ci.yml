@@ -41,6 +41,11 @@ jobs:
           enable-cache: true
       - run: uv sync
       - run: uv run mypy packages/synth-data packages/nl-engine packages/api --strict
+      - name: Check Pydantic → JSON Schema drift (HUG-232)
+        # Regenerates schemas under packages/frontend/src/shared/api/
+        # schemas/ in --check mode; fails CI with a useful diff hint
+        # if any Pydantic model changed without `make types`.
+        run: uv run python scripts/generate_type_schemas.py --check
       - uses: pnpm/action-setup@v5
         with:
           version: 10

@@ -6,6 +6,13 @@
 update-sse-goldens:
 	UPDATE_SSE_GOLDENS=1 uv run pytest packages/api/tests/test_sse_contract.py -v
 
+# HUG-232: regenerate JSON schema snapshots in
+# packages/frontend/src/shared/api/schemas/ from `api.types.*` Pydantic
+# models. Run when you change a Pydantic model and want the schema
+# to match. CI runs the same script with --check to catch drift.
+types:
+	uv run python scripts/generate_type_schemas.py
+
 up:
 	docker compose up -d
 

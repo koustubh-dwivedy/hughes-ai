@@ -1,0 +1,81 @@
+{
+  "OpenUIDslPayload": {
+    "$defs": {
+      "OpenUIValidationError": {
+        "description": "One error reported by the OpenUI server-side parser.\n\nMirrors `@openuidev/lang-core`'s `OpenUIError` shape so the frontend\ncan render parse-error context without re-parsing the DSL.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "OpenUIValidationError",
+        "type": "object"
+      }
+    },
+    "description": "Server-side envelope around an LLM-emitted OpenUI DSL string.",
+    "properties": {
+      "dsl_text": {
+        "title": "Dsl Text",
+        "type": "string"
+      },
+      "validated": {
+        "default": false,
+        "title": "Validated",
+        "type": "boolean"
+      },
+      "validated_at": {
+        "anyOf": [
+          {
+            "format": "date-time",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Validated At"
+      },
+      "validation_errors": {
+        "items": {
+          "$ref": "#/$defs/OpenUIValidationError"
+        },
+        "title": "Validation Errors",
+        "type": "array"
+      }
+    },
+    "required": [
+      "dsl_text"
+    ],
+    "title": "OpenUIDslPayload",
+    "type": "object"
+  },
+  "OpenUIValidationError": {
+    "description": "One error reported by the OpenUI server-side parser.\n\nMirrors `@openuidev/lang-core`'s `OpenUIError` shape so the frontend\ncan render parse-error context without re-parsing the DSL.",
+    "properties": {
+      "code": {
+        "title": "Code",
+        "type": "string"
+      },
+      "message": {
+        "default": "",
+        "title": "Message",
+        "type": "string"
+      }
+    },
+    "required": [
+      "code"
+    ],
+    "title": "OpenUIValidationError",
+    "type": "object"
+  }
+}

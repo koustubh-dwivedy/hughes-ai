@@ -1,0 +1,252 @@
+{
+  "Finding": {
+    "properties": {
+      "cited_artifacts": {
+        "anyOf": [
+          {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Cited Artifacts"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "finding_id": {
+        "format": "uuid",
+        "title": "Finding Id",
+        "type": "string"
+      },
+      "mf_query_json": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Mf Query Json"
+      },
+      "step_id": {
+        "format": "uuid",
+        "title": "Step Id",
+        "type": "string"
+      },
+      "structured_rows_json": {
+        "anyOf": [
+          {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Structured Rows Json"
+      },
+      "summary_text": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Summary Text"
+      }
+    },
+    "required": [
+      "finding_id",
+      "step_id",
+      "created_at"
+    ],
+    "title": "Finding",
+    "type": "object"
+  },
+  "LeadNote": {
+    "description": "One version of the lead's running markdown \u2014 the 'external plan\nmemory' primitive from Anthropic's lead+subagents pattern. The\nlead reads the latest note on every tick to stay coherent across\ncontext truncations.",
+    "properties": {
+      "body_md": {
+        "title": "Body Md",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "note_id": {
+        "format": "uuid",
+        "title": "Note Id",
+        "type": "string"
+      },
+      "plan_id": {
+        "format": "uuid",
+        "title": "Plan Id",
+        "type": "string"
+      },
+      "version": {
+        "title": "Version",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "note_id",
+      "plan_id",
+      "version",
+      "body_md",
+      "created_at"
+    ],
+    "title": "LeadNote",
+    "type": "object"
+  },
+  "Plan": {
+    "properties": {
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "plan_id": {
+        "format": "uuid",
+        "title": "Plan Id",
+        "type": "string"
+      },
+      "plan_json": {
+        "additionalProperties": true,
+        "title": "Plan Json",
+        "type": "object"
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "approved",
+          "running",
+          "complete",
+          "aborted",
+          "failed",
+          "superseded"
+        ],
+        "title": "Status",
+        "type": "string"
+      },
+      "thread_id": {
+        "format": "uuid",
+        "title": "Thread Id",
+        "type": "string"
+      },
+      "version": {
+        "title": "Version",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "plan_id",
+      "thread_id",
+      "version",
+      "status",
+      "created_at"
+    ],
+    "title": "Plan",
+    "type": "object"
+  },
+  "Step": {
+    "properties": {
+      "assigned_subagent": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Assigned Subagent"
+      },
+      "completed_at": {
+        "anyOf": [
+          {
+            "format": "date-time",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Completed At"
+      },
+      "description": {
+        "title": "Description",
+        "type": "string"
+      },
+      "ordinal": {
+        "title": "Ordinal",
+        "type": "integer"
+      },
+      "plan_id": {
+        "format": "uuid",
+        "title": "Plan Id",
+        "type": "string"
+      },
+      "started_at": {
+        "anyOf": [
+          {
+            "format": "date-time",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Started At"
+      },
+      "status": {
+        "enum": [
+          "pending",
+          "running",
+          "complete",
+          "failed",
+          "skipped"
+        ],
+        "title": "Status",
+        "type": "string"
+      },
+      "step_id": {
+        "format": "uuid",
+        "title": "Step Id",
+        "type": "string"
+      }
+    },
+    "required": [
+      "step_id",
+      "plan_id",
+      "ordinal",
+      "description",
+      "status"
+    ],
+    "title": "Step",
+    "type": "object"
+  }
+}

@@ -1,0 +1,402 @@
+{
+  "ComboBalanceRate": {
+    "properties": {
+      "balance": {
+        "title": "Balance",
+        "type": "number"
+      },
+      "product": {
+        "title": "Product",
+        "type": "string"
+      },
+      "weighted_avg_rate": {
+        "title": "Weighted Avg Rate",
+        "type": "number"
+      }
+    },
+    "required": [
+      "product",
+      "balance",
+      "weighted_avg_rate"
+    ],
+    "title": "ComboBalanceRate",
+    "type": "object"
+  },
+  "LifecycleTabRow": {
+    "properties": {
+      "amount": {
+        "title": "Amount",
+        "type": "number"
+      },
+      "count": {
+        "title": "Count",
+        "type": "integer"
+      },
+      "period": {
+        "title": "Period",
+        "type": "string"
+      },
+      "product_type": {
+        "title": "Product Type",
+        "type": "string"
+      }
+    },
+    "required": [
+      "period",
+      "product_type",
+      "count",
+      "amount"
+    ],
+    "title": "LifecycleTabRow",
+    "type": "object"
+  },
+  "LoanMixItem": {
+    "properties": {
+      "balance": {
+        "title": "Balance",
+        "type": "number"
+      },
+      "product": {
+        "title": "Product",
+        "type": "string"
+      },
+      "share_pct": {
+        "title": "Share Pct",
+        "type": "number"
+      }
+    },
+    "required": [
+      "product",
+      "balance",
+      "share_pct"
+    ],
+    "title": "LoanMixItem",
+    "type": "object"
+  },
+  "OfficerBranchData": {
+    "$defs": {
+      "ComboBalanceRate": {
+        "properties": {
+          "balance": {
+            "title": "Balance",
+            "type": "number"
+          },
+          "product": {
+            "title": "Product",
+            "type": "string"
+          },
+          "weighted_avg_rate": {
+            "title": "Weighted Avg Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "product",
+          "balance",
+          "weighted_avg_rate"
+        ],
+        "title": "ComboBalanceRate",
+        "type": "object"
+      },
+      "LifecycleTabRow": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "product_type": {
+            "title": "Product Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period",
+          "product_type",
+          "count",
+          "amount"
+        ],
+        "title": "LifecycleTabRow",
+        "type": "object"
+      },
+      "LoanMixItem": {
+        "properties": {
+          "balance": {
+            "title": "Balance",
+            "type": "number"
+          },
+          "product": {
+            "title": "Product",
+            "type": "string"
+          },
+          "share_pct": {
+            "title": "Share Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "product",
+          "balance",
+          "share_pct"
+        ],
+        "title": "LoanMixItem",
+        "type": "object"
+      },
+      "SingleLoanCount": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "product": {
+            "title": "Product",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product",
+          "count"
+        ],
+        "title": "SingleLoanCount",
+        "type": "object"
+      },
+      "TopBorrower": {
+        "properties": {
+          "balance": {
+            "title": "Balance",
+            "type": "number"
+          },
+          "member_name": {
+            "title": "Member Name",
+            "type": "string"
+          },
+          "share_pct": {
+            "title": "Share Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "member_name",
+          "balance",
+          "share_pct"
+        ],
+        "title": "TopBorrower",
+        "type": "object"
+      },
+      "WatchlistTrendPoint": {
+        "properties": {
+          "balance": {
+            "title": "Balance",
+            "type": "number"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "count",
+          "balance"
+        ],
+        "title": "WatchlistTrendPoint",
+        "type": "object"
+      },
+      "WaterfallStep": {
+        "properties": {
+          "delta": {
+            "title": "Delta",
+            "type": "number"
+          },
+          "product": {
+            "title": "Product",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product",
+          "delta"
+        ],
+        "title": "WaterfallStep",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "account_count": {
+        "title": "Account Count",
+        "type": "integer"
+      },
+      "avg_loan_balance": {
+        "title": "Avg Loan Balance",
+        "type": "number"
+      },
+      "change_by_type_waterfall": {
+        "items": {
+          "$ref": "#/$defs/WaterfallStep"
+        },
+        "title": "Change By Type Waterfall",
+        "type": "array"
+      },
+      "combo_balance_rate": {
+        "items": {
+          "$ref": "#/$defs/ComboBalanceRate"
+        },
+        "title": "Combo Balance Rate",
+        "type": "array"
+      },
+      "loan_mix_donut": {
+        "items": {
+          "$ref": "#/$defs/LoanMixItem"
+        },
+        "title": "Loan Mix Donut",
+        "type": "array"
+      },
+      "single_loan_customers_by_type": {
+        "items": {
+          "$ref": "#/$defs/SingleLoanCount"
+        },
+        "title": "Single Loan Customers By Type",
+        "type": "array"
+      },
+      "tab_data": {
+        "anyOf": [
+          {
+            "items": {
+              "$ref": "#/$defs/LifecycleTabRow"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Tab Data"
+      },
+      "top_25_borrowers": {
+        "items": {
+          "$ref": "#/$defs/TopBorrower"
+        },
+        "title": "Top 25 Borrowers",
+        "type": "array"
+      },
+      "total_loans": {
+        "title": "Total Loans",
+        "type": "number"
+      },
+      "watchlist_trend": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/WatchlistTrendPoint"
+        },
+        "title": "Watchlist Trend",
+        "type": "array"
+      }
+    },
+    "required": [
+      "total_loans",
+      "account_count",
+      "avg_loan_balance",
+      "top_25_borrowers",
+      "loan_mix_donut",
+      "change_by_type_waterfall",
+      "single_loan_customers_by_type",
+      "combo_balance_rate"
+    ],
+    "title": "OfficerBranchData",
+    "type": "object"
+  },
+  "SingleLoanCount": {
+    "properties": {
+      "count": {
+        "title": "Count",
+        "type": "integer"
+      },
+      "product": {
+        "title": "Product",
+        "type": "string"
+      }
+    },
+    "required": [
+      "product",
+      "count"
+    ],
+    "title": "SingleLoanCount",
+    "type": "object"
+  },
+  "TopBorrower": {
+    "properties": {
+      "balance": {
+        "title": "Balance",
+        "type": "number"
+      },
+      "member_name": {
+        "title": "Member Name",
+        "type": "string"
+      },
+      "share_pct": {
+        "title": "Share Pct",
+        "type": "number"
+      }
+    },
+    "required": [
+      "member_name",
+      "balance",
+      "share_pct"
+    ],
+    "title": "TopBorrower",
+    "type": "object"
+  },
+  "WatchlistTrendPoint": {
+    "properties": {
+      "balance": {
+        "title": "Balance",
+        "type": "number"
+      },
+      "count": {
+        "title": "Count",
+        "type": "integer"
+      },
+      "month": {
+        "title": "Month",
+        "type": "string"
+      }
+    },
+    "required": [
+      "month",
+      "count",
+      "balance"
+    ],
+    "title": "WatchlistTrendPoint",
+    "type": "object"
+  },
+  "WaterfallStep": {
+    "properties": {
+      "delta": {
+        "title": "Delta",
+        "type": "number"
+      },
+      "product": {
+        "title": "Product",
+        "type": "string"
+      }
+    },
+    "required": [
+      "product",
+      "delta"
+    ],
+    "title": "WaterfallStep",
+    "type": "object"
+  }
+}

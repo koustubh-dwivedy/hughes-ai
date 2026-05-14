@@ -1,0 +1,218 @@
+{
+  "DelinquencyTrendMonth": {
+    "properties": {
+      "bucket_30_59": {
+        "title": "Bucket 30 59",
+        "type": "number"
+      },
+      "bucket_60_89": {
+        "title": "Bucket 60 89",
+        "type": "number"
+      },
+      "bucket_90_plus": {
+        "title": "Bucket 90 Plus",
+        "type": "number"
+      },
+      "month": {
+        "format": "date",
+        "title": "Month",
+        "type": "string"
+      }
+    },
+    "required": [
+      "month",
+      "bucket_30_59",
+      "bucket_60_89",
+      "bucket_90_plus"
+    ],
+    "title": "DelinquencyTrendMonth",
+    "type": "object"
+  },
+  "OfficerDelinquency": {
+    "properties": {
+      "balance": {
+        "title": "Balance",
+        "type": "number"
+      },
+      "count": {
+        "title": "Count",
+        "type": "integer"
+      },
+      "officer_name": {
+        "title": "Officer Name",
+        "type": "string"
+      }
+    },
+    "required": [
+      "officer_name",
+      "balance",
+      "count"
+    ],
+    "title": "OfficerDelinquency",
+    "type": "object"
+  },
+  "PastDueData": {
+    "$defs": {
+      "DelinquencyTrendMonth": {
+        "properties": {
+          "bucket_30_59": {
+            "title": "Bucket 30 59",
+            "type": "number"
+          },
+          "bucket_60_89": {
+            "title": "Bucket 60 89",
+            "type": "number"
+          },
+          "bucket_90_plus": {
+            "title": "Bucket 90 Plus",
+            "type": "number"
+          },
+          "month": {
+            "format": "date",
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "bucket_30_59",
+          "bucket_60_89",
+          "bucket_90_plus"
+        ],
+        "title": "DelinquencyTrendMonth",
+        "type": "object"
+      },
+      "OfficerDelinquency": {
+        "properties": {
+          "balance": {
+            "title": "Balance",
+            "type": "number"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "officer_name": {
+            "title": "Officer Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "officer_name",
+          "balance",
+          "count"
+        ],
+        "title": "OfficerDelinquency",
+        "type": "object"
+      },
+      "PastDueRatioPoint": {
+        "properties": {
+          "month": {
+            "format": "date",
+            "title": "Month",
+            "type": "string"
+          },
+          "ratio": {
+            "title": "Ratio",
+            "type": "number"
+          }
+        },
+        "required": [
+          "month",
+          "ratio"
+        ],
+        "title": "PastDueRatioPoint",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "delinquency_trend_13_months": {
+        "items": {
+          "$ref": "#/$defs/DelinquencyTrendMonth"
+        },
+        "title": "Delinquency Trend 13 Months",
+        "type": "array"
+      },
+      "nonaccrual_total": {
+        "title": "Nonaccrual Total",
+        "type": "number"
+      },
+      "nonaccrual_total_delta": {
+        "title": "Nonaccrual Total Delta",
+        "type": "number"
+      },
+      "nonperforming_balance": {
+        "title": "Nonperforming Balance",
+        "type": "number"
+      },
+      "nonperforming_balance_delta": {
+        "title": "Nonperforming Balance Delta",
+        "type": "number"
+      },
+      "past_due_by_officer": {
+        "items": {
+          "$ref": "#/$defs/OfficerDelinquency"
+        },
+        "title": "Past Due By Officer",
+        "type": "array"
+      },
+      "past_due_ratio_trend": {
+        "items": {
+          "$ref": "#/$defs/PastDueRatioPoint"
+        },
+        "title": "Past Due Ratio Trend",
+        "type": "array"
+      },
+      "past_due_total": {
+        "title": "Past Due Total",
+        "type": "number"
+      },
+      "past_due_total_delta": {
+        "title": "Past Due Total Delta",
+        "type": "number"
+      },
+      "watchlist_count": {
+        "title": "Watchlist Count",
+        "type": "integer"
+      },
+      "watchlist_count_delta": {
+        "title": "Watchlist Count Delta",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "past_due_total",
+      "past_due_total_delta",
+      "nonaccrual_total",
+      "nonaccrual_total_delta",
+      "watchlist_count",
+      "watchlist_count_delta",
+      "nonperforming_balance",
+      "nonperforming_balance_delta",
+      "past_due_by_officer",
+      "delinquency_trend_13_months",
+      "past_due_ratio_trend"
+    ],
+    "title": "PastDueData",
+    "type": "object"
+  },
+  "PastDueRatioPoint": {
+    "properties": {
+      "month": {
+        "format": "date",
+        "title": "Month",
+        "type": "string"
+      },
+      "ratio": {
+        "title": "Ratio",
+        "type": "number"
+      }
+    },
+    "required": [
+      "month",
+      "ratio"
+    ],
+    "title": "PastDueRatioPoint",
+    "type": "object"
+  }
+}

@@ -1,0 +1,325 @@
+{
+  "AccountActivity": {
+    "properties": {
+      "amount": {
+        "title": "Amount",
+        "type": "number"
+      },
+      "count": {
+        "title": "Count",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "count",
+      "amount"
+    ],
+    "title": "AccountActivity",
+    "type": "object"
+  },
+  "BranchBalance": {
+    "properties": {
+      "balance": {
+        "title": "Balance",
+        "type": "number"
+      },
+      "branch_name": {
+        "title": "Branch Name",
+        "type": "string"
+      }
+    },
+    "required": [
+      "branch_name",
+      "balance"
+    ],
+    "title": "BranchBalance",
+    "type": "object"
+  },
+  "DepositPortfolioData": {
+    "$defs": {
+      "AccountActivity": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "amount"
+        ],
+        "title": "AccountActivity",
+        "type": "object"
+      },
+      "BranchBalance": {
+        "properties": {
+          "balance": {
+            "title": "Balance",
+            "type": "number"
+          },
+          "branch_name": {
+            "title": "Branch Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "branch_name",
+          "balance"
+        ],
+        "title": "BranchBalance",
+        "type": "object"
+      },
+      "NewVsClosed": {
+        "properties": {
+          "closed": {
+            "$ref": "#/$defs/AccountActivity"
+          },
+          "opened": {
+            "$ref": "#/$defs/AccountActivity"
+          }
+        },
+        "required": [
+          "opened",
+          "closed"
+        ],
+        "title": "NewVsClosed",
+        "type": "object"
+      },
+      "ProductBalance": {
+        "properties": {
+          "balance": {
+            "title": "Balance",
+            "type": "number"
+          },
+          "product": {
+            "title": "Product",
+            "type": "string"
+          },
+          "share_pct": {
+            "title": "Share Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "product",
+          "balance",
+          "share_pct"
+        ],
+        "title": "ProductBalance",
+        "type": "object"
+      },
+      "ProductDelta": {
+        "properties": {
+          "delta": {
+            "title": "Delta",
+            "type": "number"
+          },
+          "product": {
+            "title": "Product",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product",
+          "delta"
+        ],
+        "title": "ProductDelta",
+        "type": "object"
+      },
+      "TopDeposit": {
+        "properties": {
+          "balance": {
+            "title": "Balance",
+            "type": "number"
+          },
+          "member_name": {
+            "title": "Member Name",
+            "type": "string"
+          },
+          "share_pct": {
+            "title": "Share Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "member_name",
+          "balance",
+          "share_pct"
+        ],
+        "title": "TopDeposit",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "account_count": {
+        "title": "Account Count",
+        "type": "integer"
+      },
+      "avg_balance_per_customer": {
+        "title": "Avg Balance Per Customer",
+        "type": "number"
+      },
+      "change_by_product": {
+        "items": {
+          "$ref": "#/$defs/ProductDelta"
+        },
+        "title": "Change By Product",
+        "type": "array"
+      },
+      "deposit_mix": {
+        "items": {
+          "$ref": "#/$defs/ProductBalance"
+        },
+        "title": "Deposit Mix",
+        "type": "array"
+      },
+      "deposits_by_branch": {
+        "items": {
+          "$ref": "#/$defs/BranchBalance"
+        },
+        "title": "Deposits By Branch",
+        "type": "array"
+      },
+      "mtd_change": {
+        "title": "Mtd Change",
+        "type": "number"
+      },
+      "new_vs_closed_accounts": {
+        "$ref": "#/$defs/NewVsClosed"
+      },
+      "top_25_deposits": {
+        "items": {
+          "$ref": "#/$defs/TopDeposit"
+        },
+        "title": "Top 25 Deposits",
+        "type": "array"
+      },
+      "total_deposits": {
+        "title": "Total Deposits",
+        "type": "number"
+      },
+      "ytd_change": {
+        "title": "Ytd Change",
+        "type": "number"
+      }
+    },
+    "required": [
+      "total_deposits",
+      "mtd_change",
+      "ytd_change",
+      "avg_balance_per_customer",
+      "account_count",
+      "top_25_deposits",
+      "deposits_by_branch",
+      "deposit_mix",
+      "change_by_product",
+      "new_vs_closed_accounts"
+    ],
+    "title": "DepositPortfolioData",
+    "type": "object"
+  },
+  "NewVsClosed": {
+    "$defs": {
+      "AccountActivity": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "amount"
+        ],
+        "title": "AccountActivity",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "closed": {
+        "$ref": "#/$defs/AccountActivity"
+      },
+      "opened": {
+        "$ref": "#/$defs/AccountActivity"
+      }
+    },
+    "required": [
+      "opened",
+      "closed"
+    ],
+    "title": "NewVsClosed",
+    "type": "object"
+  },
+  "ProductBalance": {
+    "properties": {
+      "balance": {
+        "title": "Balance",
+        "type": "number"
+      },
+      "product": {
+        "title": "Product",
+        "type": "string"
+      },
+      "share_pct": {
+        "title": "Share Pct",
+        "type": "number"
+      }
+    },
+    "required": [
+      "product",
+      "balance",
+      "share_pct"
+    ],
+    "title": "ProductBalance",
+    "type": "object"
+  },
+  "ProductDelta": {
+    "properties": {
+      "delta": {
+        "title": "Delta",
+        "type": "number"
+      },
+      "product": {
+        "title": "Product",
+        "type": "string"
+      }
+    },
+    "required": [
+      "product",
+      "delta"
+    ],
+    "title": "ProductDelta",
+    "type": "object"
+  },
+  "TopDeposit": {
+    "properties": {
+      "balance": {
+        "title": "Balance",
+        "type": "number"
+      },
+      "member_name": {
+        "title": "Member Name",
+        "type": "string"
+      },
+      "share_pct": {
+        "title": "Share Pct",
+        "type": "number"
+      }
+    },
+    "required": [
+      "member_name",
+      "balance",
+      "share_pct"
+    ],
+    "title": "TopDeposit",
+    "type": "object"
+  }
+}

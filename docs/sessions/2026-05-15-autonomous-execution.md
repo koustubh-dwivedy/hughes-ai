@@ -133,3 +133,21 @@ Original Phase B order: `230 → 233 → 228 → 229 → 234 → 231 → 232`.
 **Deviation.** Spec said "new `coverage` job (depends on unit + integration)". I inlined the gate INTO unit-test + frontend-unit instead. Same effect, half the artifact-shuffling, faster pipeline.
 
 **Note on E2E flake.** `dashboard-error-matrix.spec.ts @ partial` failed on `/dashboards/executive` and `/dashboards/past-due` then passed on the third try (after two `gh run rerun --failed`). Not introduced by this commit (vite.config.ts changes are scoped to `test.coverage` and don't affect the dev server). Pattern looks like a real flake — partial-data scenario where the heading might not render before Playwright's check. Future hardening: a dedicated CI-flakes Linear issue. Captured here so a triage pass can find it.
+
+### HUG-231 — SSE event-contract gate (Phase B-6) ✓
+
+**Commit:** `2927b13` · **CI run:** 25889996194 (green after 1 retry — same dashboard-error-matrix flake as HUG-234).
+
+**What landed.**
+- `packages/api/tests/test_sse_contract.py`: drives one chat turn end-to-end via FastAPI `TestClient`, stubs the agent LLM (`_FinalAnswerLLM` returns one final_answer call), stubs the planner via `monkeypatch.setattr(coordinator, "draft_plan", ...)` so we capture the CLEAN shallow path (no error-frame fallback). Captures ordered `event:` types; diffs against golden file.
+- `packages/api/tests/golden/chat_turn.txt`: 5 events — `thinking, step, thinking, step, final`.
+- `Makefile`: `update-sse-goldens` target sets `UPDATE_SSE_GOLDENS=1` and regenerates.
+- Second test in same file pins `final` event's data shape (`message.role` field present, JSON-parseable) — sibling invariant.
+
+**Decision worth flagging.** The original spec called for two separate test files (`test_sse_contract_chat.py` + `test_sse_contract_research.py`). I bundled them into one (`test_sse_contract.py`) with two cases. Today's chat surface IS the research-shallow surface — same code path. When HUG-209 adds the deep path, it adds a third `test_research_deep_turn_event_sequence` case in the same file with its own golden. Splitting now would have created an empty research_*.py with no content. Same effect, less file noise.
+
+**Note.** ~3 of the last 4 CI runs have had the same dashboard-error-matrix partial-mode flake; consistent retry-once-and-green pattern. Adding HUG-236 to the backlog as "flaky e2e: dashboard-error-matrix @ partial mode" would be good follow-up. Doing it after Phase B closes.
+
+### Phase B checkpoint
+
+5 of 7 CI hardening issues done (HUG-235→230→233→228→229→234→231). One remaining: HUG-232 (type-drift gate, biggest of the batch). Then Phase C kicks off Deep Research backend.
