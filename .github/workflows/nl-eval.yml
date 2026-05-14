@@ -1,21 +1,26 @@
 name: NL Eval
 
 on:
-  # NL Eval auto-trigger temporarily disabled (HUG-191, 2026-05-05) to
-  # preserve GitHub Actions quota while the Surface 1 retirement chain
-  # finishes. Re-enable by restoring the `push:` block below once
-  # HUG-190 / HUG-193 land and the eval is meaningful as a gate signal.
+  # Re-enabled 2026-05-15 after the repo flipped public (unlimited
+  # standard-runner minutes). Scoped via `paths:` so the 30-min
+  # benchmark only fires when something that can actually affect NL
+  # accuracy changes — frontend / dashboard / docs edits don't trip it.
   workflow_dispatch:
-  # push:
-  #   paths:
-  #     - 'migrations/**'
-  #     - 'packages/nl-engine/**'
-  #     - 'packages/dbt-models/**'
-  #     - 'packages/synth-data/**'
-  #     - 'scripts/eval.py'
-  #     - 'scripts/eval_grader.py'
-  #     - 'scripts/run-nl-eval.sh'
-  #     - '.github/workflows/nl-eval.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'migrations/**'
+      - 'packages/nl-engine/**'
+      - 'packages/dbt-models/**'
+      - 'packages/synth-data/**'
+      - 'packages/api/src/api/services/research_agent/**'
+      - 'packages/api/src/api/services/agent_runner*.py'
+      - 'packages/api/src/api/services/llm.py'
+      - 'config/llm.yaml'
+      - 'scripts/eval.py'
+      - 'scripts/eval_grader.py'
+      - 'scripts/run-nl-eval.sh'
+      - '.github/workflows/nl-eval.yml'
 
 # Successive pushes on the same branch cancel any in-flight eval — a
 # 30-min benchmark stacked behind another 30-min benchmark is wasted
