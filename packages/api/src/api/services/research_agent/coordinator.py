@@ -36,9 +36,12 @@ from langchain_core.language_models import BaseChatModel
 
 from api.prometheus import (
     research_plan_size_steps,
+    research_plan_versions_total,
     research_turns_total,
 )
+from api.repo import research as research_repo
 from api.services.agent_runner import stream_user_turn
+from api.services.research_agent.events import plan_drafted_event
 from api.services.research_agent.planner import (
     PlannerError,
     draft_plan,
@@ -77,6 +80,21 @@ async def _forward_shallow(
         request_id=request_id,
     ):
         yield event
+
+
+async def _persist_and_emit_deep_plan(
+    thread_id: UUID, draft: Any, db_url: str
+) -> dict[str, Any]:
+    """HUG-209: write the draft to research_plans + return the SSE
+    event the coordinator should yield. Splits out the deep-branch
+    body so `route_turn` stays under the structural line cap."""
+    plan = research_repo.create_plan(
+        thread_id=thread_id,
+        plan_json=draft.model_dump(mode="json"),
+        db_url=db_url,
+    )
+    research_plan_versions_total.inc()
+    return plan_drafted_event(plan)
 
 
 async def route_turn(
@@ -122,6 +140,8 @@ async def route_turn(
         ):
             yield event
         return
-    # Deep route: L1 ends here — telemetry only. L2 (HUG-209) adds
-    # persistence; L4 (PlanPreview) replaces the silent close with UI.
-    return  # noqa: PLR1711 — explicit end of async generator
+
+    # Deep route (HUG-209): persist + emit research.plan.drafted. Stream
+    # ends after the event for now; HUG-211/HUG-212 fill in the UI + the
+    # approve/abort handoff.
+    yield await _persist_and_emit_deep_plan(thread_id, draft, db_url)

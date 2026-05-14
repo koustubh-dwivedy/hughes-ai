@@ -218,3 +218,7 @@ def test_route_turn_emits_routed_event_once(
     )
     assert '"route": "shallow"' in routed_lines[0]
     assert '"reason": "stub-shallow"' in routed_lines[0]
+
+# Deep-route tests for HUG-209 live in
+# `test_research_coordinator_deep.py` so each file stays under the
+# 300-line structural cap.

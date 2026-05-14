@@ -170,10 +170,48 @@ def _assert_matches_golden(captured: list[str], name: str) -> None:
 
 
 def test_chat_turn_event_sequence(client: TestClient) -> None:
-    """Today's chat surface = shallow research path. HUG-209+ will add
-    a separate `research-deep` golden once L2 lands plan persistence."""
+    """Today's chat surface = shallow research path."""
     captured = _capture_chat_turn(client)
     _assert_matches_golden(captured, "chat_turn")
+
+
+def test_research_deep_turn_event_sequence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HUG-209: deep turn emits exactly `research.plan.drafted`. Future
+    L2/L4/E1/etc additions extend this golden as they land."""
+    if not _DB_URL:
+        pytest.skip("DATABASE_URL not set")
+    app.state.db_url = _DB_URL
+    app.state.agent_llm = _FinalAnswerLLM()
+
+    def _stub_deep(_q: str, _h: Any, _l: Any) -> PlanDraft:
+        return PlanDraft(
+            route="deep", reason="stub-deep",
+            plan=[
+                {"ordinal": 1, "description": "x", "dependencies": []},
+                {"ordinal": 2, "description": "y", "dependencies": [1]},
+            ],
+            research_question_summary="stub-deep",
+        )
+    monkeypatch.setattr(coordinator, "draft_plan", _stub_deep)
+
+    with TestClient(app) as c:
+        sid = f"sse-contract-{uuid4().hex[:8]}"
+        created = c.post(
+            "/threads", json={"title": "deep-golden"},
+            headers={"X-Hughes-Session": sid},
+        )
+        thread_id = created.json()["thread_id"]
+        with c.stream(
+            "POST",
+            f"/threads/{thread_id}/messages",
+            json={"content": "decompose this question deeply"},
+        ) as stream:
+            captured = _parse_sse_event_types(stream.iter_lines())
+    app.state.agent_llm = None
+    _cleanup()
+    _assert_matches_golden(captured, "research_deep_turn")
 
 
 def test_chat_turn_final_event_payload_is_json(client: TestClient) -> None:
