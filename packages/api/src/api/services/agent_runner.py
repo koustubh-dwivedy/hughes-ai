@@ -49,7 +49,7 @@ ProcessMessageFn = Callable[
 
 slog = get_logger().bind(component="agent.runner")
 
-_TOKEN_SENTINEL_KEY = "_token_delta"  # noqa: S105 — queue sentinel
+_TOKEN_SENTINEL_KEY = "_token_delta"  # noqa: S105  # nosec B105 — queue sentinel, not a credential
 
 
 def _prepare_agent_run(

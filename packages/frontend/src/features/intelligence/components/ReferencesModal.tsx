@@ -245,9 +245,8 @@ export default function ReferencesModal({
 				if (e.key === "Escape") onClose();
 			}}
 		>
-			<div
-				role="dialog"
-				aria-modal="true"
+			<dialog
+				open
 				aria-label="Answer references"
 				style={dialogStyle}
 				onClick={(e) => e.stopPropagation()}
@@ -284,7 +283,7 @@ export default function ReferencesModal({
 						<JsonBlock value={mfQuery} label="MetricFlow query" />
 					</section>
 				) : null}
-			</div>
+			</dialog>
 		</div>
 	);
 	return createPortal(node, document.body);

@@ -118,47 +118,50 @@ const referencesPillStyle: React.CSSProperties = {
 	gap: spacing[1],
 };
 
+function ReferencesSection({ payload }: { payload: FinalPayload }) {
+	const [open, setOpen] = useState(false);
+	const rows = payload.rows ?? null;
+	const mfQuery = payload.mf_query ?? null;
+	const trace = payload.thinking_trace ?? null;
+	const count = (rows?.length ?? 0) + (mfQuery ? 1 : 0) + (trace?.length ?? 0);
+	if (count === 0) return null;
+	return (
+		<>
+			<button
+				type="button"
+				style={referencesPillStyle}
+				onClick={() => setOpen(true)}
+				aria-haspopup="dialog"
+			>
+				<span aria-hidden>📎</span>
+				References ({count})
+			</button>
+			<ReferencesModal
+				open={open}
+				onClose={() => setOpen(false)}
+				rows={rows}
+				mfQuery={mfQuery}
+				thinkingTrace={trace}
+			/>
+		</>
+	);
+}
+
 function AssistantTerminal({ msg }: { msg: ThreadMessageWire }) {
 	const payload = parseFinalPayload(msg);
 	const summary = payload.summary ?? "";
-	const [showRefs, setShowRefs] = useState(false);
-	const hasRows = (payload.rows?.length ?? 0) > 0;
-	const hasMfQuery =
-		payload.mf_query !== null && payload.mf_query !== undefined;
-	const hasTrace = (payload.thinking_trace?.length ?? 0) > 0;
-	const hasReferences = hasRows || hasMfQuery || hasTrace;
-	const refCount =
-		(payload.rows?.length ?? 0) +
-		(hasMfQuery ? 1 : 0) +
-		(payload.thinking_trace?.length ?? 0);
+	const dsl = payload.openui_dsl;
 	return (
 		<article aria-label="Assistant answer" style={assistantBubbleStyle}>
 			{summary !== "" && (
 				<MarkdownText style={summaryStyle}>{summary}</MarkdownText>
 			)}
-			{payload.openui_dsl && payload.openui_dsl.length > 0 ? (
+			{dsl && dsl.length > 0 ? (
 				<div data-testid="openui-renderer">
-					<OpenUIRenderer dsl={payload.openui_dsl} />
+					<OpenUIRenderer dsl={dsl} />
 				</div>
 			) : null}
-			{hasReferences ? (
-				<button
-					type="button"
-					style={referencesPillStyle}
-					onClick={() => setShowRefs(true)}
-					aria-haspopup="dialog"
-				>
-					<span aria-hidden>📎</span>
-					References ({refCount})
-				</button>
-			) : null}
-			<ReferencesModal
-				open={showRefs}
-				onClose={() => setShowRefs(false)}
-				rows={payload.rows ?? null}
-				mfQuery={payload.mf_query ?? null}
-				thinkingTrace={payload.thinking_trace ?? null}
-			/>
+			<ReferencesSection payload={payload} />
 		</article>
 	);
 }

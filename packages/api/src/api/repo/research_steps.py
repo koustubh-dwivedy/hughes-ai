@@ -58,7 +58,7 @@ def create_step(
         conn.cursor() as cur,
     ):
         cur.execute(
-            "INSERT INTO research_steps"  # noqa: S608 — literal column list
+            "INSERT INTO research_steps"  # noqa: S608  # nosec B608 — literal column list
             " (plan_id, ordinal, description, status, assigned_subagent)"
             " VALUES (%s, %s, %s, %s, %s)"
             f" RETURNING {_STEP_COLS}",
@@ -91,7 +91,7 @@ def update_step_status(
         args.append(completed_at)
     args.append(str(step_id))
     sql = (
-        "UPDATE research_steps SET "  # noqa: S608 — sets list is hardcoded
+        "UPDATE research_steps SET "  # noqa: S608  # nosec B608 — sets list is hardcoded
         + ", ".join(sets)
         + " WHERE step_id = %s"
     )
@@ -100,7 +100,7 @@ def update_step_status(
         psycopg.connect(db_url) as conn,
         conn.cursor() as cur,
     ):
-        cur.execute(sql, tuple(args))  # noqa: S608 — sets list is hardcoded
+        cur.execute(sql, tuple(args))  # noqa: S608  # nosec B608 — sets list is hardcoded
         return cur.rowcount == 1
 
 
@@ -112,7 +112,7 @@ def get_steps_for_plan(plan_id: UUID, db_url: str) -> list[Step]:
         conn.cursor() as cur,
     ):
         cur.execute(
-            f"SELECT {_STEP_COLS} FROM research_steps"  # noqa: S608 — literal
+            f"SELECT {_STEP_COLS} FROM research_steps"  # noqa: S608  # nosec B608 — literal
             " WHERE plan_id = %s ORDER BY ordinal ASC",
             (str(plan_id),),
         )
@@ -160,7 +160,7 @@ def append_finding(
         conn.cursor() as cur,
     ):
         cur.execute(
-            "INSERT INTO research_findings"  # noqa: S608 — literal column list
+            "INSERT INTO research_findings"  # noqa: S608  # nosec B608 — literal column list
             " (step_id, summary_text, structured_rows_json,"
             " mf_query_json, cited_artifacts)"
             " VALUES (%s, %s, %s, %s, %s)"
@@ -189,7 +189,7 @@ def get_findings_for_plan(plan_id: UUID, db_url: str) -> list[Finding]:
         conn.cursor() as cur,
     ):
         cur.execute(
-            f"SELECT {qualified}"  # noqa: S608 — qualified list of literals
+            f"SELECT {qualified}"  # noqa: S608  # nosec B608 — qualified list of literals
             " FROM research_findings f"
             " JOIN research_steps s ON s.step_id = f.step_id"
             " WHERE s.plan_id = %s"
