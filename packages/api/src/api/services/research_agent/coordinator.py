@@ -1,45 +1,82 @@
-"""Turn coordinator entrypoint (HUG-205, F4).
+"""Turn coordinator entrypoint (HUG-205 + HUG-208).
 
 The route layer (`api.routes.threads.post_message`) calls
-`route_turn(...)` instead of `stream_user_turn(...)` directly so the
-depth-decision logic landing in HUG-208 (L1, planner) can swap the
-body without touching the route layer.
+`route_turn(...)` so the depth-decision logic can change without
+churning the route layer. HUG-205 (F4) landed the entrypoint;
+HUG-208 (L1) wires the planner LLM in.
 
-In F4 the coordinator is a thin wrapper: it logs a
-`research.turn.routed` event with `route="shallow"` /
-`reason="phase-1-default"`, bumps the per-route counter, then
-delegates byte-identically to `stream_user_turn`. User-visible
-behaviour is unchanged.
+Current behaviour (L1):
+  1. Call `planner.draft_plan` as the FIRST node — depth decision
+     happens inside the planner LLM, not via a separate classifier.
+  2. If `route == "shallow"`: forward to today's `stream_user_turn`,
+     user-visible behaviour is unchanged.
+  3. If `route == "deep"`: log telemetry + plan size, then end the
+     stream WITHOUT yielding SSE events. The frontend sees the
+     connection close. This is the documented transitional state
+     in HUG-208's acceptance criteria — L2 (plan persistence) and
+     L5 (approve/abort) will fill in the deep-route user experience.
+  4. If the planner itself errors: log + emit a single SSE `error`
+     frame, then forward to `stream_user_turn` so the user still
+     gets *some* answer (graceful degradation).
 
-When L1 lands, this function becomes:
-
-    plan_draft = await planner.draft_plan(...)
-    if plan_draft.route == "shallow":
-        log_event(EVENT_TURN_ROUTED, route="shallow", reason=plan_draft.reason)
-        async for event in stream_user_turn(...):
-            yield event
-    else:
-        log_event(EVENT_TURN_ROUTED, route="deep", reason=plan_draft.reason)
-        # Persist plan (HUG-209, L2), wait for approval (HUG-212, L5),
-        # then execute via subagents (E1-E4, S1-S2). All inside the same
-        # SSE stream — the route layer doesn't care which branch ran.
+Worth flagging: every turn now pays one extra LLM call (the
+planner). That's the cost of having a single unified entrypoint
+that decides depth at planner time. No flag-gating for now —
+landing the telemetry early informs L2's UX design.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
 
 from langchain_core.language_models import BaseChatModel
 
-from api.prometheus import research_turns_total
+from api.prometheus import (
+    research_plan_size_steps,
+    research_turns_total,
+)
 from api.services.agent_runner import stream_user_turn
+from api.services.research_agent.planner import (
+    PlannerError,
+    draft_plan,
+)
 from api.services.research_agent.telemetry import (
     EVENT_TURN_ROUTED,
     log_event,
 )
 from api.types.threads import ThreadMessage
+
+_PLANNER_ERROR_PAYLOAD = json.dumps(
+    {
+        "message": (
+            "Planner couldn't classify the question; "
+            "falling back to a single-shot answer."
+        )
+    }
+)
+
+
+async def _forward_shallow(
+    *,
+    thread_id: UUID,
+    user_content: str,
+    db_url: str,
+    llm: BaseChatModel,
+    history: list[ThreadMessage],
+    request_id: str,
+) -> AsyncIterator[dict[str, Any]]:
+    async for event in stream_user_turn(
+        thread_id=thread_id,
+        user_content=user_content,
+        db_url=db_url,
+        llm=llm,
+        history=history,
+        request_id=request_id,
+    ):
+        yield event
 
 
 async def route_turn(
@@ -50,28 +87,41 @@ async def route_turn(
     history: list[ThreadMessage],
     request_id: str = "",
 ) -> AsyncIterator[dict[str, Any]]:
-    """Unified entrypoint for every user turn. Returns the same
-    AsyncIterator over SSE event dicts as `stream_user_turn`, so the
-    route layer's contract with `EventSourceResponse` doesn't shift
-    as the depth-decision logic lands in later phases.
+    """Unified entrypoint for every user turn. Calls the planner LLM
+    first; routes by its verdict. Returns the same AsyncIterator
+    contract as `stream_user_turn` so the route layer is stable
+    across phases."""
+    try:
+        draft = draft_plan(user_content, history, llm)
+    except PlannerError as exc:
+        log_event(
+            EVENT_TURN_ROUTED, route="shallow", reason="planner_failed",
+            thread_id=str(thread_id), error=str(exc)[:300],
+        )
+        research_turns_total.labels(route="shallow").inc()
+        yield {"event": "error", "data": _PLANNER_ERROR_PAYLOAD}
+        async for event in _forward_shallow(
+            thread_id=thread_id, user_content=user_content, db_url=db_url,
+            llm=llm, history=history, request_id=request_id,
+        ):
+            yield event
+        return
 
-    Today: always routes to the existing ReAct agent (shallow path)
-    and emits one telemetry event so we can already chart shallow/
-    deep ratio once the planner ships.
-    """
     log_event(
-        EVENT_TURN_ROUTED,
-        route="shallow",
-        reason="phase-1-default",
+        EVENT_TURN_ROUTED, route=draft.route, reason=draft.reason[:160],
         thread_id=str(thread_id),
     )
-    research_turns_total.labels(route="shallow").inc()
-    async for event in stream_user_turn(
-        thread_id=thread_id,
-        user_content=user_content,
-        db_url=db_url,
-        llm=llm,
-        history=history,
-        request_id=request_id,
-    ):
-        yield event
+    research_turns_total.labels(route=draft.route).inc()
+    if draft.plan is not None:
+        research_plan_size_steps.observe(len(draft.plan))
+
+    if draft.route == "shallow":
+        async for event in _forward_shallow(
+            thread_id=thread_id, user_content=user_content, db_url=db_url,
+            llm=llm, history=history, request_id=request_id,
+        ):
+            yield event
+        return
+    # Deep route: L1 ends here — telemetry only. L2 (HUG-209) adds
+    # persistence; L4 (PlanPreview) replaces the silent close with UI.
+    return  # noqa: PLR1711 — explicit end of async generator

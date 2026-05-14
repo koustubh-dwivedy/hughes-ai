@@ -28,6 +28,11 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "T20", "S", "C90"]
 "scripts/audit_data_model.py" = ["T201"]
 "scripts/backfill_thread_titles.py" = ["T201"]
 "scripts/compile_prompts.py" = ["T201"]
+# Prompt files contain natural-language examples (JSON, narrative). The
+# line-length rule fights readability here — the LLM reads the prompt
+# verbatim, so artificial wrapping changes the model's input.
+"packages/*/src/**/lead_system_prompt.py" = ["E501"]
+"packages/*/src/**/system_prompt.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

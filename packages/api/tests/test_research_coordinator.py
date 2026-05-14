@@ -22,7 +22,9 @@ import pytest
 from api.prometheus import research_turns_total
 from api.repo import threads as threads_repo
 from api.services.agent_runner import stream_user_turn
+from api.services.research_agent import coordinator
 from api.services.research_agent.coordinator import route_turn
+from api.services.research_agent.planner import PlanDraft
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
@@ -90,6 +92,23 @@ def thread_id() -> UUID:
         conn.commit()
 
 
+@pytest.fixture
+def stub_shallow_planner(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Replace the planner with a deterministic 'shallow' verdict so
+    the coordinator-routing tests don't depend on a live LLM call.
+    The planner itself is tested in `test_research_planner.py`."""
+
+    def _stub(_user_question: str, _history: Any, _llm: Any) -> PlanDraft:
+        return PlanDraft(
+            route="shallow",
+            reason="stub-shallow",
+            plan=None,
+            research_question_summary="stub",
+        )
+
+    monkeypatch.setattr(coordinator, "draft_plan", _stub)
+
+
 async def _drain(stream: Any) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     async for event in stream:
@@ -107,7 +126,7 @@ def _wipe_thread_messages(db_url: str, thread_id: UUID) -> None:
 
 
 def test_route_turn_produces_same_events_as_stream_user_turn(
-    thread_id: UUID,
+    thread_id: UUID, stub_shallow_planner: None
 ) -> None:
     """Golden trace: kinds of events emitted are identical when the
     coordinator and the underlying agent runner are called directly."""
@@ -149,7 +168,9 @@ def test_route_turn_produces_same_events_as_stream_user_turn(
     assert "final" in {e["event"] for e in via_coordinator}
 
 
-def test_route_turn_bumps_shallow_counter(thread_id: UUID) -> None:
+def test_route_turn_bumps_shallow_counter(
+    thread_id: UUID, stub_shallow_planner: None
+) -> None:
     before = research_turns_total.labels(route="shallow")._value.get()  # type: ignore[attr-defined]
     asyncio.run(
         _drain(
@@ -167,11 +188,13 @@ def test_route_turn_bumps_shallow_counter(thread_id: UUID) -> None:
 
 
 def test_route_turn_emits_routed_event_once(
-    thread_id: UUID, capsys: pytest.CaptureFixture[str]
+    thread_id: UUID,
+    capsys: pytest.CaptureFixture[str],
+    stub_shallow_planner: None,
 ) -> None:
     """`research.turn.routed` fires exactly once per call, with
-    `route='shallow'` and the phase-1 reason. Structlog writes JSON
-    to stdout, so we capture via `capsys`."""
+    `route='shallow'` and the planner's reason. Structlog writes
+    JSON to stdout, so we capture via `capsys`."""
     asyncio.run(
         _drain(
             route_turn(
@@ -192,4 +215,4 @@ def test_route_turn_emits_routed_event_once(
         f"expected one research.turn.routed line; got {len(routed_lines)}"
     )
     assert '"route": "shallow"' in routed_lines[0]
-    assert '"reason": "phase-1-default"' in routed_lines[0]
+    assert '"reason": "stub-shallow"' in routed_lines[0]
