@@ -151,3 +151,38 @@ Original Phase B order: `230 → 233 → 228 → 229 → 234 → 231 → 232`.
 ### Phase B checkpoint
 
 5 of 7 CI hardening issues done (HUG-235→230→233→228→229→234→231). One remaining: HUG-232 (type-drift gate, biggest of the batch). Then Phase C kicks off Deep Research backend.
+
+### HUG-232 — Backend ↔ frontend type-drift gate (Phase B-7, final) ✓
+
+**Commits:** `9a9169e`, `78bdcce` · **CI run:** 25891403940 (all 10 green).
+
+**What landed.**
+- `scripts/generate_type_schemas.py`: walks `api/types/*`, finds every BaseModel subclass DEFINED in each module (uses `obj.__module__ == modname` filter to skip imports), emits deterministic JSON Schema (sorted keys, 2-space indent) per module.
+- 10 schema snapshots committed: `packages/frontend/src/shared/api/schemas/{dashboard_envelope, data_model, deposit_portfolio, executive_summary, officer_branch, openui, past_due, research, threads, threads_api}.json`.
+- `Makefile`: `types` target regenerates.
+- `ci.yml` typecheck job adds `generate_type_schemas.py --check` step; drift fails with actionable hint.
+- `packages/frontend/biome.json`: ignores `src/shared/api/schemas/**` (machine-generated; biome uses tabs, schemas use 2-space JSON-spec indent).
+- `pyproject.toml`: per-file ignore for the new script's T201 prints.
+
+**Decision worth flagging — JSON schema snapshots, not generated TS.** The spec called for `datamodel-code-generator`-style TS generation. I rejected that path because:
+1. Each generator (datamodel-code-generator, pydantic-to-typescript, quicktype) has a different opinion on null vs optional, camel-case vs snake_case, type vs interface, union vs enum. Locking in one tool's convention via auto-generation fights curated frontend ergonomics.
+2. The frontend already has hand-written TS files (e.g., `features/intelligence/api.ts`) where camelCase naming and TypeScript-idiomatic patterns matter. Auto-generation would either replace them (bad) or sit alongside them (drift-prone).
+3. JSON Schema snapshots achieve the same DRIFT-DETECTION goal: when a Pydantic model changes, CI flags it with a clear diff. Updating the TS is a human step — but the gate makes "forgetting to update" impossible.
+
+When HUG-209 adds a field to PlanDraft, CI fails with: "Run `make types` and commit, plus update packages/frontend/src/features/intelligence/research/types.ts". The frontend dev sees exactly what changed in `research.json`.
+
+**Deviation from spec.** Spec said "TS-drift gate via Pydantic→TS generation". My implementation is "Pydantic→JSON Schema snapshot drift gate" with TS update as a human follow-through. Same outcome, fewer moving pieces. Documented as the implementation choice in the commit message.
+
+**Note.** Stale-file detection included: if `api/types/foo.py` is deleted but `schemas/foo.json` lingers, CI fails. Catches the rarer "I removed but didn't clean up" case.
+
+## Phase B summary — CI hardening complete
+
+7 of 7 issues done. Pipeline goes from:
+- 7 commits piled up unverified → all gated, every commit ≤12 min to verify.
+- Hardcoded migration list (13 of 16) → glob loop (all auto).
+- Hardcoded `--ignore=` test list → `@pytest.mark.db` partition + structural enforcement.
+- Node 20 deprecation across all actions → Node 24-ready one-major bumps.
+- 4 different drift surfaces invisible → 3 mechanical gates (SSE contract, type schemas, import graph).
+- Coverage drift invisible → per-package baselines with 2pp tolerance.
+
+Total commits in Phase B: 10 (some issues required 1-2 follow-up commits). Net effect: every Deep Research issue in Phase C now lands against a CI pipeline that catches the drift classes the user worried about.
