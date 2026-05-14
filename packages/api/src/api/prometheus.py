@@ -72,3 +72,85 @@ agent_error_frames_total = Counter(
     "SSE error frames emitted to the client by the producer.",
     registry=REGISTRY,
 )
+
+# ── Research-agent telemetry (HUG-207, deep-research feature) ──────────
+# Counters land here so every research phase (planner, executor, worker,
+# verifier) imports from one module. Structlog events go through
+# `research_agent.telemetry.log_event` which increments the
+# self-counter below, giving us a single place to ask "did event X
+# fire?" without parsing logs.
+
+research_turns_total = Counter(
+    "hughes_research_turns_total",
+    "Research turns by route. 'shallow' = today's ReAct path; 'deep' = lead+subagents.",
+    ["route"],
+    registry=REGISTRY,
+)
+
+research_plan_versions_total = Counter(
+    "hughes_research_plan_versions_total",
+    "Plan rows written. Each re-plan increments this — re-plan rate signal.",
+    registry=REGISTRY,
+)
+
+research_plan_decisions_total = Counter(
+    "hughes_research_plan_decisions_total",
+    "User decisions on plan-preview ('approved' or 'aborted').",
+    ["decision"],
+    registry=REGISTRY,
+)
+
+research_steps_total = Counter(
+    "hughes_research_steps_total",
+    "Step status transitions by terminal state.",
+    ["status"],
+    registry=REGISTRY,
+)
+
+research_subagent_spawns_total = Counter(
+    "hughes_research_subagent_spawns_total",
+    "Workers spawned by the coordinator.",
+    registry=REGISTRY,
+)
+
+research_telemetry_events_total = Counter(
+    "hughes_research_telemetry_events_total",
+    "Self-counter: every research event emitted via telemetry.log_event.",
+    ["event_name"],
+    registry=REGISTRY,
+)
+
+research_turn_duration_seconds = Histogram(
+    "hughes_research_turn_duration_seconds",
+    "Wall-clock time for a complete research turn (submit → final answer).",
+    registry=REGISTRY,
+    buckets=(5, 15, 30, 60, 120, 300, 600, 1200, 1800),
+)
+
+research_step_duration_seconds = Histogram(
+    "hughes_research_step_duration_seconds",
+    "Wall-clock time per research step (worker dispatch → finding persisted).",
+    registry=REGISTRY,
+    buckets=(1, 5, 15, 30, 60, 120, 300, 600),
+)
+
+research_plan_size_steps = Histogram(
+    "hughes_research_plan_size_steps",
+    "Number of steps in a drafted plan.",
+    registry=REGISTRY,
+    buckets=(1, 2, 3, 5, 8, 13, 21, 34),
+)
+
+research_subagent_tokens = Histogram(
+    "hughes_research_subagent_tokens",
+    "Token count consumed per worker invocation (lead+subagent cost tracking).",
+    registry=REGISTRY,
+    buckets=(500, 1000, 2500, 5000, 10000, 25000, 50000, 100000),
+)
+
+research_lead_note_chars = Histogram(
+    "hughes_research_lead_note_chars",
+    "Character count of each lead-note version (caps signal external memory bloat).",
+    registry=REGISTRY,
+    buckets=(500, 1000, 2500, 5000, 10000, 25000, 50000),
+)
