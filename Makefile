@@ -1,4 +1,10 @@
-.PHONY: up down dev migrate seed lint lint-fix typecheck test audit eval openui-prompt
+.PHONY: up down dev migrate seed lint lint-fix typecheck test audit eval openui-prompt update-sse-goldens
+
+# HUG-231: regenerate the SSE event-contract goldens. Run when the
+# expected SSE event sequence intentionally changes (new event added,
+# rename, re-order). Review the diff before committing.
+update-sse-goldens:
+	UPDATE_SSE_GOLDENS=1 uv run pytest packages/api/tests/test_sse_contract.py -v
 
 up:
 	docker compose up -d
