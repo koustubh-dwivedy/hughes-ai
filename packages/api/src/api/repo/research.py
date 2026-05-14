@@ -89,7 +89,7 @@ def create_plan(
             )
             version = _scalar_int(cur.fetchone())
         cur.execute(
-            "INSERT INTO research_plans (thread_id, version, status, plan_json)"  # noqa: S608  # nosec B608 — literal column list
+            "INSERT INTO research_plans (thread_id, version, status, plan_json)"  # noqa: S608  # nosec B608  # nosemgrep: no-fstring-sql — literal column list
             " VALUES (%s, %s, %s, %s)"
             f" RETURNING {_PLAN_COLS}",
             (str(thread_id), version, status, Jsonb(plan_json)),
@@ -109,7 +109,7 @@ def get_latest_plan(thread_id: UUID, db_url: str) -> Plan | None:
         conn.cursor() as cur,
     ):
         cur.execute(
-            f"SELECT {_PLAN_COLS} FROM research_plans"  # noqa: S608  # nosec B608 — literal column list
+            f"SELECT {_PLAN_COLS} FROM research_plans"  # noqa: S608  # nosec B608  # nosemgrep: no-fstring-sql — literal column list
             " WHERE thread_id = %s ORDER BY version DESC LIMIT 1",
             (str(thread_id),),
         )
@@ -125,7 +125,7 @@ def list_plan_versions(thread_id: UUID, db_url: str) -> list[Plan]:
         conn.cursor() as cur,
     ):
         cur.execute(
-            f"SELECT {_PLAN_COLS} FROM research_plans"  # noqa: S608  # nosec B608 — literal
+            f"SELECT {_PLAN_COLS} FROM research_plans"  # noqa: S608  # nosec B608  # nosemgrep: no-fstring-sql — literal
             " WHERE thread_id = %s ORDER BY version DESC",
             (str(thread_id),),
         )
@@ -178,7 +178,7 @@ def append_lead_note(plan_id: UUID, body_md: str, db_url: str) -> LeadNote:
         )
         version = _scalar_int(cur.fetchone())
         cur.execute(
-            "INSERT INTO research_lead_notes (plan_id, version, body_md)"  # noqa: S608  # nosec B608 — literal column list
+            "INSERT INTO research_lead_notes (plan_id, version, body_md)"  # noqa: S608  # nosec B608  # nosemgrep: no-fstring-sql — literal column list
             " VALUES (%s, %s, %s)"
             f" RETURNING {_NOTE_COLS}",
             (str(plan_id), version, body_md),
@@ -197,7 +197,7 @@ def get_latest_lead_note(plan_id: UUID, db_url: str) -> LeadNote | None:
         conn.cursor() as cur,
     ):
         cur.execute(
-            f"SELECT {_NOTE_COLS} FROM research_lead_notes"  # noqa: S608  # nosec B608 — literal
+            f"SELECT {_NOTE_COLS} FROM research_lead_notes"  # noqa: S608  # nosec B608  # nosemgrep: no-fstring-sql — literal
             " WHERE plan_id = %s ORDER BY version DESC LIMIT 1",
             (str(plan_id),),
         )
@@ -213,7 +213,7 @@ def list_lead_notes(plan_id: UUID, db_url: str) -> list[LeadNote]:
         conn.cursor() as cur,
     ):
         cur.execute(
-            f"SELECT {_NOTE_COLS} FROM research_lead_notes"  # noqa: S608  # nosec B608 — literal
+            f"SELECT {_NOTE_COLS} FROM research_lead_notes"  # noqa: S608  # nosec B608  # nosemgrep: no-fstring-sql — literal
             " WHERE plan_id = %s ORDER BY version DESC",
             (str(plan_id),),
         )

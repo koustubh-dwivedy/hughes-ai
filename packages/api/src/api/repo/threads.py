@@ -176,7 +176,7 @@ def latest_n_messages(
     """Return the most-recent N messages for a thread, oldest-first."""
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
-            f"SELECT * FROM (SELECT{_MESSAGE_COLUMNS}"  # noqa: S608  # nosec B608
+            f"SELECT * FROM (SELECT{_MESSAGE_COLUMNS}"  # noqa: S608  # nosec B608  # nosemgrep: no-fstring-sql
             " FROM thread_messages WHERE thread_id = %s"
             " ORDER BY created_at DESC LIMIT %s"
             ") AS recent ORDER BY created_at ASC",
@@ -190,7 +190,7 @@ def list_messages(thread_id: UUID, db_url: str) -> list[ThreadMessage]:
     """All messages for a thread in chronological order."""
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
-            f"SELECT{_MESSAGE_COLUMNS} FROM thread_messages"  # noqa: S608  # nosec B608
+            f"SELECT{_MESSAGE_COLUMNS} FROM thread_messages"  # noqa: S608  # nosec B608  # nosemgrep: no-fstring-sql
             " WHERE thread_id = %s ORDER BY created_at ASC",
             (str(thread_id),),
         )
