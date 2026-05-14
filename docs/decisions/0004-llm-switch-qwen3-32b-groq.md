@@ -172,3 +172,11 @@ GLM-4.7 on Cerebras — relevant findings from the pre-flight probe:
 - **Reasoning is structurally separate from content.** GLM-4.7 returns reasoning in a dedicated `message.reasoning` field (the OpenAI o1-series pattern). The user-facing `message.content` is clean — no `<think>` tags, no chain-of-thought leak. No client-side stripping needed.
 - **Tool-calling is OpenAI-compatible.** `finish_reason: tool_calls`, structured `tool_calls[].function.{name,arguments}` array. LangChain reads it natively.
 - **Prose alongside tool calls.** GLM-4.7 emits a sentence of justification in `message.content` when dispatching a tool call. HUG-204's frontend filter (hide AssistantText when `tool_calls` is non-empty) already handles this leak class.
+
+---
+
+## Amendment — 2026-05-14 (HUG-204): optional per-role overrides for deep research
+
+`make_llm()` gains an opt-in `role` parameter (`"lead" | "worker" | "verifier"`) for the deep-research feature (HUG-201). When set AND `config/llm.yaml` carries an optional `roles:` block, the role-specific config wins; otherwise the top-level config applies and ADR-0004's single-LLM rule still defaults. Workers and verifier fall back to `roles.lead` when their own entry is absent. Every existing `make_llm()` caller (chat agent, eval harness, scripts) is unchanged — the parameter is keyword-only and the no-arg call path is untouched.
+
+The intent is **modularity, not multi-provider mixing**. The deep-research design (Anthropic lead+subagents pattern) is built around the existing ReAct agent reused as the worker; today every role runs on the same `ollama/glm-5.1`. The `roles:` block exists so a future operator can swap a worker model (e.g., a smaller, cheaper one) by editing config alone, without revisiting code or invalidating HUG-181's DSPy-compiled prompts. The single-LLM rule is the default; per-role overrides are opt-in and explicit in YAML.

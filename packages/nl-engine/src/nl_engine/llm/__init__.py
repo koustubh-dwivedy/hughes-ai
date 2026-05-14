@@ -29,6 +29,6 @@ reasoning_format="hidden"). Other providers run at temperature=0 for
 deterministic tool-calling.
 """
 
-from nl_engine.llm.factory import LLMConfig, make_llm
+from nl_engine.llm.factory import LLMConfig, Role, make_llm
 
-__all__ = ["LLMConfig", "make_llm"]
+__all__ = ["LLMConfig", "Role", "make_llm"]

@@ -28,3 +28,26 @@ provider: ollama
 model: glm-5.1
 api_key_env: OLLAMA_API_KEY
 base_url_env: OLLAMA_BASE_URL
+
+# OPTIONAL: per-role overrides for the deep-research feature (HUG-204).
+# When present, `make_llm(role="lead"|"worker"|"verifier")` picks the
+# named entry; missing roles fall back to `roles.lead` (if defined)
+# and then to the top-level config above. `make_llm()` with no role
+# always uses the top-level config — ADR-0004's single-LLM rule still
+# defaults unless this block opts in.
+#
+# Example (commented; uncomment + edit to opt in):
+#
+# roles:
+#   lead:
+#     provider: ollama
+#     model: glm-5.1
+#     api_key_env: OLLAMA_API_KEY
+#   worker:
+#     provider: groq
+#     model: qwen/qwen3-32b
+#     api_key_env: GROQ_API_KEY
+#   verifier:
+#     provider: google
+#     model: gemma-4-31b-it
+#     api_key_env: GOOGLE_API_KEY

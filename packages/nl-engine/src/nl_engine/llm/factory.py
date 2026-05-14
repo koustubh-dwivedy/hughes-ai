@@ -10,6 +10,14 @@ Resolution order (HUG-190, 2026-05-06):
 There is no fallback chain. One provider, one model, one code path.
 If a provider goes down, ops swaps the YAML file — we don't rely on
 hidden multi-provider mixing (per user directive 2026-05-06).
+
+HUG-204 extension: `make_llm` accepts an optional `role` argument
+(`lead | worker | verifier`) for the deep-research feature. When the
+YAML has an optional `roles:` block AND the named role is defined,
+the role-specific config is used. Otherwise the top-level config
+applies (full back-compat — existing `make_llm()` callers are
+unchanged). ADR-0004's single-LLM rule still defaults; per-role
+overrides are opt-in via the `roles:` block.
 """
 
 from __future__ import annotations
@@ -17,7 +25,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
 from langchain_core.language_models import BaseChatModel
@@ -28,12 +36,15 @@ from nl_engine.llm.providers.ollama import make_ollama_llm
 from nl_engine.llm.providers.openai_compatible import (
     make_openai_compatible_llm,
 )
+from nl_engine.logging import get_logger
 
 ProviderName = Literal["groq", "google", "ollama", "openai_compatible"]
+Role = Literal["lead", "worker", "verifier"]
 
 _VALID_PROVIDERS: frozenset[str] = frozenset(
     {"groq", "google", "ollama", "openai_compatible"}
 )
+_VALID_ROLES: frozenset[str] = frozenset({"lead", "worker", "verifier"})
 
 _DEFAULT_PROVIDER: ProviderName = "groq"
 
@@ -41,6 +52,8 @@ _DEFAULT_PROVIDER: ProviderName = "groq"
 # file: packages/nl-engine/src/nl_engine/llm/factory.py → up 5 = repo root.
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _CONFIG_PATH = _REPO_ROOT / "config" / "llm.yaml"
+
+_log = get_logger().bind(component="llm.factory")
 
 
 @dataclass(frozen=True)
@@ -72,25 +85,58 @@ def _validate_provider(name: str, source: str) -> ProviderName:
     return lowered  # type: ignore[return-value]
 
 
-def _read_yaml_config() -> LLMConfig | None:
+def _config_from_dict(raw: dict[str, Any], source: str) -> LLMConfig:
+    """Build an `LLMConfig` from a dict — used both by the top-level
+    config read and by per-role lookups under the `roles:` block.
+    Raises `LLMFactoryError` on malformed input."""
+    provider_raw = raw.get("provider", "")
+    if not provider_raw:
+        raise LLMFactoryError(f"{source} is missing required 'provider' field")
+    provider = _validate_provider(provider_raw, source=source)
+    return LLMConfig(
+        provider=provider,
+        model=raw.get("model"),
+        api_key_env=raw.get("api_key_env") or "OPENAI_API_KEY",
+        base_url_env=raw.get("base_url_env") or "OPENAI_BASE_URL",
+    )
+
+
+def _read_yaml_config(role: Role | None = None) -> LLMConfig | None:
     """Return a config from `config/llm.yaml`, or None if absent.
 
-    Side-effect: sets `os.environ` with the api_key_env var's resolved
-    name as a hint to providers (they still read their canonical env
-    vars; the YAML's `api_key_env` is informational + lets ops use a
-    custom name without changing code).
+    When `role` is provided AND the yaml has a `roles:` block with that
+    role, the role-specific config wins. Otherwise (`role` is None, or
+    the `roles:` block is missing, or the named role isn't in the
+    block), the top-level config is used — preserving the ADR-0004
+    single-LLM default. Lookup order for a given role:
+      1. `roles.<role>` if present.
+      2. `roles.lead` if present (workers/verifier inherit from lead).
+      3. Top-level config.
+
+    Side-effect: providers read their canonical env vars at construction
+    time; the YAML's `api_key_env` is informational + lets ops use a
+    custom name without changing code.
     """
     if not _CONFIG_PATH.exists():
         return None
     raw = yaml.safe_load(_CONFIG_PATH.read_text(encoding="utf-8")) or {}
-    provider = _validate_provider(raw.get("provider", ""), source="config/llm.yaml")
-    model = raw.get("model")
-    return LLMConfig(
-        provider=provider,
-        model=model,
-        api_key_env=raw.get("api_key_env") or "OPENAI_API_KEY",
-        base_url_env=raw.get("base_url_env") or "OPENAI_BASE_URL",
-    )
+    if role is not None:
+        roles_block = raw.get("roles") or {}
+        if not isinstance(roles_block, dict):
+            raise LLMFactoryError(
+                "config/llm.yaml 'roles:' must be a mapping of role-name → config"
+            )
+        if role in roles_block:
+            return _config_from_dict(
+                roles_block[role], source=f"config/llm.yaml roles.{role}"
+            )
+        if "lead" in roles_block and role != "lead":
+            # Workers/verifier inherit from lead when explicitly absent.
+            return _config_from_dict(
+                roles_block["lead"], source="config/llm.yaml roles.lead"
+            )
+        # Fall through to top-level — no role-specific override.
+    return _config_from_dict(raw, source="config/llm.yaml")
 
 
 def _read_env_config() -> LLMConfig:
@@ -106,10 +152,14 @@ def _read_env_config() -> LLMConfig:
     return LLMConfig(provider=provider, model=model)
 
 
-def _resolve_config() -> LLMConfig:
-    """Read `config/llm.yaml` first, then env vars. Tests can pass an
-    explicit LLMConfig to `make_llm()` to bypass both."""
-    return _read_yaml_config() or _read_env_config()
+def _resolve_config(role: Role | None = None) -> LLMConfig:
+    """Read `config/llm.yaml` first (with optional role override), then
+    env vars. Tests can pass an explicit `LLMConfig` to `make_llm()`
+    to bypass both."""
+    yaml_cfg = _read_yaml_config(role=role)
+    if yaml_cfg is not None:
+        return yaml_cfg
+    return _read_env_config()
 
 
 def _construct(cfg: LLMConfig) -> BaseChatModel:
@@ -126,12 +176,37 @@ def _construct(cfg: LLMConfig) -> BaseChatModel:
     return make_ollama_llm(cfg.model)
 
 
-def make_llm(config: LLMConfig | None = None) -> BaseChatModel:
-    """Construct the agent LLM (single provider, no fallback wrapper).
+def make_llm(
+    config: LLMConfig | None = None,
+    *,
+    role: Role | None = None,
+) -> BaseChatModel:
+    """Construct an LLM (single provider, no fallback wrapper).
 
     `config` overrides resolution; pass it from tests to avoid touching
     files or env vars. In production, call with no argument and let
     `config/llm.yaml` (or env-var fallback) drive the construction.
+
+    `role` (HUG-204) selects a role-specific LLM when `config/llm.yaml`
+    has a `roles:` block defining one. Valid values: `"lead"`,
+    `"worker"`, `"verifier"`. When the block is absent or the named
+    role isn't present, the top-level config is used — preserving
+    today's single-LLM behaviour (ADR-0004 default). Passing `role`
+    is opt-in; existing callers calling `make_llm()` keep working
+    unchanged.
+
+    Raises `ValueError` for an unknown role string.
     """
-    cfg = config or _resolve_config()
+    if role is not None and role not in _VALID_ROLES:
+        raise ValueError(
+            f"make_llm role={role!r} is not valid; "
+            f"allowed: {sorted(_VALID_ROLES)}"
+        )
+    cfg = config or _resolve_config(role=role)
+    _log.info(
+        "llm.factory.dispatched",
+        role=role,
+        provider=cfg.provider,
+        model=cfg.model,
+    )
     return _construct(cfg)
