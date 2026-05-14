@@ -13,8 +13,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from api.logging import get_logger
 from api.repo import threads as threads_repo
-from api.services.agent_runner import stream_user_turn
 from api.services.llm import make_agent_llm
+from api.services.research_agent.coordinator import route_turn
 from api.services.title_generator import generate_title
 from api.types.threads_api import (
     CreateThreadRequest,
@@ -234,7 +234,7 @@ async def post_message(
     history = threads_repo.latest_n_messages(thread_id, n=20, db_url=db_url)
     llm = _get_llm(request)
     request_id = getattr(request.state, "request_id", "")
-    stream = stream_user_turn(
+    stream = route_turn(
         thread_id=thread_id,
         user_content=body.content,
         db_url=db_url,
