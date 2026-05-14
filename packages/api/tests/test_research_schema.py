@@ -16,6 +16,8 @@ from uuid import uuid4
 import psycopg
 import pytest
 
+pytestmark = pytest.mark.db  # CI integration-test job (HUG-229)
+
 _DB_URL = os.environ.get("DATABASE_URL")
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _MIGRATION = _REPO_ROOT / "migrations" / "016_research_tables.sql"

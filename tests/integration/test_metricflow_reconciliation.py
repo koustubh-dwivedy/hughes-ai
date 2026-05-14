@@ -14,6 +14,8 @@ import psycopg
 import pytest
 from nl_engine.repo import metricflow as mf
 
+pytestmark = pytest.mark.db  # CI integration-test job (HUG-229)
+
 _TOLERANCE_DOLLARS = 1.0
 
 

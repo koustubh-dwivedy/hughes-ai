@@ -13,6 +13,8 @@ from uuid import uuid4
 import pytest
 from api.repo import threads as repo
 
+pytestmark = pytest.mark.db  # CI integration-test job (HUG-229)
+
 
 def _db_url() -> str:
     url = os.environ.get("DATABASE_URL")

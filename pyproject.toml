@@ -50,3 +50,6 @@ exclude_dirs = [".venv", "packages/nl-engine/tests", "packages/api/tests", "node
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "db: requires a live Postgres connection (DATABASE_URL env var set + reachable). Runs in CI's integration-test job, NOT unit-test.",
+]

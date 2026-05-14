@@ -4,6 +4,8 @@ import os
 import psycopg
 import pytest
 
+pytestmark = pytest.mark.db  # CI integration-test job (HUG-229)
+
 
 @pytest.fixture
 def db_url() -> str:

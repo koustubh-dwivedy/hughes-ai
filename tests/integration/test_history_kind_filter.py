@@ -12,6 +12,8 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
+pytestmark = pytest.mark.db  # CI integration-test job (HUG-229)
+
 
 @pytest.fixture
 def db_url() -> str:

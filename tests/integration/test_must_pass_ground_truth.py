@@ -23,6 +23,8 @@ import pytest
 from nl_engine.benchmarks.grader import rowset_match
 from nl_engine.benchmarks.schema import Question, load_questions
 
+pytestmark = pytest.mark.db  # CI integration-test job (HUG-229)
+
 QUESTIONS_FILE = (
     Path(__file__).parents[2]
     / "packages" / "nl-engine" / "benchmarks" / "questions.yaml"

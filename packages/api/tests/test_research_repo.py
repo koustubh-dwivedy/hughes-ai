@@ -19,6 +19,11 @@ from api.repo import research as repo
 from api.repo import research_steps as steps_repo
 from api.repo import threads as threads_repo
 
+# CI routes DB-backed tests via this marker — runs in integration-test
+# job, filtered out of unit-test (`pytest -m "not db"`). Local pytest
+# without DATABASE_URL falls back on the `pytest.skip` inside `_db_url()`.
+pytestmark = pytest.mark.db
+
 
 def _db_url() -> str:
     url = os.environ.get("DATABASE_URL")

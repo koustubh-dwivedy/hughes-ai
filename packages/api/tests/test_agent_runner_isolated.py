@@ -36,6 +36,8 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
+pytestmark = pytest.mark.db  # CI integration-test job (HUG-229)
+
 _DB_URL = os.environ.get("DATABASE_URL")
 
 

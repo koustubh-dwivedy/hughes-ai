@@ -76,19 +76,19 @@ jobs:
       - name: Run unit tests (top-level)
         run: |
           set +e
-          uv run pytest tests/ --ignore=tests/structural/ --ignore=tests/integration/ -v
+          uv run pytest tests/ --ignore=tests/structural/ --ignore=tests/integration/ -m "not db" -v
           EXIT=$?
           set -e
           if [ $EXIT -eq 5 ]; then echo "No unit tests yet — skipping"; exit 0; fi
           exit $EXIT
-      - name: Run package unit tests (nl-engine)
-        run: uv run pytest packages/nl-engine/tests/ -v
-      - name: Run package unit tests (api, in-memory only)
-        run: |
-          uv run pytest packages/api/tests/ -v \
-            --ignore=packages/api/tests/test_threads_repo.py \
-            --ignore=packages/api/tests/test_threads_route.py \
-            --deselect packages/api/tests/test_routes.py::test_get_history_returns_list
+      # Two separate invocations because both packages have a top-level
+      # `tests/__init__.py` — running them in one pytest collects collides
+      # at the `tests.*` module name. Tests tagged `@pytest.mark.db` run
+      # in the integration-test job against live Postgres (HUG-229).
+      - name: Run package unit tests (nl-engine, no DB)
+        run: uv run pytest packages/nl-engine/tests/ -m "not db" -v
+      - name: Run package unit tests (api, no DB)
+        run: uv run pytest packages/api/tests/ -m "not db" -v
 
   structural-test:
     name: Structural Tests
@@ -193,9 +193,14 @@ jobs:
           set -e
           if [ $EXIT -eq 4 ] || [ $EXIT -eq 5 ]; then echo "No integration tests yet — skipping"; exit 0; fi
           exit $EXIT
-      - name: Run package integration tests (DB-backed)
-        run: |
-          uv run pytest packages/api/tests/test_threads_repo.py packages/api/tests/test_threads_route.py -v
+      # `-m db` matches every file with `pytestmark = pytest.mark.db`
+      # (HUG-229) — supersedes the old hand-maintained file list. Two
+      # invocations because of the `tests.*` module-name collision (see
+      # unit-test job above).
+      - name: Run package integration tests (api, DB-backed)
+        run: uv run pytest packages/api/tests/ -m db -v
+      - name: Run package integration tests (nl-engine, DB-backed)
+        run: uv run pytest packages/nl-engine/tests/ -m db -v
 
   e2e-test:
     name: E2E Tests
