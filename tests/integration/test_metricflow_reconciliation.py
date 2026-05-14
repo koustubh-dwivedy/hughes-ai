@@ -61,30 +61,33 @@ def _mf_latest(metric: str) -> float:
     return float(val) if val not in (None, "") else 0.0
 
 
-def test_total_loans_reconciles_to_mart() -> None:
-    """MetricFlow's total_loans (latest month) ≈ fct_loans_monthly latest sum."""
+def test_total_loan_balance_reconciles_to_mart() -> None:
+    """MetricFlow's total_loan_balance (latest month) ≈ fct_loans_monthly latest sum.
+
+    Metric renamed in catalog overhaul 2026-05-10b (HUG-193) for
+    self-disambiguation; was `total_loans`."""
     with _db() as conn:
         mart_total = _scalar(
             conn,
             "SELECT COALESCE(SUM(total_balance), 0) FROM fct_loans_monthly"
             " WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_loans_monthly)",
         )
-    mf_total = _mf_latest("total_loans")
+    mf_total = _mf_latest("total_loan_balance")
     assert abs(mart_total - mf_total) < _TOLERANCE_DOLLARS, (
-        f"total_loans drift: mart={mart_total:,.2f} vs mf={mf_total:,.2f}"
+        f"total_loan_balance drift: mart={mart_total:,.2f} vs mf={mf_total:,.2f}"
     )
 
 
-def test_total_deposits_reconciles_to_mart() -> None:
+def test_total_deposit_balance_reconciles_to_mart() -> None:
     with _db() as conn:
         mart_total = _scalar(
             conn,
             "SELECT COALESCE(SUM(total_balance), 0) FROM fct_deposits_monthly"
             " WHERE as_of_month = (SELECT MAX(as_of_month) FROM fct_deposits_monthly)",
         )
-    mf_total = _mf_latest("total_deposits")
+    mf_total = _mf_latest("total_deposit_balance")
     assert abs(mart_total - mf_total) < _TOLERANCE_DOLLARS, (
-        f"total_deposits drift: mart={mart_total:,.2f} vs mf={mf_total:,.2f}"
+        f"total_deposit_balance drift: mart={mart_total:,.2f} vs mf={mf_total:,.2f}"
     )
 
 
@@ -149,7 +152,7 @@ def test_mf_list_returns_all_metrics() -> None:
     names = {m.name for m in metrics}
     # Spot-check a representative sample
     expected = {
-        "total_loans", "total_deposits", "delinquency_rate",
+        "total_loan_balance", "total_deposit_balance", "delinquency_rate",
         "loan_to_deposit_ratio", "cecl_allowance_balance",
         "ncua_total_loans", "approval_rate", "rate_spread",
     }
