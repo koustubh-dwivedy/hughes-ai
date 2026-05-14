@@ -227,6 +227,11 @@ jobs:
     env:
       DATABASE_URL: postgresql://cubidev:localdev@localhost:5432/cubi
       REDIS_URL: redis://localhost:6379
+      # E2E tests mock every API endpoint via Playwright `page.route(...)`.
+      # The MetricFlow catalog warmup (`mf list metrics` subprocess, ~4 min
+      # cold) is unnecessary here and was the cause of E2E timeouts. Local
+      # NL eval still warms by default.
+      API_WARM_CATALOG: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -255,7 +260,7 @@ jobs:
       - name: Start API server
         run: |
           uv run uvicorn api.main:app --host 127.0.0.1 --port 8000 &
-          timeout 60 bash -c 'until curl -sf http://127.0.0.1:8000/health; do sleep 2; done'
+          timeout 90 bash -c 'until curl -sf http://127.0.0.1:8000/health; do sleep 2; done'
       - name: Install Playwright browsers (Chromium full + Firefox/WebKit smoke)
         working-directory: packages/frontend
         run: pnpm exec playwright install chromium firefox webkit --with-deps
