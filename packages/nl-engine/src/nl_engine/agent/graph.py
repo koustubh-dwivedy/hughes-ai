@@ -31,7 +31,7 @@ from nl_engine.agent.llm_invoke import (
     is_transient_llm_error,
     stream_with_wall_timeout,
 )
-from nl_engine.agent.state import MAX_STEPS_PER_TURN, AgentState
+from nl_engine.agent.state import AgentState
 from nl_engine.agent.streaming_summary import make_summary_streamer
 from nl_engine.agent.tools import ALL_TOOLS, serialize_tool_result
 from nl_engine.logging import bind_request_id, get_logger
@@ -56,7 +56,7 @@ def _last_ai_message(messages: list[BaseMessage]) -> AIMessage | None:
 
 def _route(state: AgentState) -> str:
     """Decide whether to dispatch tools, terminate, or continue looping."""
-    if state.step_count >= MAX_STEPS_PER_TURN:
+    if state.step_count >= state.max_steps:
         return "step_cap"
     last_ai = _last_ai_message(state.messages)
     if last_ai is None or not last_ai.tool_calls:
@@ -238,12 +238,12 @@ def _step_cap_node(state: AgentState) -> dict[str, Any]:
     agent_step_cap_hits_total.inc()
     slog.warning(
         "agent.step_cap_hit",
-        cap=MAX_STEPS_PER_TURN,
+        cap=state.max_steps,
         thread_id=state.thread_id,
     )
     return {
         "messages": [
-            AIMessage(content=_STEP_CAP_MESSAGE.format(cap=MAX_STEPS_PER_TURN))
+            AIMessage(content=_STEP_CAP_MESSAGE.format(cap=state.max_steps))
         ]
     }
 

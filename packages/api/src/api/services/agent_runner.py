@@ -2,23 +2,28 @@
 
 The graph is sync; we run it in a thread so the event loop isn't
 blocked by LLM latency. Persists every canonical message as it streams.
+
+HUG-206 (F6) introduced `run_agent_isolated` — a lower-level primitive
+both chat turns and deep-research worker turns share. Today's
+`stream_user_turn` is now a thin shim over it; workers (S1) will be
+a sibling shim. The primitive doesn't know about thread_messages or
+the chat surface; persistence policy is injected via the
+`process_message` callback the caller supplies.
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
-import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 from uuid import UUID
 
 import structlog.contextvars
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import HumanMessage
 from nl_engine.agent.graph import build_graph
-from nl_engine.agent.state import AgentState
+from nl_engine.agent.state import MAX_STEPS_PER_TURN, AgentState
 from nl_engine.agent.streaming import clear_token_sink, set_token_sink
 from nl_engine.logging import bind_request_id, get_logger
 
@@ -28,84 +33,61 @@ from api.prometheus import (
     agent_turn_duration_seconds,
 )
 from api.repo import threads as threads_repo
-from api.services.agent_runner_events import (
-    emit_step,
-    emit_thinking,
-    terminal_payload,
-    trace_entry,
-)
+from api.services.agent_runner_chat import chat_process_message
 from api.services.agent_runner_loop import TurnState, consume_queue
-from api.services.agent_runner_persistence import (
-    persist_assistant,
-    persist_tool,
+from api.services.agent_runner_producer import (
+    is_error_sentinel,
+    make_producer,
 )
-from api.services.openui_validator import validate_openui_dsl
 from api.types.threads import ThreadMessage
-from api.types.threads_api import StreamError, StreamFinal, StreamToken
+from api.types.threads_api import StreamError, StreamToken
+
+ProcessMessageFn = Callable[
+    [Any, int, UUID, str, list[dict[str, Any]]],
+    list[dict[str, Any]],
+]
 
 slog = get_logger().bind(component="agent.runner")
-
-
-class _PRODUCER_ERROR_SENTINEL:  # noqa: N801 — internal sentinel
-    """Queue marker for graph.stream crashes; consumer emits an SSE
-    `event: error` frame so the stream stays well-formed."""
-
-    def __init__(self, message: str) -> None:
-        self.message = message
-
-
-log = logging.getLogger(__name__)
-
-
-
-
-def _make_producer(graph: Any, initial: AgentState, queue: asyncio.Queue[Any]) -> Any:
-    """Build the producer thread function. Crashes are converted into
-    a sentinel placed on the queue so the consumer can yield an SSE
-    error frame instead of silently breaking the stream (HUG-190 Phase C)."""
-
-    def producer() -> None:
-        try:
-            for chunk in graph.stream(initial, stream_mode="values"):
-                queue.put_nowait(chunk)
-        except Exception as exc:  # noqa: BLE001 — surfaced as SSE error frame
-            log.warning(
-                "agent_runner producer crashed (%s): %s",
-                type(exc).__name__,
-                str(exc)[:300],
-            )
-            queue.put_nowait(_PRODUCER_ERROR_SENTINEL(message=str(exc)[:300]))
-        finally:
-            queue.put_nowait(None)
-
-    return producer
-
 
 _TOKEN_SENTINEL_KEY = "_token_delta"  # noqa: S105 — queue sentinel
 
 
-def _start_turn(
+def _prepare_agent_run(
+    *,
     thread_id: UUID,
-    user_content: str,
-    db_url: str,
-    llm: BaseChatModel,
+    user_input: str,
     history: list[ThreadMessage],
+    llm: BaseChatModel,
+    max_steps: int,
     request_id: str,
+    initial_state_extras: dict[str, Any] | None,
 ) -> tuple[Any, asyncio.Queue[Any], int]:
+    """Caller-agnostic per-turn setup: bind request_id, build state,
+    spawn producer thread. Returns (request_id_token, queue,
+    initial_history_len).
+
+    Deliberately does NOT persist a user-message row — that's a
+    chat-surface concern; `stream_user_turn` handles it before
+    calling `run_agent_isolated`. Workers (S1) won't persist
+    anything to thread_messages.
+    """
     token = bind_request_id(request_id) if request_id else None
-    structlog.contextvars.bind_contextvars(
-        request_id=request_id, thread_id=str(thread_id)
-    )
+    structlog.contextvars.bind_contextvars(request_id=request_id)
     slog.info(
         "agent.turn_started",
         thread_id=str(thread_id),
         history_len=len(history),
-        user_content_len=len(user_content),
+        user_content_len=len(user_input),
+        max_steps=max_steps,
     )
-    threads_repo.append_message(
-        thread_id=thread_id, role="user", db_url=db_url, content=user_content
+    initial = _build_initial_state(
+        thread_id=thread_id,
+        user_input=user_input,
+        history=history,
+        max_steps=max_steps,
+        request_id=request_id,
+        extras=initial_state_extras,
     )
-    initial = _build_initial_state(thread_id, user_content, history, request_id)
     initial_history_len = len(initial.messages)
     queue: asyncio.Queue[Any] = asyncio.Queue()
     # HUG-202 Phase 2: token deltas → asyncio queue → SSE `token` frames.
@@ -119,7 +101,7 @@ def _start_turn(
 
         set_token_sink(request_id, _sink)
     asyncio.create_task(
-        asyncio.to_thread(_make_producer(build_graph(llm), initial, queue))
+        asyncio.to_thread(make_producer(build_graph(llm), initial, queue))
     )
     return token, queue, initial_history_len
 
@@ -140,21 +122,47 @@ def _token_frame(delta: str) -> dict[str, Any]:
     }
 
 
-async def stream_user_turn(
+async def run_agent_isolated(
+    *,
     thread_id: UUID,
-    user_content: str,
+    user_input: str,
+    history: list[ThreadMessage],
     db_url: str,
     llm: BaseChatModel,
-    history: list[ThreadMessage],
+    process_message: ProcessMessageFn,
+    max_steps: int = MAX_STEPS_PER_TURN,
     request_id: str = "",
+    initial_state_extras: dict[str, Any] | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
-    """Persist the user message, run the agent, yield SSE events.
+    """Lower-level agent invoker shared by chat and worker turns.
 
-    `request_id` is bound into structlog contextvars + AgentState so
-    every log line + downstream node carries it.
+    Caller-supplied policies:
+      - `process_message`: how each AIMessage / ToolMessage is
+        reacted to. The chat path persists to `thread_messages`;
+        worker paths (S1) persist to `research_findings`. Both
+        receive `(msg, step_idx, thread_id, db_url, trace)` —
+        contract preserved from the previous `consume_queue`
+        signature so the loop module didn't need to change.
+      - `max_steps`: per-turn cap. Defaults to today's chat cap.
+        Workers will pass a tighter value.
+      - `initial_state_extras`: free-form dict merged into the
+        AgentState `slots` field — handy for workers that want to
+        carry a `step_id` through the graph without changing the
+        AgentState schema.
+
+    This function does NOT persist a user-message row; if your
+    caller wants one, persist it yourself before calling. Same for
+    binding additional structlog context (e.g. `thread_id`,
+    `subagent_id`) — caller's responsibility.
     """
-    token, queue, initial_history_len = _start_turn(
-        thread_id, user_content, db_url, llm, history, request_id
+    token, queue, initial_history_len = _prepare_agent_run(
+        thread_id=thread_id,
+        user_input=user_input,
+        history=history,
+        llm=llm,
+        max_steps=max_steps,
+        request_id=request_id,
+        initial_state_extras=initial_state_extras,
     )
     turn_start = time.monotonic()
     state = TurnState(initial_history_len=initial_history_len)
@@ -164,11 +172,11 @@ async def stream_user_turn(
             state,
             thread_id,
             db_url,
-            is_error_sentinel=lambda c: isinstance(c, _PRODUCER_ERROR_SENTINEL),
+            is_error_sentinel=is_error_sentinel,
             error_frame=_emit_error_frame,
             token_sentinel_key=_TOKEN_SENTINEL_KEY,
             token_frame=_token_frame,
-            process_message=_process_message,
+            process_message=process_message,
         ):
             yield event
     finally:
@@ -180,6 +188,39 @@ async def stream_user_turn(
             total_chars=state.token_chars,
         )
         _finalize_turn(thread_id, turn_start, state.step_idx, token)
+
+
+async def stream_user_turn(
+    thread_id: UUID,
+    user_content: str,
+    db_url: str,
+    llm: BaseChatModel,
+    history: list[ThreadMessage],
+    request_id: str = "",
+) -> AsyncIterator[dict[str, Any]]:
+    """Persist the user message, run the agent, yield chat-shaped
+    SSE events. Thin shim over `run_agent_isolated` with chat-path
+    defaults: chat persistence callback, full 10-step cap,
+    `latest_n_messages`-style history fed in by the caller.
+    """
+    threads_repo.append_message(
+        thread_id=thread_id, role="user", db_url=db_url, content=user_content
+    )
+    structlog.contextvars.bind_contextvars(thread_id=str(thread_id))
+    try:
+        async for event in run_agent_isolated(
+            thread_id=thread_id,
+            user_input=user_content,
+            history=history,
+            db_url=db_url,
+            llm=llm,
+            process_message=chat_process_message,
+            max_steps=MAX_STEPS_PER_TURN,
+            request_id=request_id,
+        ):
+            yield event
+    finally:
+        structlog.contextvars.unbind_contextvars("thread_id")
 
 
 def _finalize_turn(
@@ -201,72 +242,19 @@ def _finalize_turn(
         _request_id.reset(token)
 
 
-def _process_message(
-    msg: Any,
-    step_idx: int,
-    thread_id: UUID,
-    db_url: str,
-    trace: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Per-message side effects: persist + emit thinking/step/final.
-
-    `trace` accumulates the chronological agent narration for the turn
-    and is persisted onto the final-answer ToolMessage so the
-    References modal can show the full audit trail post-completion.
-    """
-    out: list[dict[str, Any]] = []
-    thinking = emit_thinking(msg, step_idx)
-    if thinking is not None:
-        slog.info("agent.narration_emitted", step=step_idx, msg_kind=type(msg).__name__)
-        out.append(thinking)
-        trace.append(trace_entry(msg, step_idx, _line_from(thinking)))
-    step_event = emit_step(msg, step_idx)
-    if step_event is not None:
-        out.append(step_event)
-    if isinstance(msg, AIMessage):
-        persist_assistant(thread_id, msg, db_url)
-    elif isinstance(msg, ToolMessage):
-        terminal = terminal_payload(msg)
-        # Persist the trace ALONGSIDE the final-answer payload so future
-        # GET /threads/:id reads return the full audit trail.
-        persisted = persist_tool(
-            thread_id,
-            msg,
-            db_url,
-            terminal=terminal,
-            thinking_trace=trace if terminal is not None else None,
-        )
-        if terminal is not None:
-            dsl = terminal.get("openui_dsl")
-            openui = validate_openui_dsl(dsl) if isinstance(dsl, str) and dsl else None
-            slog.info("agent.trace_persisted", entries=len(trace))
-            out.append(
-                {
-                    "event": "final",
-                    "data": StreamFinal(
-                        message=persisted, openui=openui
-                    ).model_dump_json(),
-                }
-            )
-    return out
-
-
-def _line_from(thinking_event: dict[str, Any]) -> str:
-    """Extract the line from a serialized SSE thinking event."""
-    try:
-        return str(json.loads(thinking_event.get("data", "{}")).get("line", ""))
-    except (ValueError, AttributeError):
-        return ""
-
-
 def _build_initial_state(
+    *,
     thread_id: UUID,
-    user_content: str,
+    user_input: str,
     history: list[ThreadMessage],
+    max_steps: int,
     request_id: str = "",
+    extras: dict[str, Any] | None = None,
 ) -> AgentState:
-    """Assemble the message list passed to the graph: prior messages
-    (recovered from thread_messages) + the new user message."""
+    """Assemble the AgentState the graph receives. Prior history is
+    rehydrated via `from_canonical`; the new user input is appended
+    as a HumanMessage. `extras` (e.g. `step_id` for worker turns)
+    lands in `slots`."""
     from nl_engine.agent.persistence import from_canonical
 
     prior = [
@@ -281,11 +269,13 @@ def _build_initial_state(
         for m in history
         if m.role in {"user", "assistant", "tool", "system"}
     ]
-    prior.append(HumanMessage(content=user_content))
+    prior.append(HumanMessage(content=user_input))
     return AgentState(
         messages=prior,
         thread_id=str(thread_id),
+        max_steps=max_steps,
         request_id=request_id,
+        slots=extras or {},
     )
 
 

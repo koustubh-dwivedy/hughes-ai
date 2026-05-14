@@ -49,7 +49,13 @@ def test_request_id_threads_into_agent_state_request_id_field() -> None:
     from api.services.agent_runner import _build_initial_state
 
     rid = "req-123"
-    state = _build_initial_state(uuid4(), "hello", history=[], request_id=rid)
+    state = _build_initial_state(
+        thread_id=uuid4(),
+        user_input="hello",
+        history=[],
+        max_steps=10,
+        request_id=rid,
+    )
     assert isinstance(state, AgentState)
     assert state.request_id == rid
 
@@ -99,5 +105,11 @@ def test_retry_reason_buckets_correctly() -> None:
 def test_build_initial_state_handles_missing_request_id(rid: str) -> None:
     from api.services.agent_runner import _build_initial_state
 
-    s = _build_initial_state(uuid4(), "q", history=[], request_id=rid)
+    s = _build_initial_state(
+        thread_id=uuid4(),
+        user_input="q",
+        history=[],
+        max_steps=10,
+        request_id=rid,
+    )
     assert s.request_id == rid

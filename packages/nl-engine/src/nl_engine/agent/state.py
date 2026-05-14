@@ -18,6 +18,12 @@ from pydantic import BaseModel, Field
 # Hard cap on LLM calls per user turn — enforces liveness so a tool-call
 # loop can never burn through the Cerebras rate-limit budget. Surfaces a
 # graceful apology when reached (see graph.py:_step_cap_node).
+#
+# HUG-206 (F6) made this a per-turn parameter on AgentState. The module
+# constant remains as the default so every existing call site (the chat
+# `stream_user_turn`, the eval harness) keeps the original cap; the new
+# `run_agent_isolated` primitive lets the worker path opt into a tighter
+# cap (5) without disturbing the chat agent.
 MAX_STEPS_PER_TURN = 10
 
 
@@ -33,6 +39,9 @@ class AgentState(BaseModel):
     messages: Annotated[list[BaseMessage], add_messages] = Field(default_factory=list)
     thread_id: str
     step_count: int = 0
+    # Per-turn cap (HUG-206). Defaults to MAX_STEPS_PER_TURN so existing
+    # callers see no change. Workers (S1) pass a lower value.
+    max_steps: int = MAX_STEPS_PER_TURN
     slots: dict[str, Any] = Field(default_factory=dict)
     # Per-turn correlation id (HUG-200). Threaded into every node + tool's
     # structlog contextvars so a `grep request_id=…` reconstructs the
