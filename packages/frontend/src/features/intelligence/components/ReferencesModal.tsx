@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import JsonBlock from "../../../ui/primitives/JsonBlock/JsonBlock";
 import type { ThreadTraceEntry } from "../api";
+import ResearchAuditPanel from "../research/ResearchAuditPanel";
 
 interface Props {
 	open: boolean;
@@ -20,6 +21,11 @@ interface Props {
 	rows: Record<string, unknown>[] | null;
 	mfQuery: Record<string, unknown> | null;
 	thinkingTrace: ThreadTraceEntry[] | null;
+	/** Optional: if the answered message came from a deep-research
+	 * turn, both fields are set and the modal renders the audit
+	 * panel below the chat references (HUG-224). */
+	researchPlanId?: string;
+	researchThreadId?: string;
 }
 
 const overlayStyle: React.CSSProperties = {
@@ -223,6 +229,8 @@ export default function ReferencesModal({
 	rows,
 	mfQuery,
 	thinkingTrace,
+	researchPlanId,
+	researchThreadId,
 }: Props) {
 	useEffect(() => {
 		if (!open) return;
@@ -282,6 +290,12 @@ export default function ReferencesModal({
 						<div style={sectionLabelStyle}>MetricFlow query</div>
 						<JsonBlock value={mfQuery} label="MetricFlow query" />
 					</section>
+				) : null}
+				{researchPlanId && researchThreadId ? (
+					<ResearchAuditPanel
+						threadId={researchThreadId}
+						planId={researchPlanId}
+					/>
 				) : null}
 			</dialog>
 		</div>
