@@ -293,3 +293,43 @@ This is harness engineering working as designed: drift was caught, eyeballed, de
 ### Phase C-6 checkpoint
 
 6 of 8 Deep Research backend issues done. Next: HUG-216 (E4 final synthesis via existing ReAct agent).
+
+### HUG-216 — E4 Final synthesis (Phase C-7) ✓
+
+**Commit:** `3d89d39` · **CI run:** 25903298372 (green first try).
+
+**What landed.** `services/research_agent/synthesizer.py:synthesize_final_answer` composes the existing ReAct agent (via `run_agent_isolated` + `chat_process_message`) with a synthesis-shaped input (digest of each finding's summary + first 5 rows + mf_query). After the agent terminates, plan status flips to `complete` and `research.turn.completed` SSE event fires. 3 tests pin the contract.
+
+**Decision worth flagging.** Synthesis is NOT yet wired into the approve route. The spec implies sequence is approve → execute → synthesize, but doesn't dictate where the chaining lives. Exposed the functions for future composition — likely a `/threads/{tid}/plans/{pid}/execute` endpoint that streams the whole chain. That wiring fits cleanest alongside HUG-211's PlanPreview UI (Phase D).
+
+### HUG-218 — S2 Parallel coordinator (Phase C-8, FINAL) ✓
+
+**Commit:** `3e322ea` · **CI run:** 25905612088 (green first try).
+
+**What landed.** `executor_parallel.execute_plan_parallel` swaps the sequential loop for a dependency-aware parallel dispatcher. Reads deps from `plan_json` (per HUG-213's single-source-of-truth decision); groups ready steps into batches; runs each via `asyncio.gather` with `Semaphore(max_parallel=3)`. Sequential variant stays for fallback (max_parallel=1 produces equivalent serial behaviour).
+
+**Decision worth flagging — failed deps don't block siblings.** A step whose dependency failed STILL RUNS in this implementation. Matches the explicit "siblings on failure" decision from E2 (HUG-214). Rationale: the worker is independent and the synthesizer (HUG-216) decides whether the partial result is usable. Alternative (skip downstream on dep failure) would force the lead to encode "is this step now useless" logic into the dependency graph, which the planner doesn't currently model.
+
+**Note.** Deadlock detection: if no step is ready (every remaining step has an unmet dep that's also pending — circular or unreachable), log `parallel.deadlock` + break the loop. Shouldn't happen for planner-generated graphs but safe-default.
+
+## Phase C summary — Deep Research backend complete
+
+8 of 8 issues done. Backend stack now:
+- HUG-209: plan persistence + SSE `research.plan.drafted`
+- HUG-212: approve/abort endpoints
+- HUG-213: step expansion on approve
+- HUG-217: worker wrapper (reuses existing ReAct agent)
+- HUG-214: sequential executor
+- HUG-215: finding persistence invariants
+- HUG-216: final synthesis (composes existing ReAct agent for the answer)
+- HUG-218: parallel coordinator (default 3-wide, with deadlock guard)
+
+Total Phase C commits: 9 (8 issues + 1 coverage-baseline follow-up). All composable: approve → expand → execute (parallel or sequential) → synthesize → final-answer in thread_messages. Each component exposed as a function; final wire-up into a `/execute` endpoint is the Phase D opener.
+
+### Phase C-7 checkpoint
+
+7 of 8 Deep Research backend issues done. Next: HUG-218 (S2 parallel coordinator, final Phase C).
+
+### Phase C-8 checkpoint
+
+8 of 8 Deep Research backend issues done. Phase C complete. Next: Phase D — memory + frontend research surface, starting with HUG-220 (M1 lead notes).
