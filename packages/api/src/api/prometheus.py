@@ -141,6 +141,16 @@ research_plan_size_steps = Histogram(
     buckets=(1, 2, 3, 5, 8, 13, 21, 34),
 )
 
+# HUG-218 (S2): observed batch size when the parallel coordinator
+# dispatches a wave of ready (dependency-clear) steps via
+# asyncio.gather. Capped by max_parallel=3 default.
+research_parallel_batch_size = Histogram(
+    "hughes_research_parallel_batch_size",
+    "Number of steps dispatched concurrently in one parallel batch.",
+    registry=REGISTRY,
+    buckets=(1, 2, 3, 4, 5, 8, 13),
+)
+
 research_subagent_tokens = Histogram(
     "hughes_research_subagent_tokens",
     "Token count consumed per worker invocation (lead+subagent cost tracking).",
