@@ -28,6 +28,7 @@ import EmptyState from "./components/EmptyState";
 import MessageList from "./components/MessageList";
 import ThinkingBubble from "./components/ThinkingBubble";
 import ThreadRail from "./components/ThreadRail";
+import ResearchWorkspace from "./research/ResearchWorkspace";
 import {
 	pendingQuestionCleared,
 	pendingQuestionSubmitted,
@@ -229,6 +230,7 @@ export default function IntelligencePage() {
 								messages={messages}
 								pendingUserContent={pendingUserContent}
 							/>
+							{threadId ? <ResearchWorkspace threadId={threadId} /> : null}
 							<div style={{ padding: spacing[3] }}>
 								<ThinkingBubble />
 							</div>
