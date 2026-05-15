@@ -16,6 +16,10 @@ import { baseApi } from "../../shared/api/client";
 import { SESSION_HEADER, getSessionId } from "../../shared/telemetry/session";
 import { USER_HEADER, getUserId } from "../../shared/telemetry/user";
 import {
+	RESEARCH_PLAN_EVENTS,
+	dispatchResearchPlanInvalidation,
+} from "./researchSseDispatch";
+import {
 	type ThreadStreamFinal,
 	type ThreadStreamStep,
 	streamError,
@@ -282,40 +286,6 @@ function dispatchSseEvent(
 	} else if (RESEARCH_PLAN_EVENTS.has(ev.event)) {
 		dispatchResearchPlanInvalidation(dispatch, parsed);
 	}
-}
-
-const RESEARCH_PLAN_EVENTS = new Set([
-	"research.plan.drafted",
-	"research.plan.approved",
-	"research.plan.aborted",
-	"research.plan.revised",
-]);
-
-function dispatchResearchPlanInvalidation(
-	dispatch: (a: { type: string; payload?: unknown }) => unknown,
-	parsed: unknown,
-): void {
-	// HUG-222 (M3): SSE-driven cache invalidation. Payload carries
-	// thread_id (always) and plan_id (when relevant); invalidate by
-	// the IDs that are present.
-	const payload = parsed as { thread_id?: string; plan_id?: string };
-	const tags: Array<{
-		type: "ResearchPlan" | "ResearchSteps";
-		id: string;
-	}> = [];
-	if (payload.thread_id) {
-		tags.push({ type: "ResearchPlan", id: payload.thread_id });
-	}
-	if (payload.plan_id) {
-		tags.push({ type: "ResearchSteps", id: payload.plan_id });
-	}
-	if (tags.length === 0) return;
-	dispatch(
-		baseApi.util.invalidateTags(tags) as unknown as {
-			type: string;
-			payload?: unknown;
-		},
-	);
 }
 
 export const {
