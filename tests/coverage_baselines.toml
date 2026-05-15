@@ -18,11 +18,14 @@
 #   research routes are DB-tested; their no-DB coverage is naturally
 #   low). Floor moves with baseline so the 2pp tolerance still
 #   absorbs noise.
+# - 2026-05-15 HUG-221: api 67→63 (synthesizer + lead_memory +
+#   replanner add more DB-only modules; same dynamic). Future
+#   enhancement: merge integration-test coverage data into the gate.
 
 [thresholds]
 tolerance_pp = 2
 
 [baselines]
-api = 67
+api = 63
 nl-engine = 78
 frontend = 84
