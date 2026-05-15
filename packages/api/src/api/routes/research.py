@@ -1,0 +1,130 @@
+"""Plan approve / abort endpoints (HUG-212, L5).
+
+Two routes, both under `/threads/{thread_id}/plans/{plan_id}/...`:
+  POST .../approve  — plan.status: draft → approved
+  POST .../abort    — plan.status: draft → aborted
+
+Ownership: the plan's thread must belong to the requesting user
+(same `_user_id` helper as routes/threads.py). Wrong user → 403.
+
+Both endpoints are idempotent: re-approving an already-approved plan
+returns 200 with the unchanged status.
+
+The state transition emits a structlog event + bumps a
+`hughes_research_plan_decisions_total` counter, then yields the
+typed `Plan` row back to the caller. The frontend's mutation hook
+(HUG-210, L3) invalidates the `ResearchPlan` tag on success.
+
+Execution (HUG-213, E1 onwards) hooks off the `research.plan.approved`
+SSE event downstream — those land in later issues; for now we just
+flip the status + announce it.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
+from uuid import UUID
+
+from fastapi import APIRouter, Header, HTTPException, Request
+
+from api.prometheus import research_plan_decisions_total
+from api.repo import research as research_repo
+from api.repo import threads as threads_repo
+from api.routes.threads import _user_id
+from api.services.research_agent.events import (
+    plan_aborted_event,
+    plan_approved_event,
+)
+from api.services.research_agent.telemetry import (
+    EVENT_PLAN_ABORTED,
+    EVENT_PLAN_APPROVED,
+    log_event,
+)
+from api.types.research import Plan, PlanStatus
+
+router = APIRouter()
+
+
+def _authorize_and_get_plan(
+    thread_id: UUID, plan_id: UUID, request: Request,
+    x_hughes_user: str | None, x_hughes_session: str | None,
+) -> Plan:
+    """Shared check: requesting user owns the thread that owns the plan.
+
+    Raises HTTPException(404) when the thread or plan is missing,
+    (403) when the requesting user doesn't own the thread, (400) when
+    the plan_id and thread_id don't match. Returns the Plan dataclass
+    on success."""
+    db_url = request.app.state.db_url
+    thread = threads_repo.get_thread(thread_id, db_url)
+    if thread is None:
+        raise HTTPException(status_code=404, detail="thread not found")
+    uid = _user_id(x_hughes_user, x_hughes_session)
+    if thread.user_id != uid:
+        raise HTTPException(status_code=403, detail="not your thread")
+    plan = research_repo.get_plan(plan_id, db_url)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="plan not found")
+    if plan.thread_id != thread_id:
+        raise HTTPException(status_code=400, detail="plan does not belong to thread")
+    return plan
+
+
+def _decide(
+    *, plan: Plan, new_status: PlanStatus,
+    request: Request,
+    event_builder: Callable[[Plan], dict[str, Any]],
+    event_name: str,
+) -> dict[str, Any]:
+    """Transition the plan to `new_status` if it isn't already there;
+    emit the corresponding event + telemetry. Idempotent."""
+    db_url = request.app.state.db_url
+    if plan.status != new_status:
+        research_repo.update_plan_status(plan.plan_id, new_status, db_url)
+        log_event(
+            event_name, plan_id=str(plan.plan_id),
+            thread_id=str(plan.thread_id),
+            version=plan.version, status=new_status,
+        )
+        research_plan_decisions_total.labels(decision=new_status).inc()
+        # Re-read so the SSE payload reflects the new status.
+        refreshed = research_repo.get_plan(plan.plan_id, db_url)
+        if refreshed is None:  # pragma: no cover — just updated, must exist
+            raise HTTPException(status_code=500, detail="plan vanished")
+        plan = refreshed
+    return event_builder(plan)
+
+
+@router.post("/threads/{thread_id}/plans/{plan_id}/approve")
+def approve_plan(
+    thread_id: UUID,
+    plan_id: UUID,
+    request: Request,
+    x_hughes_session: str | None = Header(default=None),
+    x_hughes_user: str | None = Header(default=None),
+) -> dict[str, Any]:
+    plan = _authorize_and_get_plan(
+        thread_id, plan_id, request, x_hughes_user, x_hughes_session
+    )
+    return _decide(
+        plan=plan, new_status="approved", request=request,
+        event_builder=plan_approved_event, event_name=EVENT_PLAN_APPROVED,
+    )
+
+
+@router.post("/threads/{thread_id}/plans/{plan_id}/abort")
+def abort_plan(
+    thread_id: UUID,
+    plan_id: UUID,
+    request: Request,
+    x_hughes_session: str | None = Header(default=None),
+    x_hughes_user: str | None = Header(default=None),
+) -> dict[str, Any]:
+    plan = _authorize_and_get_plan(
+        thread_id, plan_id, request, x_hughes_user, x_hughes_session
+    )
+    return _decide(
+        plan=plan, new_status="aborted", request=request,
+        event_builder=plan_aborted_event, event_name=EVENT_PLAN_ABORTED,
+    )

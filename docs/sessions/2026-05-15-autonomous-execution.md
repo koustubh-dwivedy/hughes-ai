@@ -186,3 +186,22 @@ When HUG-209 adds a field to PlanDraft, CI fails with: "Run `make types` and com
 - Coverage drift invisible → per-package baselines with 2pp tolerance.
 
 Total commits in Phase B: 10 (some issues required 1-2 follow-up commits). Net effect: every Deep Research issue in Phase C now lands against a CI pipeline that catches the drift classes the user worried about.
+
+### HUG-209 — L2 Plan persistence + research.plan.drafted SSE (Phase C-1) ✓
+
+**Commit:** `925c48b` · **CI run:** 25892199577 (green after 1 retry — same dashboard-error-matrix flake).
+
+**What landed.** Coordinator deep branch persists draft via the HUG-203 `create_plan` primitive and yields the HUG-207 `plan_drafted_event` SSE event. Three pillars covered:
+- Persistence: `research_plans` row with `status='draft'`, `version=1`, full `plan_json` round-trip.
+- Wire: exactly one SSE event of type `research.plan.drafted` with parseable payload (plan_id, thread_id, version, status).
+- Negative: shallow turns write zero `research_plans` rows.
+
+**Decision worth flagging — store the entire `PlanDraft` as `plan_json`.** I called `draft.model_dump(mode="json")` to persist the full draft (route + reason + plan + research_question_summary). Alternative: only persist `plan` (the list of steps), keep reason/route in separate columns. I chose the broader serialization because the schema's `plan_json JSONB` is intentionally schemaless, and frontends will want all four fields for plan-preview rendering. The downside is slightly larger row size; the upside is one source of truth.
+
+**Deviation.** Spec said "L1 stubs persistence with a slog line until L2 lands." Today's L2 is what landed; the L1 stub was already gone by HUG-208's commit. Net effect identical.
+
+**Note.** Used `model_dump(mode="json")` not `model_dump()` so the JSONB column gets clean strings for enums vs raw Literal values. Tests round-trip the JSONB → dict and assert `plan_json["route"] == "deep"` to pin this serialization mode.
+
+### Phase C-1 checkpoint
+
+1 of 8 Deep Research backend issues done. Next: HUG-212 (L5 approve/abort endpoints).

@@ -18,6 +18,7 @@ from api.routes import (
     history,
     log,
     metrics_route,
+    research,
     threads,
     trust,
 )
@@ -57,5 +58,6 @@ app.include_router(health.router)
 app.include_router(history.router)
 app.include_router(log.router)
 app.include_router(metrics_route.router)
+app.include_router(research.router)
 app.include_router(threads.router)
 app.include_router(trust.router)

@@ -133,6 +133,24 @@ def list_plan_versions(thread_id: UUID, db_url: str) -> list[Plan]:
     return [_row_to_plan(r) for r in rows]
 
 
+def get_plan(plan_id: UUID, db_url: str) -> Plan | None:
+    """Fetch a single plan by its primary key. Used by the L5
+    approve/abort endpoints (HUG-212) for the ownership check + the
+    event-payload re-read after status transition."""
+    with (
+        _timed("get_plan"),
+        psycopg.connect(db_url) as conn,
+        conn.cursor() as cur,
+    ):
+        cur.execute(
+            f"SELECT {_PLAN_COLS} FROM research_plans"  # noqa: S608  # nosec B608  # nosemgrep: no-fstring-sql — literal column list
+            " WHERE plan_id = %s",
+            (str(plan_id),),
+        )
+        row = cur.fetchone()
+    return _row_to_plan(row) if row is not None else None
+
+
 def update_plan_status(plan_id: UUID, status: PlanStatus, db_url: str) -> bool:
     """Set a plan's status. Returns True iff a row was updated."""
     with (
