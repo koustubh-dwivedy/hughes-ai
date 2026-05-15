@@ -1,12 +1,6 @@
-/**
- * Centered modal that lifts auditing material (source rows + the
- * MetricFlow query) out of the main answer bubble.
- *
- * Triggered by a "References" pill in the answer; backdrop blurs the
- * conversation behind it. Closes on overlay click, ESC, or the close
- * button. Renders portaled to <body> so it's not constrained by the
- * conversation panel's overflow:auto.
- */
+/** Modal lifting auditing material (rows + mfQuery + thinking trace,
+ * plus the HUG-224 research audit panel when applicable) out of the
+ * answer bubble. Closes on overlay click, ESC, or close button. */
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -21,9 +15,7 @@ interface Props {
 	rows: Record<string, unknown>[] | null;
 	mfQuery: Record<string, unknown> | null;
 	thinkingTrace: ThreadTraceEntry[] | null;
-	/** Optional: if the answered message came from a deep-research
-	 * turn, both fields are set and the modal renders the audit
-	 * panel below the chat references (HUG-224). */
+	// HUG-224: both set → render audit panel below chat refs.
 	researchPlanId?: string;
 	researchThreadId?: string;
 }
