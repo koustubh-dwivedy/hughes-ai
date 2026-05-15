@@ -13,6 +13,10 @@ describe("TAG_TYPES", () => {
 			"Ask",
 			"Thread",
 			"ThreadList",
+			"ResearchPlan",
+			"ResearchSteps",
+			"ResearchFindings",
+			"ResearchLeadNotes",
 		]);
 	});
 
