@@ -179,6 +179,24 @@ def append_finding(
     return _row_to_finding(row)
 
 
+def get_findings_for_step(step_id: UUID, db_url: str) -> list[Finding]:
+    """All findings under one step, ordered by created_at. Used by
+    the worker wrapper (HUG-217) to look up the just-persisted finding
+    after `final_answer` fires."""
+    with (
+        _timed("get_findings_for_step"),
+        psycopg.connect(db_url) as conn,
+        conn.cursor() as cur,
+    ):
+        cur.execute(
+            f"SELECT {_FINDING_COLS} FROM research_findings"  # noqa: S608  # nosec B608  # nosemgrep: no-fstring-sql — literal column list
+            " WHERE step_id = %s ORDER BY created_at ASC",
+            (str(step_id),),
+        )
+        rows = cur.fetchall()
+    return [_row_to_finding(r) for r in rows]
+
+
 def get_findings_for_plan(plan_id: UUID, db_url: str) -> list[Finding]:
     """Findings across every step of a plan, ordered by step ordinal
     then finding created_at."""

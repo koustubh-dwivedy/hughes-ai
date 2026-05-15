@@ -225,3 +225,22 @@ Total commits in Phase B: 10 (some issues required 1-2 follow-up commits). Net e
 ### Phase C-2 checkpoint
 
 2 of 8 Deep Research backend issues done. Next: HUG-213 (E1 step lifecycle — expand approved plan into research_steps rows).
+
+### HUG-213 — E1 step lifecycle (Phase C-3) ✓
+
+**Commit:** `cd42fe9` · **CI run:** 25900353376 (green after 1 retry — same E2E flake).
+
+**What landed.** `services/research_agent/executor.py:expand_plan_into_steps(plan, db_url)` reads `plan.plan_json["plan"]` and creates one `research_steps` row per entry. Approve route (HUG-212) now calls it before the status flip; status-guard prevents duplicate rows on re-approve. 4 tests cover happy path, counter increments, empty-plan defensive, and end-to-end via TestClient.
+
+**Decision worth flagging — dependencies in plan_json only, not on step rows.** The HUG-213 spec said "Steps' dependencies field is preserved as JSONB on the step row for now". But migration 016's `research_steps` table has no `dependencies` column. Three options:
+1. Add migration 017 with `dependencies INTEGER[]` column.
+2. Store deps in plan_json only (current single source of truth).
+3. Cram deps into `assigned_subagent` or another existing column (rejected — semantic abuse).
+
+Chose option 2. The plan_json already holds the full plan structure including deps (per HUG-209's `draft.model_dump(mode="json")` persistence). HUG-218's parallel coordinator reads deps from `plan.plan_json["plan"][i]["dependencies"]`. Adding a column is reversible-via-migration if a query need surfaces; the inverse (removing a column) is not.
+
+**Deviation from spec.** Explicit. The simpler schema is better; revisit if S2 actually needs a JOIN-able dependency edge.
+
+### Phase C-3 checkpoint
+
+3 of 8 Deep Research backend issues done. Next: HUG-217 (S1 worker wrapper).
