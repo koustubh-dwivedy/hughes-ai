@@ -264,3 +264,17 @@ This is harness engineering working as designed: drift was caught, eyeballed, de
 ### Phase C-4 checkpoint
 
 4 of 8 Deep Research backend issues done. Next: HUG-214 (E2 sequential executor — coordinator dispatches workers per step).
+
+### HUG-214 — E2 sequential step execution (Phase C-5) ✓
+
+**Commit:** `15443fb` · **CI run:** 25901845626 — green first try.
+
+**What landed.** `executor.execute_plan_sequentially` reads pending steps, dispatches one worker per step in ordinal order. Each step transitions `pending → running → complete | failed`. Failures don't abort siblings. Yields SSE events `research.step.started` + terminal per step.
+
+**Decision worth flagging — test sentinel naming.** Initial test used 'FAIL' as the magic word for the failing-step scenario. The agent system prompt contains 'FAILING' (`system_prompt.py:119`) so substring matching produced false positives — step 3 also matched and was wrongly marked failed. Switched to 'BREAK-ME-XYZ' AND filtered the spy LLM's match to HumanMessage content only. Documented inline.
+
+**Note.** Function exposed + tested but NOT wired into the approve route yet. The route integration comes in HUG-216 (E4 final synthesis) when the full deep-turn flow (approve → expand → execute → synthesize) gets composed.
+
+### Phase C-5 checkpoint
+
+5 of 8 Deep Research backend issues done. Next: HUG-215 (E3 finding persistence).

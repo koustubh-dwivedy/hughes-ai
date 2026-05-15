@@ -207,6 +207,10 @@ def test_three_step_plan_executes_in_ordinal_order(thread_id: UUID) -> None:
     assert all(s.status == "complete" for s in persisted)
 
 
+# HUG-215 (E3) finding-persistence invariants moved to
+# test_research_findings.py to keep this file under the 300-line cap.
+
+
 def test_step_failure_does_not_abort_loop(thread_id: UUID) -> None:
     """One worker raises → that step marked failed, siblings still run."""
     db_url = _db_url()
