@@ -12,6 +12,7 @@
  */
 
 import PlanPreview from "./PlanPreview";
+import StepList from "./StepList";
 import { useGetResearchPlanQuery } from "./api";
 
 interface Props {
@@ -24,20 +25,6 @@ export default function ResearchWorkspace({ threadId }: Props) {
 	const plan = data?.plan;
 	if (!plan) return null;
 	if (plan.status === "draft") return <PlanPreview plan={plan} />;
-	// Placeholder for HUG-219 (S4 — frontend parallel step display).
-	// Today we render a minimal status pill so the user sees execution
-	// is in progress; HUG-219 replaces with the full step list UI.
-	return (
-		<aside
-			aria-label="Research execution status"
-			style={{
-				padding: "8px 12px",
-				borderTop: "1px solid #e2e8f0",
-				fontSize: 13,
-				color: "#475569",
-			}}
-		>
-			Research plan v{plan.version} — status: {plan.status}.
-		</aside>
-	);
+	// HUG-219 (S4): full step list once the plan is approved.
+	return <StepList threadId={plan.thread_id} planId={plan.plan_id} />;
 }
