@@ -36,6 +36,7 @@ from api.services.research_agent.events import (
     plan_aborted_event,
     plan_approved_event,
 )
+from api.services.research_agent.executor import expand_plan_into_steps
 from api.services.research_agent.telemetry import (
     EVENT_PLAN_ABORTED,
     EVENT_PLAN_APPROVED,
@@ -107,6 +108,11 @@ def approve_plan(
     plan = _authorize_and_get_plan(
         thread_id, plan_id, request, x_hughes_user, x_hughes_session
     )
+    # HUG-213 (E1): expand plan_json.steps into research_steps on the
+    # FIRST approve. Guarded by the status check so a re-approve is
+    # still idempotent — no duplicate step rows.
+    if plan.status != "approved":
+        expand_plan_into_steps(plan, request.app.state.db_url)
     return _decide(
         plan=plan, new_status="approved", request=request,
         event_builder=plan_approved_event, event_name=EVENT_PLAN_APPROVED,

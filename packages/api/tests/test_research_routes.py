@@ -69,7 +69,12 @@ def _seed_thread_with_plan(user_id: str) -> tuple[UUID, UUID]:
     thread = threads_repo.create_thread(sid, db_url, user_id=user_id)
     plan = research_repo.create_plan(
         thread_id=thread.thread_id,
-        plan_json={"route": "deep", "plan": [{"ordinal": 1}]},
+        plan_json={
+            "route": "deep",
+            "plan": [
+                {"ordinal": 1, "description": "x", "dependencies": []},
+            ],
+        },
         db_url=db_url,
     )
     return thread.thread_id, plan.plan_id

@@ -205,3 +205,23 @@ Total commits in Phase B: 10 (some issues required 1-2 follow-up commits). Net e
 ### Phase C-1 checkpoint
 
 1 of 8 Deep Research backend issues done. Next: HUG-212 (L5 approve/abort endpoints).
+
+### HUG-212 — L5 approve/abort endpoints (Phase C-2) ✓
+
+**Commit:** `b446253` · **CI run:** 25899784920 — green first try (no flake).
+
+**What landed.** Two new POST routes on `/threads/{tid}/plans/{pid}/{approve|abort}`. Both:
+- Check the plan's parent thread belongs to the requesting user (`_user_id` helper from `routes/threads.py`).
+- Flip the plan status (`draft → approved` or `draft → aborted`).
+- Re-read the plan and emit the typed SSE event via `plan_approved_event` / `plan_aborted_event` (HUG-207 builders).
+- Bump `research_plan_decisions_total{decision=...}`.
+
+**Decision worth flagging — added `get_plan(plan_id)` repo function.** Pre-HUG-212 the repo only had `get_latest_plan(thread_id)` and `list_plan_versions(thread_id)`. Approve/abort need a fetch-by-id for (a) ownership validation before the update and (b) post-update re-read for the SSE payload. Added as a clean sibling rather than wedging the logic via `list_plan_versions + filter`.
+
+**Decision worth flagging — idempotency.** Re-approving an already-approved plan returns 200 with unchanged status (no DB write, no event, no counter bump). The user might retry; HTTP semantics + Anthropic-pattern UX want "second approve is harmless". Tests pin this.
+
+**Note.** 7 tests cover: happy approve, happy abort, 403 wrong-user, idempotent re-approve, 404 missing thread, 404 missing plan, 400 cross-thread plan_id. All tagged `pytestmark = pytest.mark.db`.
+
+### Phase C-2 checkpoint
+
+2 of 8 Deep Research backend issues done. Next: HUG-213 (E1 step lifecycle — expand approved plan into research_steps rows).
