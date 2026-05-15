@@ -1,20 +1,15 @@
-"""Step expansion tests (HUG-213, E1).
+"""Executor tests (HUG-213 + HUG-214).
 
-`expand_plan_into_steps` is the synchronous bridge from "plan as
-JSONB doc" → "steps as typed rows". Cover:
-- Happy: N steps in plan_json → N rows in research_steps.
-- Ordinal + description round-trip.
-- All rows land with status='pending'.
-- Telemetry counter `hughes_research_steps_total{status='pending'}`
-  increments per row.
-- Empty plan (defensive — shouldn't happen in production but the
-  function should not crash).
+`expand_plan_into_steps` (HUG-213, E1) — pending row creation.
+`execute_plan_sequentially` (HUG-214, E2) — ordered worker dispatch.
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
+from typing import Any
 from uuid import UUID, uuid4
 
 import psycopg
@@ -23,7 +18,14 @@ from api.prometheus import research_steps_total
 from api.repo import research as research_repo
 from api.repo import research_steps as steps_repo
 from api.repo import threads as threads_repo
-from api.services.research_agent.executor import expand_plan_into_steps
+from api.services.research_agent.executor import (
+    execute_plan_sequentially,
+    expand_plan_into_steps,
+)
+from langchain_core.callbacks import CallbackManagerForLLMRun
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
 
 pytestmark = pytest.mark.db  # CI integration-test job (HUG-229)
 
@@ -141,3 +143,118 @@ def test_approve_creates_step_rows_end_to_end(thread_id: UUID) -> None:
     persisted = steps_repo.get_steps_for_plan(plan.plan_id, db_url)
     assert len(persisted) == 2
     assert all(s.status == "pending" for s in persisted)
+
+
+# ---- HUG-214 (E2): sequential execution -----------------------
+
+
+class _FinalAnswerLLM(BaseChatModel):
+    """Stub: every invoke returns one final_answer tool call."""
+
+    @property
+    def _llm_type(self) -> str:
+        return "fake"
+
+    def _generate(
+        self, messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "final_answer",
+                "args": {"summary": "ok", "rows": [{"x": 1}]},
+                "id": "c1",
+            }],
+        ))])
+
+    def bind_tools(
+        self, tools: Sequence[Any], **kwargs: Any
+    ) -> _FinalAnswerLLM:
+        return self
+
+
+async def _drain(stream: Any) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    async for event in stream:
+        out.append(event)
+    return out
+
+
+def test_three_step_plan_executes_in_ordinal_order(thread_id: UUID) -> None:
+    db_url = _db_url()
+    plan = _seed_plan(thread_id, [
+        {"ordinal": 1, "description": "A", "dependencies": []},
+        {"ordinal": 2, "description": "B", "dependencies": [1]},
+        {"ordinal": 3, "description": "C", "dependencies": [2]},
+    ])
+    expand_plan_into_steps(plan, db_url)
+    events = asyncio.run(_drain(execute_plan_sequentially(
+        plan_id=plan.plan_id, db_url=db_url, llm=_FinalAnswerLLM(),
+    )))
+    # 3 steps × 2 events (started + completed) = 6.
+    assert len(events) == 6
+    event_types = [e["event"] for e in events]
+    # Alternating started/completed pairs.
+    assert event_types == [
+        "research.step.started", "research.step.completed",
+        "research.step.started", "research.step.completed",
+        "research.step.started", "research.step.completed",
+    ]
+    persisted = steps_repo.get_steps_for_plan(plan.plan_id, db_url)
+    assert all(s.status == "complete" for s in persisted)
+
+
+def test_step_failure_does_not_abort_loop(thread_id: UUID) -> None:
+    """One worker raises → that step marked failed, siblings still run."""
+    db_url = _db_url()
+    plan = _seed_plan(thread_id, [
+        {"ordinal": 1, "description": "step A", "dependencies": []},
+        {"ordinal": 2, "description": "BREAK-ME-XYZ", "dependencies": []},
+        {"ordinal": 3, "description": "step C", "dependencies": []},
+    ])
+    expand_plan_into_steps(plan, db_url)
+
+    class _BrokenLLM(_FinalAnswerLLM):
+        """For the 'BREAK-ME-XYZ' step, return empty content with NO
+        tool calls → agent exits without firing final_answer → worker
+        returns None → executor marks step failed.
+
+        Magic sentinel ('BREAK-ME-XYZ') is chosen to be absent from
+        the agent's system prompt so it ONLY matches step 2's user
+        input (not 'FAIL', which the system prompt also contains)."""
+        def _generate(
+            self, messages: list[BaseMessage],
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
+            **kwargs: Any,
+        ) -> ChatResult:
+            # Inspect only the HumanMessage(s) — the worker's user
+            # input. Avoids accidental matches in the system prompt.
+            from langchain_core.messages import HumanMessage
+            human_content = " ".join(
+                str(m.content) for m in messages
+                if isinstance(m, HumanMessage) and isinstance(m.content, str)
+            )
+            if "BREAK-ME-XYZ" in human_content:
+                return ChatResult(generations=[
+                    ChatGeneration(message=AIMessage(content=""))
+                ])
+            return super()._generate(messages, stop, run_manager, **kwargs)
+
+    events = asyncio.run(_drain(execute_plan_sequentially(
+        plan_id=plan.plan_id, db_url=db_url, llm=_BrokenLLM(),
+    )))
+    event_types = [e["event"] for e in events]
+    # Step 1: started + completed; step 2: started + failed;
+    # step 3: started + completed.
+    assert event_types.count("research.step.started") == 3
+    assert event_types.count("research.step.completed") == 2
+    assert event_types.count("research.step.failed") == 1
+    persisted = sorted(
+        steps_repo.get_steps_for_plan(plan.plan_id, db_url),
+        key=lambda s: s.ordinal,
+    )
+    assert [s.status for s in persisted] == ["complete", "failed", "complete"]
