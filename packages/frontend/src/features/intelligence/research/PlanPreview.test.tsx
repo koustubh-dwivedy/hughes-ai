@@ -47,7 +47,9 @@ function renderPlan(plan: Plan) {
 describe("PlanPreview", () => {
 	it("renders the plan title + reason", () => {
 		renderPlan(FIXTURE_PLAN);
-		expect(screen.getByText(/Drivers of YoY past-due delta/)).toBeInTheDocument();
+		expect(
+			screen.getByText(/Drivers of YoY past-due delta/),
+		).toBeInTheDocument();
 		expect(
 			screen.getByText(/multi-step decomposition needed/),
 		).toBeInTheDocument();
@@ -57,7 +59,9 @@ describe("PlanPreview", () => {
 		renderPlan(FIXTURE_PLAN);
 		const items = screen.getAllByRole("listitem");
 		expect(items).toHaveLength(3);
-		expect(items[0]).toHaveTextContent("Pull past-due exposure for latest month");
+		expect(items[0]).toHaveTextContent(
+			"Pull past-due exposure for latest month",
+		);
 		expect(items[2]).toHaveTextContent(/depends on steps 1, 2/);
 	});
 
