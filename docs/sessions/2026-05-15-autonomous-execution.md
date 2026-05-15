@@ -278,3 +278,18 @@ This is harness engineering working as designed: drift was caught, eyeballed, de
 ### Phase C-5 checkpoint
 
 5 of 8 Deep Research backend issues done. Next: HUG-215 (E3 finding persistence).
+
+### HUG-215 — E3 finding persistence invariants (Phase C-6) ✓
+
+**Commit:** `2907261` · **CI run:** 25902481481 (green after 1 retry).
+
+**What landed.** Mostly a test-only issue — the actual persistence machinery shipped in HUG-217's `worker_process_message.py`. HUG-215 adds invariant tests in a new `test_research_findings.py` (split out of the 300-line-cap-bound executor test file):
+
+1. Complete step → exactly one finding with JSONB round-trip for summary, rows, mf_query.
+2. Failed step → zero finding rows.
+
+**Decision worth flagging — `cited_artifacts` column is unwired today.** The schema (migration 016) has a `cited_artifacts` JSONB column. The worker callback reads `payload.get("citations")`. BUT — the `final_answer` agent tool (`nl_engine/agent/tools.py:206`) only accepts `summary/openui_dsl/rows/mf_query`. Extra args (like citations) are filtered out by langgraph before reaching the worker. The test asserts `f.cited_artifacts is None` with an inline comment explaining the cause. Extending `final_answer` to accept citations is a follow-up issue (not in current backlog).
+
+### Phase C-6 checkpoint
+
+6 of 8 Deep Research backend issues done. Next: HUG-216 (E4 final synthesis via existing ReAct agent).
