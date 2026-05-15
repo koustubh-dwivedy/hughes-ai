@@ -14,6 +14,10 @@ export const TAG_TYPES = [
 	"Ask",
 	"Thread",
 	"ThreadList",
+	"ResearchPlan",
+	"ResearchSteps",
+	"ResearchFindings",
+	"ResearchLeadNotes",
 ] as const;
 
 export type TagType = (typeof TAG_TYPES)[number];
