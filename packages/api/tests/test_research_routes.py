@@ -165,6 +165,50 @@ def test_missing_plan_returns_404(client: TestClient) -> None:
     assert resp.status_code == 404
 
 
+# ---- HUG-210 (L3): GET endpoint smoke tests --------------------
+
+
+def test_get_latest_plan_returns_persisted_plan(client: TestClient) -> None:
+    uid = f"u-{uuid4().hex[:6]}"
+    tid, pid = _seed_thread_with_plan(uid)
+    resp = client.get(
+        f"/threads/{tid}/plans/latest", headers=_user_headers(uid)
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["plan"] is not None
+    assert body["plan"]["plan_id"] == str(pid)
+
+
+def test_get_latest_plan_no_plan_yields_null(client: TestClient) -> None:
+    uid = f"u-{uuid4().hex[:6]}"
+    db_url = _db_url()
+    sid = f"route-l5-{uuid4().hex[:8]}"
+    thread = threads_repo.create_thread(sid, db_url, user_id=uid)
+    resp = client.get(
+        f"/threads/{thread.thread_id}/plans/latest",
+        headers=_user_headers(uid),
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"plan": None}
+
+
+def test_get_plan_steps_returns_list(client: TestClient) -> None:
+    from api.services.research_agent.executor import expand_plan_into_steps
+    uid = f"u-{uuid4().hex[:6]}"
+    tid, pid = _seed_thread_with_plan(uid)
+    plan = research_repo.get_plan(pid, _db_url())
+    assert plan is not None
+    expand_plan_into_steps(plan, _db_url())
+    resp = client.get(
+        f"/threads/{tid}/plans/{pid}/steps", headers=_user_headers(uid)
+    )
+    assert resp.status_code == 200
+    steps = resp.json()["steps"]
+    assert len(steps) == 1
+    assert steps[0]["ordinal"] == 1
+
+
 def test_plan_belongs_to_different_thread_returns_400(client: TestClient) -> None:
     uid = f"u-{uuid4().hex[:6]}"
     tid_a, pid = _seed_thread_with_plan(uid)

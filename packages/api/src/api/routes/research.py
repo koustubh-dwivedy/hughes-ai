@@ -47,6 +47,80 @@ from api.types.research import Plan, PlanStatus
 router = APIRouter()
 
 
+# ---- HUG-210 (L3): GET endpoints the frontend RTK Query slice
+# consumes to render plan-preview + step-list + findings + notes.
+
+
+@router.get("/threads/{thread_id}/plans/latest")
+def get_latest_plan_route(
+    thread_id: UUID,
+    request: Request,
+    x_hughes_session: str | None = Header(default=None),
+    x_hughes_user: str | None = Header(default=None),
+) -> dict[str, Any]:
+    db_url = request.app.state.db_url
+    thread = threads_repo.get_thread(thread_id, db_url)
+    if thread is None:
+        raise HTTPException(status_code=404, detail="thread not found")
+    if thread.user_id != _user_id(x_hughes_user, x_hughes_session):
+        raise HTTPException(status_code=403, detail="not your thread")
+    plan = research_repo.get_latest_plan(thread_id, db_url)
+    if plan is None:
+        return {"plan": None}
+    return {"plan": plan.model_dump(mode="json")}
+
+
+@router.get("/threads/{thread_id}/plans/{plan_id}/steps")
+def get_plan_steps_route(
+    thread_id: UUID,
+    plan_id: UUID,
+    request: Request,
+    x_hughes_session: str | None = Header(default=None),
+    x_hughes_user: str | None = Header(default=None),
+) -> dict[str, Any]:
+    from api.repo import research_steps as steps_repo
+    plan = _authorize_and_get_plan(
+        thread_id, plan_id, request, x_hughes_user, x_hughes_session
+    )
+    steps = steps_repo.get_steps_for_plan(plan.plan_id, request.app.state.db_url)
+    return {"steps": [s.model_dump(mode="json") for s in steps]}
+
+
+@router.get("/threads/{thread_id}/plans/{plan_id}/findings")
+def get_plan_findings_route(
+    thread_id: UUID,
+    plan_id: UUID,
+    request: Request,
+    x_hughes_session: str | None = Header(default=None),
+    x_hughes_user: str | None = Header(default=None),
+) -> dict[str, Any]:
+    from api.repo import research_steps as steps_repo
+    plan = _authorize_and_get_plan(
+        thread_id, plan_id, request, x_hughes_user, x_hughes_session
+    )
+    findings = steps_repo.get_findings_for_plan(
+        plan.plan_id, request.app.state.db_url
+    )
+    return {"findings": [f.model_dump(mode="json") for f in findings]}
+
+
+@router.get("/threads/{thread_id}/plans/{plan_id}/notes")
+def get_plan_notes_route(
+    thread_id: UUID,
+    plan_id: UUID,
+    request: Request,
+    x_hughes_session: str | None = Header(default=None),
+    x_hughes_user: str | None = Header(default=None),
+) -> dict[str, Any]:
+    plan = _authorize_and_get_plan(
+        thread_id, plan_id, request, x_hughes_user, x_hughes_session
+    )
+    notes = research_repo.list_lead_notes(
+        plan.plan_id, request.app.state.db_url
+    )
+    return {"notes": [n.model_dump(mode="json") for n in notes]}
+
+
 def _authorize_and_get_plan(
     thread_id: UUID, plan_id: UUID, request: Request,
     x_hughes_user: str | None, x_hughes_session: str | None,
