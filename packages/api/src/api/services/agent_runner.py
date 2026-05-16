@@ -61,6 +61,7 @@ def _prepare_agent_run(
     max_steps: int,
     request_id: str,
     initial_state_extras: dict[str, Any] | None,
+    tools: list[Any] | None = None,
 ) -> tuple[Any, asyncio.Queue[Any], int]:
     """Caller-agnostic per-turn setup: bind request_id, build state,
     spawn producer thread. Returns (request_id_token, queue,
@@ -101,7 +102,7 @@ def _prepare_agent_run(
 
         set_token_sink(request_id, _sink)
     asyncio.create_task(
-        asyncio.to_thread(make_producer(build_graph(llm), initial, queue))
+        asyncio.to_thread(make_producer(build_graph(llm, tools=tools), initial, queue))
     )
     return token, queue, initial_history_len
 
@@ -133,6 +134,7 @@ async def run_agent_isolated(
     max_steps: int = MAX_STEPS_PER_TURN,
     request_id: str = "",
     initial_state_extras: dict[str, Any] | None = None,
+    tools: list[Any] | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Lower-level agent invoker shared by chat and worker turns.
 
@@ -163,6 +165,7 @@ async def run_agent_isolated(
         max_steps=max_steps,
         request_id=request_id,
         initial_state_extras=initial_state_extras,
+        tools=tools,
     )
     turn_start = time.monotonic()
     state = TurnState(initial_history_len=initial_history_len)
