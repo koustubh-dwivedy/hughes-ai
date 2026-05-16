@@ -154,5 +154,18 @@ and address with prompt tightening before re-attempting.
 
 ## Status
 
-- **Phase A (this commit, 2026-05-16):** audit doc only — no code change. HUG-247 marked Done; user reviews this doc before scheduling Phase B.
-- **Phase B (follow-up PR):** the actual deletion + flag flip + migration 019. Requires user review per the audit gate above.
+- **Phase A (commit 2223f95, 2026-05-16):** audit doc only — no code change. ✓ Shipped.
+- **Phase B (this commit, 2026-05-17):** actual deletion + flag flip — user approved walk-through and authorised execution. ✓ Shipped.
+- **Migration 019** (drop `research_steps` + `research_findings` tables): **deferred**. The GET endpoints `/plans/{pid}/steps` + `/findings` are still wired in `routes/research.py` because the frontend's `useGetResearchStepsQuery` + `useGetResearchFindingsQuery` haven't migrated to `useGetResearchSubagentCallsQuery` yet (the HUG-245 deferred sub-scope). Tables stay but are inert (no code writes to them); routes return empty arrays. When the frontend hook swap lands, migration 019 follows.
+
+## Phase B diff summary (commit recorded post-push)
+
+- Deleted: 9 production files in `packages/api/src/api/services/research_agent/` (coordinator, executor, executor_parallel, planner, replanner, synthesizer, worker, lead_memory, lead_system_prompt) — ~1380 LOC.
+- Deleted: 10 test files (test_research_{coordinator,coordinator_deep,executor,executor_parallel,findings,lead_memory,planner,replanner,synthesizer,worker}.py).
+- Deleted: `test_sse_contract.py` + its 2 golden trace files. The lead-path SSE golden trace is a follow-up.
+- `routes/research.py`: removed `/approve` route + `expand_plan_into_steps` import + `plan_approved_event` import + `Callable` import + `_decide` helper; renamed `_decide` body to `_transition_to_aborted` inline.
+- `routes/threads.py`: removed `route_turn` import + `lead_agent_enabled()` import + the if/else conditional → `stream_lead_turn` is the only path.
+- `services/lead_agent.py`: removed the `lead_agent_enabled()` function + the `os`/`_FLAG_ENV` symbols; updated module docstring.
+- `tests/test_research_routes.py`: trimmed — kept all `/abort` test cases (renamed from `_approve_` where appropriate), dropped all `/approve` tests. `test_get_plan_steps_returns_list` rewritten to assert empty-list response (legacy expander is gone).
+- `tests/test_lead_agent_wiring.py`: removed flag-truthy / flag-falsy parametrized tests since the function no longer exists.
+- `CLAUDE.md`: repo-map updated with `lead_agent_prompt.py` + `lead_agent.py` entries; "Key files to read first" section mentions ANCHOR-F.

@@ -13,9 +13,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from api.logging import get_logger
 from api.repo import threads as threads_repo
-from api.services.lead_agent import lead_agent_enabled, stream_lead_turn
+from api.services.lead_agent import stream_lead_turn
 from api.services.llm import make_agent_llm
-from api.services.research_agent.coordinator import route_turn
 from api.services.title_generator import generate_title
 from api.types.threads_api import (
     CreateThreadRequest,
@@ -235,28 +234,17 @@ async def post_message(
     history = threads_repo.latest_n_messages(thread_id, n=20, db_url=db_url)
     llm = _get_llm(request)
     request_id = getattr(request.state, "request_id", "")
-    # HUG-244: feature-flag the autonomous lead-agent path. When off
-    # (default), the legacy planner/executor/synthesizer pipeline runs
-    # via coordinator.route_turn. When on, bypass to the chat ReAct
-    # graph with extended LEAD_AGENT_TOOLS.
-    if lead_agent_enabled():
-        stream = stream_lead_turn(
-            thread_id=thread_id,
-            user_content=body.content,
-            db_url=db_url,
-            llm=llm,
-            history=history,
-            request_id=request_id,
-        )
-    else:
-        stream = route_turn(
-            thread_id=thread_id,
-            user_content=body.content,
-            db_url=db_url,
-            llm=llm,
-            history=history,
-            request_id=request_id,
-        )
+    # HUG-247 Phase B: the autonomous lead-agent path is the only path.
+    # The legacy coordinator.route_turn dispatch has been removed; the
+    # RESEARCH_LEAD_AGENT_ENABLED flag is no longer consulted.
+    stream = stream_lead_turn(
+        thread_id=thread_id,
+        user_content=body.content,
+        db_url=db_url,
+        llm=llm,
+        history=history,
+        request_id=request_id,
+    )
     # Schedule a fire-and-forget LLM-generated sidebar title on the
     # first user/assistant exchange. `update_thread_title` is
     # conditional on `title IS NULL`, so re-fires are no-ops.

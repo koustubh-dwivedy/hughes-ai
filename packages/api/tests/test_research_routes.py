@@ -87,20 +87,6 @@ def _user_headers(uid: str) -> dict[str, str]:
 # ---- happy paths --------------------------------------------------
 
 
-def test_approve_transitions_draft_to_approved(client: TestClient) -> None:
-    uid = f"u-{uuid4().hex[:6]}"
-    tid, pid = _seed_thread_with_plan(uid)
-    resp = client.post(
-        f"/threads/{tid}/plans/{pid}/approve", headers=_user_headers(uid)
-    )
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert body["event"] == "research.plan.approved"
-    plan = research_repo.get_plan(pid, _db_url())
-    assert plan is not None
-    assert plan.status == "approved"
-
-
 def test_abort_transitions_draft_to_aborted(client: TestClient) -> None:
     uid = f"u-{uuid4().hex[:6]}"
     tid, pid = _seed_thread_with_plan(uid)
@@ -117,37 +103,37 @@ def test_abort_transitions_draft_to_aborted(client: TestClient) -> None:
 # ---- ownership + idempotency + error paths -----------------------
 
 
-def test_approve_by_wrong_user_returns_403(client: TestClient) -> None:
+def test_abort_by_wrong_user_returns_403(client: TestClient) -> None:
     owner = f"u-{uuid4().hex[:6]}"
     stranger = f"u-{uuid4().hex[:6]}"
     tid, pid = _seed_thread_with_plan(owner)
     resp = client.post(
-        f"/threads/{tid}/plans/{pid}/approve",
+        f"/threads/{tid}/plans/{pid}/abort",
         headers=_user_headers(stranger),
     )
     assert resp.status_code == 403
 
 
-def test_approve_already_approved_is_idempotent(client: TestClient) -> None:
+def test_abort_already_aborted_is_idempotent(client: TestClient) -> None:
     uid = f"u-{uuid4().hex[:6]}"
     tid, pid = _seed_thread_with_plan(uid)
     r1 = client.post(
-        f"/threads/{tid}/plans/{pid}/approve", headers=_user_headers(uid)
+        f"/threads/{tid}/plans/{pid}/abort", headers=_user_headers(uid)
     )
     assert r1.status_code == 200
     r2 = client.post(
-        f"/threads/{tid}/plans/{pid}/approve", headers=_user_headers(uid)
+        f"/threads/{tid}/plans/{pid}/abort", headers=_user_headers(uid)
     )
     assert r2.status_code == 200
     plan = research_repo.get_plan(pid, _db_url())
     assert plan is not None
-    assert plan.status == "approved"
+    assert plan.status == "aborted"
 
 
 def test_missing_thread_returns_404(client: TestClient) -> None:
     uid = f"u-{uuid4().hex[:6]}"
     resp = client.post(
-        f"/threads/{uuid4()}/plans/{uuid4()}/approve",
+        f"/threads/{uuid4()}/plans/{uuid4()}/abort",
         headers=_user_headers(uid),
     )
     assert resp.status_code == 404
@@ -159,7 +145,7 @@ def test_missing_plan_returns_404(client: TestClient) -> None:
     sid = f"route-l5-{uuid4().hex[:8]}"
     thread = threads_repo.create_thread(sid, db_url, user_id=uid)
     resp = client.post(
-        f"/threads/{thread.thread_id}/plans/{uuid4()}/approve",
+        f"/threads/{thread.thread_id}/plans/{uuid4()}/abort",
         headers=_user_headers(uid),
     )
     assert resp.status_code == 404
@@ -193,20 +179,18 @@ def test_get_latest_plan_no_plan_yields_null(client: TestClient) -> None:
     assert resp.json() == {"plan": None}
 
 
-def test_get_plan_steps_returns_list(client: TestClient) -> None:
-    from api.services.research_agent.executor import expand_plan_into_steps
+def test_get_plan_steps_returns_empty_list(client: TestClient) -> None:
+    """HUG-247 Phase B: legacy step expansion is gone; the /steps GET
+    now returns an empty list (no code writes to research_steps any
+    more). Endpoint stays in place until the frontend hooks migrate to
+    /subagent-calls (deferred from HUG-245)."""
     uid = f"u-{uuid4().hex[:6]}"
     tid, pid = _seed_thread_with_plan(uid)
-    plan = research_repo.get_plan(pid, _db_url())
-    assert plan is not None
-    expand_plan_into_steps(plan, _db_url())
     resp = client.get(
         f"/threads/{tid}/plans/{pid}/steps", headers=_user_headers(uid)
     )
     assert resp.status_code == 200
-    steps = resp.json()["steps"]
-    assert len(steps) == 1
-    assert steps[0]["ordinal"] == 1
+    assert resp.json()["steps"] == []
 
 
 def test_plan_belongs_to_different_thread_returns_400(client: TestClient) -> None:
@@ -218,7 +202,7 @@ def test_plan_belongs_to_different_thread_returns_400(client: TestClient) -> Non
     thread_b = threads_repo.create_thread(sid_b, db_url, user_id=uid)
     # Request thread B + plan A → mismatch → 400.
     resp = client.post(
-        f"/threads/{thread_b.thread_id}/plans/{pid}/approve",
+        f"/threads/{thread_b.thread_id}/plans/{pid}/abort",
         headers=_user_headers(uid),
     )
     assert resp.status_code == 400

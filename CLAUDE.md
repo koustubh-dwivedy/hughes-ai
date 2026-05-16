@@ -14,8 +14,9 @@ Hughes AI is a lending analytics demo for one synthetic credit union. Users ask 
 |---|---|
 | `packages/synth-data/` | Deterministic synthetic data generators (Origence + Symitar + reconciliation bridge) |
 | `packages/nl-engine/` | LangGraph agent (Surface 2) + MetricFlow integration + eval harness |
-| `packages/nl-engine/src/nl_engine/agent/` | Agent graph, tools, prompts (`system_prompt.py` + `openui_prompt.txt`) |
+| `packages/nl-engine/src/nl_engine/agent/` | Agent graph, tools, prompts. Chat surface: `system_prompt.py` (ANCHOR-A..E). Autonomous lead surface (HUG-244): `lead_agent_prompt.py` (ANCHOR-F adds propose_plan + run_subagent + read/write_memory + multi-chart OpenUI heuristic). |
 | `packages/nl-engine/src/nl_engine/agent/prompts/` | DSPy modules + compiled artifacts (HUG-181) |
+| `packages/api/src/api/services/lead_agent.py` | `stream_lead_turn` — the SSE producer routing every `POST /threads/{tid}/messages` through the autonomous lead (HUG-244 + HUG-247 Phase B). No legacy coordinator/executor/synthesizer pipeline. |
 | `packages/api/` | FastAPI backend: /threads, /history, /trust, /data-model/*, /dashboards/* |
 | `packages/frontend/` | React + Vite + TypeScript single-page app |
 | `packages/frontend/src/dashboards/` | Dashboard page modules (ExecutiveSummary, DepositPortfolio, PastDue, OfficerBranch, Chat) |
@@ -116,5 +117,5 @@ Lint → typecheck → unit → structural → security → doc-validation → i
 1. `docs/requirements.md` — product spec
 2. `docs/metrics.md` — metric definitions (the user-facing reference)
 3. `packages/dbt-models/models/semantic/` — MetricFlow semantic models (the canonical metric catalog after HUG-193)
-4. `packages/nl-engine/src/nl_engine/agent/system_prompt.py` — agent's tool-calling rules (ANCHOR-A through ANCHOR-E)
+4. `packages/nl-engine/src/nl_engine/agent/system_prompt.py` — chat agent's tool-calling rules (ANCHOR-A through ANCHOR-E). Lead-agent extras (ANCHOR-F: propose_plan + run_subagent + read/write_memory + multi-chart OpenUI heuristic) live in `lead_agent_prompt.py`.
 5. `packages/synth-data/config/` — synthetic data configuration

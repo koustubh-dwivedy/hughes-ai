@@ -1,28 +1,21 @@
-"""Plan approve / abort endpoints (HUG-212, L5).
+"""Plan abort endpoint + read-only audit GETs (HUG-247 Phase B).
 
-Two routes, both under `/threads/{thread_id}/plans/{plan_id}/...`:
-  POST .../approve  — plan.status: draft → approved
-  POST .../abort    — plan.status: draft → aborted
+HUG-247 removed `/approve` — the autonomous lead-agent architecture
+has no user approval gate (the lead decides whether to proceed). Only
+the kill-switch `/abort` survives, plus the GET endpoints the audit
+panel consumes (`/plans/latest`, `/plans/.../steps`, `/findings`,
+`/subagent-calls`, `/notes`).
 
-Ownership: the plan's thread must belong to the requesting user
-(same `_user_id` helper as routes/threads.py). Wrong user → 403.
+Ownership: every endpoint authorizes the requesting user against the
+thread that owns the plan. Wrong user → 403.
 
-Both endpoints are idempotent: re-approving an already-approved plan
-returns 200 with the unchanged status.
-
-The state transition emits a structlog event + bumps a
-`hughes_research_plan_decisions_total` counter, then yields the
-typed `Plan` row back to the caller. The frontend's mutation hook
-(HUG-210, L3) invalidates the `ResearchPlan` tag on success.
-
-Execution (HUG-213, E1 onwards) hooks off the `research.plan.approved`
-SSE event downstream — those land in later issues; for now we just
-flip the status + announce it.
+`/abort` is idempotent (re-aborting an aborted plan returns 200 with
+the unchanged status) and emits a `research.plan.aborted` SSE event +
+bumps a `hughes_research_plan_decisions_total` counter.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
@@ -32,14 +25,9 @@ from api.prometheus import research_plan_decisions_total
 from api.repo import research as research_repo
 from api.repo import threads as threads_repo
 from api.routes.threads import _user_id
-from api.services.research_agent.events import (
-    plan_aborted_event,
-    plan_approved_event,
-)
-from api.services.research_agent.executor import expand_plan_into_steps
+from api.services.research_agent.events import plan_aborted_event
 from api.services.research_agent.telemetry import (
     EVENT_PLAN_ABORTED,
-    EVENT_PLAN_APPROVED,
     log_event,
 )
 from api.types.research import Plan, PlanStatus
@@ -168,58 +156,23 @@ def _authorize_and_get_plan(
     return plan
 
 
-def _decide(
-    *, plan: Plan, new_status: PlanStatus,
-    request: Request,
-    event_builder: Callable[[Plan], dict[str, Any]],
-    event_name: str,
-) -> dict[str, Any]:
-    """Transition the plan to `new_status` if it isn't already there;
-    emit the corresponding event + telemetry. Idempotent."""
+def _transition_to_aborted(plan: Plan, request: Request) -> dict[str, Any]:
+    """Flip plan status to 'aborted' (idempotent) + emit event."""
     db_url = request.app.state.db_url
+    new_status: PlanStatus = "aborted"
     if plan.status != new_status:
         research_repo.update_plan_status(plan.plan_id, new_status, db_url)
         log_event(
-            event_name, plan_id=str(plan.plan_id),
+            EVENT_PLAN_ABORTED, plan_id=str(plan.plan_id),
             thread_id=str(plan.thread_id),
             version=plan.version, status=new_status,
         )
         research_plan_decisions_total.labels(decision=new_status).inc()
-        # Re-read so the SSE payload reflects the new status.
         refreshed = research_repo.get_plan(plan.plan_id, db_url)
         if refreshed is None:  # pragma: no cover — just updated, must exist
             raise HTTPException(status_code=500, detail="plan vanished")
         plan = refreshed
-    return event_builder(plan)
-
-
-@router.post("/threads/{thread_id}/plans/{plan_id}/approve")
-def approve_plan(
-    thread_id: UUID,
-    plan_id: UUID,
-    request: Request,
-    x_hughes_session: str | None = Header(default=None),
-    x_hughes_user: str | None = Header(default=None),
-) -> dict[str, Any]:
-    """LEGACY (HUG-246): plan approval no longer exists in the autonomous
-    lead-agent architecture — the lead decides whether to proceed without
-    user approval. This route survives only for the legacy
-    planner/executor/synthesizer pipeline that runs when
-    `RESEARCH_LEAD_AGENT_ENABLED=0`. HUG-247 deletes this route entirely
-    when the legacy pipeline is decommissioned.
-    """
-    plan = _authorize_and_get_plan(
-        thread_id, plan_id, request, x_hughes_user, x_hughes_session
-    )
-    # HUG-213 (E1): expand plan_json.steps into research_steps on the
-    # FIRST approve. Guarded by the status check so a re-approve is
-    # still idempotent — no duplicate step rows.
-    if plan.status != "approved":
-        expand_plan_into_steps(plan, request.app.state.db_url)
-    return _decide(
-        plan=plan, new_status="approved", request=request,
-        event_builder=plan_approved_event, event_name=EVENT_PLAN_APPROVED,
-    )
+    return plan_aborted_event(plan)
 
 
 @router.post("/threads/{thread_id}/plans/{plan_id}/abort")
@@ -249,7 +202,4 @@ def abort_plan(
     plan = _authorize_and_get_plan(
         thread_id, plan_id, request, x_hughes_user, x_hughes_session
     )
-    return _decide(
-        plan=plan, new_status="aborted", request=request,
-        event_builder=plan_aborted_event, event_name=EVENT_PLAN_ABORTED,
-    )
+    return _transition_to_aborted(plan, request)

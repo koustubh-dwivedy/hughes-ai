@@ -1,19 +1,19 @@
-"""Autonomous lead-agent runner (HUG-244).
+"""Autonomous lead-agent runner (HUG-244 + HUG-247 Phase B).
 
-When `RESEARCH_LEAD_AGENT_ENABLED=1`, `routes/threads.py` routes every
-user turn through `stream_lead_turn` instead of `coordinator.route_turn`.
-This bypasses the legacy planner/executor/synthesizer pipeline (HUG-247
-deletes it) and runs the chat ReAct graph with the extended
-`LEAD_AGENT_TOOLS` registry (propose_plan, run_subagent, read_memory,
-write_memory in addition to the data tools).
+`stream_lead_turn` is the ONLY path `routes/threads.py` uses to serve
+`POST /threads/{tid}/messages`. The legacy
+planner/executor/synthesizer pipeline (HUG-247 Phase B) and the
+`RESEARCH_LEAD_AGENT_ENABLED` feature flag have both been removed.
 
 The lead is a single autonomous agent: it decides when to plan, when to
-delegate to subagents, when to take notes, and when to synthesize.
+delegate to subagents, when to take notes, and when to synthesize. It
+runs on the chat ReAct graph (`nl_engine.agent.graph.build_graph`) with
+the extended `LEAD_AGENT_TOOLS` registry (propose_plan, run_subagent,
+read_memory, write_memory in addition to the data tools).
 """
 
 from __future__ import annotations
 
-import os
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID, uuid4
@@ -37,19 +37,6 @@ from api.repo import threads as threads_repo
 from api.services.agent_runner import run_agent_isolated
 from api.services.agent_runner_chat import chat_process_message
 from api.types.threads import ThreadMessage
-
-_FLAG_ENV = "RESEARCH_LEAD_AGENT_ENABLED"
-
-
-def lead_agent_enabled() -> bool:
-    """Return True iff the lead-agent path is enabled via env flag.
-
-    Defaults to False (off). Setting `RESEARCH_LEAD_AGENT_ENABLED=1`
-    routes every user turn through `stream_lead_turn`. HUG-247 will
-    flip the default to on and remove the flag entirely once the
-    legacy pipeline is decommissioned.
-    """
-    return os.environ.get(_FLAG_ENV, "").strip() in ("1", "true", "True", "yes")
 
 
 def _make_sse_emitter(events: list[dict[str, Any]]) -> Any:

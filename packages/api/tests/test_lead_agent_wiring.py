@@ -7,27 +7,8 @@ tests are deferred to the deep-research eval suite (HUG-248).
 
 from __future__ import annotations
 
-import pytest
-from api.services import lead_agent
 from nl_engine.agent.lead_agent_prompt import LEAD_AGENT_SYSTEM_PROMPT
 from nl_engine.agent.tools import ALL_TOOLS, LEAD_AGENT_TOOLS
-
-
-def test_flag_off_by_default(monkeypatch) -> None:
-    monkeypatch.delenv("RESEARCH_LEAD_AGENT_ENABLED", raising=False)
-    assert lead_agent.lead_agent_enabled() is False
-
-
-@pytest.mark.parametrize("value", ["1", "true", "True", "yes"])
-def test_flag_truthy_values(monkeypatch, value) -> None:
-    monkeypatch.setenv("RESEARCH_LEAD_AGENT_ENABLED", value)
-    assert lead_agent.lead_agent_enabled() is True
-
-
-@pytest.mark.parametrize("value", ["", "0", "false", "no", "off"])
-def test_flag_falsy_values(monkeypatch, value) -> None:
-    monkeypatch.setenv("RESEARCH_LEAD_AGENT_ENABLED", value)
-    assert lead_agent.lead_agent_enabled() is False
 
 
 def test_lead_system_prompt_supersedes_chat_prompt() -> None:
