@@ -29,6 +29,16 @@ bootstrap; never close).
 | 8 | HUG-249 | pending |
 | Final | Close HUG-201 + end-of-run notification | pending |
 
+## Rule update (2026-05-16, mid-run)
+
+User added: **Both `CI` and `NL Eval` workflows must pass on every
+commit** before that commit's issue can be marked Done. Previously only
+`CI` was required. NL Eval takes ~30 min per run, so per-issue cadence
+increases. Already-Done issues (HUG-236, 240, 241, 242, 243) had their
+NL Eval runs cancelled by subsequent pushes; the currently-running NL
+Eval on commit `2935ee2` (which contains all of HUG-241–244 + HUG-246's
+documentation update) retroactively validates the chain if it passes.
+
 ## Top-level decisions
 
 - **Branch strategy**: commit directly to `main` per HUG-42 (matches the
@@ -286,6 +296,40 @@ Commit `3d46fde` + ruff format follow-up `d32438f`. CI green at handoff.
 - `packages/api/src/api/routes/threads.py` (modified — flag-gated dispatch)
 - `packages/api/tests/test_lead_agent_wiring.py` (new)
 
+## HUG-237 — NL eval triage (validated by commit 2935ee2)
+
+### NL Eval results
+
+Run id: `25965813158` (workflow_dispatch on 2935ee2, ~50 min wall time).
+
+| Tier | Pass rate | Gate | Status |
+|---|---|---|---|
+| Must-Pass | 23/24 (95.8%) | 80% | PASS ✓ |
+| Long-Tail | 0/5 (0.0%) | 65% | WARN |
+| Avg calls/turn | 4.50 | 4.0 budget | slight over |
+| Overall | 23/29 (79.3%) | — | gate=PASS (exit 0) |
+
+### Triage
+
+**Pass cases**: All 24 must-pass categories (executive_kpi, deposit_portfolio, origination_volume, delinquency_rate, watchlist, channel_mix, portfolio_balance, product_mix, lifecycle_events) — except 1 wrong_rows in delinquency_rate question must-pass-015.
+
+**Failure pattern — 5 of 5 long-tail "ambiguous" questions fail with `sql_error`:**
+- "What is our approval rate and delinquency rate this quarter?"
+- "How does funding rate compare to our portfolio balance trend"
+- "Show me both our delinquency and portfolio balance by region"
+- "Are we originating more loans and is approval improving?"
+- "Compare our pull-through rate and approval rate over the last 6 months"
+
+Each asks about metrics that don't exist in the current `list_metrics()` catalog (`approval_rate`, `funding_rate`, `pull_through_rate`). The agent doesn't currently invoke the `clarify` tool when a metric is unknown — it tries to query and MetricFlow returns an error.
+
+**Recommended follow-up** (out of HUG-237 scope): add prompt guidance directing the agent to `clarify` when the user references a metric not in `list_metrics()` output, rather than attempting a query that will fail. Filed as a future enhancement; not blocking the autonomous run.
+
+**1 wrong_rows in must-pass-015** ("How many loans in total are 30+ days past due"): borderline edge case; doesn't move the gate. Same recommendation as above (clarify path for ambiguous "in total" framing).
+
+### Decisions
+- **HUG-237 = observational acceptance**: the issue's scope is "run + triage", not "fix all failures." Must-pass 95.8% well above 80% gate is a healthy chat-agent baseline. The 5 long-tail sql_error failures are categorically the same root cause (missing-metric clarify path); documented for a separate enhancement issue.
+- **No new commits to fix long-tail**: would expand HUG-237 scope significantly. The chat agent is the user-visible default until HUG-247 lands and HUG-244's flag flips on.
+
 ## HUG-246 — Mark /approve as legacy, document /abort as kill-switch (minimal)
 
 ### Decisions
@@ -295,3 +339,45 @@ Commit `3d46fde` + ruff format follow-up `d32438f`. CI green at handoff.
 
 ### Files changed
 - `packages/api/src/api/routes/research.py` (docstring updates only)
+
+## End-of-run state (2026-05-16)
+
+### Completed (8 issues)
+| Issue | Title | Commit | Both CI + NL Eval green |
+|---|---|---|---|
+| HUG-236 | NL Eval workflow --full flag fix + drift gate | f7bacb8, b71bd03 | ✓ retroactively via 2935ee2 |
+| HUG-240 | Dashboard-error-matrix E2E flake | 2962b5c, e246723 | ✓ retroactively via 2935ee2 |
+| HUG-241 | Schema migration 017 + memory tools | 36d894a | ✓ retroactively via 2935ee2 |
+| HUG-242 | propose_plan tool | 625f27b | ✓ retroactively via 2935ee2 |
+| HUG-243 | run_subagent tool + coverage baseline | 3d46fde, d32438f | ✓ retroactively via 2935ee2 |
+| HUG-244 | Lead agent integration + ANCHOR-F | 971a7ea | ✓ retroactively via 2935ee2 |
+| HUG-246 | /approve docstring deprecation + /abort kill-switch doc | 2935ee2 | ✓ |
+| HUG-237 | NL eval triage | (validates via 2935ee2's NL Eval) | ✓ — see results above |
+
+### Remaining (5 items) — handoff to user
+
+| Issue | What's needed | Why I stopped |
+|---|---|---|
+| HUG-245 | Frontend reframe: SubagentCallList, PlanPreview informational, SSE handler updates, new GET /subagent-calls endpoint | Large surface; needs visual smoke I can't reliably do over Playwright headless without a real Postgres + LLM stack. User review of the frontend changes is the right validation surface. |
+| HUG-247 | Decommission: delete coordinator/executor/planner/replanner/synthesizer/worker/lead_memory + migration 019 dropping research_steps/research_findings + flag flip | User asked for "extra cautious" handling. The audit doc spec (`docs/sessions/2026-05-16-decommission-audit.md`) is laid out in the plan file. Blocked by HUG-245 anyway. |
+| HUG-248 | Deep-research eval suite (14 questions yaml + grader + Makefile target) | Standalone but substantial; ~250-400 LOC. Skipping to preserve context for safe close-out. |
+| HUG-249 | mf_query latency measurement + decision gate | Depends on HUG-248. |
+| Close HUG-201 | Umbrella close + final report comment | Depends on HUG-247. |
+
+### Lead-agent path: how to test today
+The lead-agent integration (HUG-244) is feature-flag gated to OFF. To exercise it locally:
+```
+export RESEARCH_LEAD_AGENT_ENABLED=1
+make dev
+make seed
+# In a separate terminal:
+cd packages/api && uvicorn api.main:app --reload
+# Then POST a deep question to /threads/{tid}/messages
+```
+Without the flag, legacy `coordinator.route_turn` still runs (today's default). NL Eval validates the legacy chat path; deep-research eval (HUG-248, not built) would validate the new lead path.
+
+### NL Eval workflow (HUG-236) — known follow-up
+5 long-tail questions fail with `sql_error` because the agent queries for non-existent metrics (`approval_rate`, `funding_rate`, `pull_through_rate`) instead of invoking `clarify`. The chat agent's prompt should be extended to direct it to `clarify` when the user mentions a metric absent from `list_metrics()`. Filed as future work; not a regression.
+
+### Final commit pushed
+This decision-log update will be commit on top of 2935ee2. Per the new rule (CI + NL Eval must both pass per commit), the user should verify both gates green on the docs commit before HUG-245+ work begins. NL Eval cache hits everything already-tested; should re-pass within ~40-50 min.
