@@ -9,11 +9,16 @@
 
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 
+// Deep-research showcase questions (2026-05-17). The autonomous lead
+// agent (HUG-244) handles these by decomposing into sub-questions,
+// dispatching subagents in parallel, and synthesising a multi-chart
+// final answer. Mix one medium-complexity question with three deep
+// ones so users see both fast and exploratory flows.
 const STARTER_QUESTIONS: readonly string[] = [
-	"What's our loan-to-deposit ratio this month?",
-	"Show deposit balance by branch as of the latest month.",
-	"What's our origination volume this year?",
-	"Top 5 deposit products by total balance.",
+	"Decompose YoY past-due delta by branch and product — which branches drove the increase, and what does that imply for credit-risk concentration?",
+	"Compare past-due ratio now vs a year ago by branch. Which improved? Which got worse? What's the pattern?",
+	"Summarise portfolio health in 5 bullets: deposits, loans, past-due, yield, and concentration risk — and flag the single biggest watch-item.",
+	"How has our rate spread (loan yield minus deposit cost) evolved over the last 13 months? Is it widening or compressing, and which side is driving it?",
 ];
 
 const emptyStateStyle: React.CSSProperties = {
@@ -72,7 +77,9 @@ export default function EmptyState({ onSelect }: Props) {
 			<h2 style={emptyHeadingStyle}>Ask Hughes</h2>
 			<p style={emptySubheadStyle}>
 				Open-ended questions about loans, deposits, originations, delinquency,
-				and portfolio performance.
+				and portfolio performance. For multi-dimensional questions, Hughes plans
+				the work, dispatches sub-investigations in parallel, and synthesises a
+				charted answer.
 			</p>
 			<div style={suggestionsRowStyle}>
 				{STARTER_QUESTIONS.map((q) => (
