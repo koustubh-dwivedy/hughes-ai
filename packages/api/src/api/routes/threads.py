@@ -206,11 +206,20 @@ def list_threads(
 
 
 @router.get("/threads/{thread_id}", response_model=GetThreadResponse)
-def get_thread(thread_id: UUID, request: Request) -> GetThreadResponse:
+def get_thread(
+    thread_id: UUID,
+    request: Request,
+    x_hughes_session: str | None = Header(default=None),
+    x_hughes_user: str | None = Header(default=None),
+) -> GetThreadResponse:
     db_url = request.app.state.db_url
     thread = threads_repo.get_thread(thread_id, db_url)
     if thread is None:
         raise HTTPException(status_code=404, detail="thread not found")
+    # Ownership check (Fix B, 2026-05-17): pre-existing gap from HUG-177
+    # where any caller could read any thread by knowing the UUID.
+    if thread.user_id != _user_id(x_hughes_user, x_hughes_session):
+        raise HTTPException(status_code=403, detail="not your thread")
     messages = threads_repo.list_messages(thread_id, db_url)
     return GetThreadResponse(
         thread_id=thread.thread_id,
@@ -226,11 +235,17 @@ async def post_message(
     thread_id: UUID,
     body: PostMessageRequest,
     request: Request,
+    x_hughes_session: str | None = Header(default=None),
+    x_hughes_user: str | None = Header(default=None),
 ) -> Any:
     db_url = request.app.state.db_url
     thread = threads_repo.get_thread(thread_id, db_url)
     if thread is None:
         raise HTTPException(status_code=404, detail="thread not found")
+    # Ownership check (Fix B, 2026-05-17): raise BEFORE invoking the
+    # lead agent so a stranger can't burn tokens on another user's thread.
+    if thread.user_id != _user_id(x_hughes_user, x_hughes_session):
+        raise HTTPException(status_code=403, detail="not your thread")
     history = threads_repo.latest_n_messages(thread_id, n=20, db_url=db_url)
     llm = _get_llm(request)
     request_id = getattr(request.state, "request_id", "")

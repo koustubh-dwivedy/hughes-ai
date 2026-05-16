@@ -94,14 +94,13 @@ def test_create_thread_requires_session_header(client: Any) -> None:
 
 def test_create_and_get_thread(client: Any) -> None:
     sid = f"pytest-{uuid4()}"
-    resp = client.post(
-        "/threads", json={"title": "demo"}, headers={"X-Hughes-Session": sid}
-    )
+    headers = {"X-Hughes-Session": sid}
+    resp = client.post("/threads", json={"title": "demo"}, headers=headers)
     assert resp.status_code == 200
     body = resp.json()
     thread_id = body["thread_id"]
     assert body["title"] == "demo"
-    fetched = client.get(f"/threads/{thread_id}")
+    fetched = client.get(f"/threads/{thread_id}", headers=headers)
     assert fetched.status_code == 200
     assert fetched.json()["thread_id"] == thread_id
     assert fetched.json()["messages"] == []
@@ -166,14 +165,14 @@ def test_threads_falls_back_to_session_id_when_user_header_absent(client: Any) -
 
 def test_post_message_streams_final_event(client: Any) -> None:
     sid = f"pytest-{uuid4()}"
-    created = client.post(
-        "/threads", json={"title": None}, headers={"X-Hughes-Session": sid}
-    )
+    headers = {"X-Hughes-Session": sid}
+    created = client.post("/threads", json={"title": None}, headers=headers)
     thread_id = created.json()["thread_id"]
     with client.stream(
         "POST",
         f"/threads/{thread_id}/messages",
         json={"content": "How many metrics?"},
+        headers=headers,
     ) as stream:
         events = list(_parse_sse(stream.iter_lines()))
     kinds = [e["event"] for e in events]
@@ -182,7 +181,7 @@ def test_post_message_streams_final_event(client: Any) -> None:
     final = next(e for e in events if e["event"] == "final")
     payload = json.loads(final["data"])
     assert payload["message"]["role"] == "tool"
-    fetched = client.get(f"/threads/{thread_id}").json()
+    fetched = client.get(f"/threads/{thread_id}", headers=headers).json()
     roles = [m["role"] for m in fetched["messages"]]
     assert roles == ["user", "assistant", "tool"]
 
@@ -201,14 +200,14 @@ def test_post_message_stamps_thread_title_in_background(
         lambda msg, _llm: f"Title for: {msg[:30]}",
     )
     sid = f"pytest-{uuid4()}"
-    created = client.post(
-        "/threads", json={"title": None}, headers={"X-Hughes-Session": sid}
-    )
+    headers = {"X-Hughes-Session": sid}
+    created = client.post("/threads", json={"title": None}, headers=headers)
     thread_id = created.json()["thread_id"]
     with client.stream(
         "POST",
         f"/threads/{thread_id}/messages",
         json={"content": "what is the delinquency rate"},
+        headers=headers,
     ) as stream:
         list(_parse_sse(stream.iter_lines()))
 
@@ -216,7 +215,7 @@ def test_post_message_stamps_thread_title_in_background(
     # DB briefly until the title appears (or give up after 2 seconds).
     title = None
     for _ in range(20):
-        fetched = client.get(f"/threads/{thread_id}").json()
+        fetched = client.get(f"/threads/{thread_id}", headers=headers).json()
         title = fetched["title"]
         if title is not None:
             break
@@ -235,14 +234,14 @@ def test_post_message_emits_title_sse_event(
         routes_threads, "generate_title", lambda msg, _llm: f"SSE title: {msg[:24]}"
     )
     sid = f"pytest-{uuid4()}"
-    created = client.post(
-        "/threads", json={"title": None}, headers={"X-Hughes-Session": sid}
-    )
+    headers = {"X-Hughes-Session": sid}
+    created = client.post("/threads", json={"title": None}, headers=headers)
     thread_id = created.json()["thread_id"]
     with client.stream(
         "POST",
         f"/threads/{thread_id}/messages",
         json={"content": "approval rate by branch"},
+        headers=headers,
     ) as stream:
         events = list(_parse_sse(stream.iter_lines()))
     kinds = [e["event"] for e in events]
@@ -267,19 +266,21 @@ def test_post_message_does_not_overwrite_existing_title(
     )
 
     sid = f"pytest-{uuid4()}"
+    headers = {"X-Hughes-Session": sid}
     created = client.post(
         "/threads",
         json={"title": "Manually named"},
-        headers={"X-Hughes-Session": sid},
+        headers=headers,
     )
     thread_id = created.json()["thread_id"]
     with client.stream(
         "POST",
         f"/threads/{thread_id}/messages",
         json={"content": "first message"},
+        headers=headers,
     ) as stream:
         list(_parse_sse(stream.iter_lines()))
-    fetched = client.get(f"/threads/{thread_id}").json()
+    fetched = client.get(f"/threads/{thread_id}", headers=headers).json()
     assert fetched["title"] == "Manually named"
 
 
