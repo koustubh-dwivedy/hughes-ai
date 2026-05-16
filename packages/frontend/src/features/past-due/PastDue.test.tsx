@@ -117,7 +117,10 @@ describe("PastDue — partial-data resilience (HUG-240)", () => {
 		// but missing nearly every field. Components must not crash on
 		// `.map`-on-undefined; PageHeader must still paint.
 		const partial = {
-			data: { total_deposits: 1000, account_count: 5 } as unknown as typeof FIXTURE,
+			data: {
+				total_deposits: 1000,
+				account_count: 5,
+			} as unknown as typeof FIXTURE,
 			as_of_date: "2026-04-30",
 			generated_at: "2026-04-30T00:00:00Z",
 			audit_id: "partial",
