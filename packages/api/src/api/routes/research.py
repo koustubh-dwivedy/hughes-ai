@@ -179,6 +179,13 @@ def approve_plan(
     x_hughes_session: str | None = Header(default=None),
     x_hughes_user: str | None = Header(default=None),
 ) -> dict[str, Any]:
+    """LEGACY (HUG-246): plan approval no longer exists in the autonomous
+    lead-agent architecture — the lead decides whether to proceed without
+    user approval. This route survives only for the legacy
+    planner/executor/synthesizer pipeline that runs when
+    `RESEARCH_LEAD_AGENT_ENABLED=0`. HUG-247 deletes this route entirely
+    when the legacy pipeline is decommissioned.
+    """
     plan = _authorize_and_get_plan(
         thread_id, plan_id, request, x_hughes_user, x_hughes_session
     )
@@ -201,6 +208,22 @@ def abort_plan(
     x_hughes_session: str | None = Header(default=None),
     x_hughes_user: str | None = Header(default=None),
 ) -> dict[str, Any]:
+    """Kill-switch for a running research plan (HUG-246).
+
+    In both architectures this marks the plan as aborted. The legacy
+    pipeline checks `plan.status == 'aborted'` between steps and halts.
+    The autonomous lead-agent path (HUG-244) doesn't poll plan status
+    today — abort is best-effort: it stops the persistence side of the
+    flow but the in-flight LangGraph invocation keeps running until it
+    voluntarily terminates. A future enhancement (post-HUG-247) is to
+    bridge `asyncio.Task.cancel()` into the running graph for hard
+    cancellation; for now the recommendation is to let the lead's
+    current step finish, then ignore subsequent output for an aborted
+    plan_id at the frontend.
+
+    Idempotent: re-aborting an already-aborted plan returns 200 with
+    the same payload.
+    """
     plan = _authorize_and_get_plan(
         thread_id, plan_id, request, x_hughes_user, x_hughes_session
     )

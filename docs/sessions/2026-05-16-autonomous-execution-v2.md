@@ -285,3 +285,13 @@ Commit `3d46fde` + ruff format follow-up `d32438f`. CI green at handoff.
 - `packages/api/src/api/services/agent_runner.py` (modified — optional `tools` parameter on `_prepare_agent_run` + `run_agent_isolated`)
 - `packages/api/src/api/routes/threads.py` (modified — flag-gated dispatch)
 - `packages/api/tests/test_lead_agent_wiring.py` (new)
+
+## HUG-246 — Mark /approve as legacy, document /abort as kill-switch (minimal)
+
+### Decisions
+- **No code deletion in HUG-246**: deleting `/approve` would break the legacy flow that's still default (`RESEARCH_LEAD_AGENT_ENABLED=0`). The frontend's `useApprovePlanMutation` still calls it. HUG-247 owns the coordinated delete (backend route + frontend mutation + tests).
+- **Documentation-only update**: added explicit "LEGACY (HUG-246)" header on `approve_plan` and a comprehensive docstring on `abort_plan` describing its dual role (legacy halt + kill-switch placeholder for the lead-agent path).
+- **No async cancellation today**: the issue mentioned `asyncio.Task.cancel()` for hard cancellation of in-flight LangGraph invocations. Implementing this requires plumbing the asyncio.Task handle through `_prepare_agent_run`'s producer thread — non-trivial. Documented as a follow-up; the lead-agent path is opt-in and the current best-effort abort (status flip) is acceptable for the migration window.
+
+### Files changed
+- `packages/api/src/api/routes/research.py` (docstring updates only)
