@@ -37,7 +37,6 @@ from nl_engine.agent.tools import ALL_TOOLS, LEAD_AGENT_TOOLS
 from nl_engine.repo.lead_memory import MAX_NOTE_CHARS
 from nl_engine.repo.plans import MAX_PLAN_VERSIONS
 
-
 # ── Memory context ──────────────────────────────────────────────────
 
 
