@@ -39,6 +39,19 @@ NL Eval runs cancelled by subsequent pushes; the currently-running NL
 Eval on commit `2935ee2` (which contains all of HUG-241–244 + HUG-246's
 documentation update) retroactively validates the chain if it passes.
 
+## Rule refinement (2026-05-16, after handoff)
+
+User refined: **NL Eval is gated only on commits that touch the NL
+component** (the existing `nl-eval.yml` `paths:` filter — migrations/,
+packages/nl-engine/**, packages/dbt-models/**, packages/synth-data/**,
+packages/api/src/api/services/research_agent/**,
+packages/api/src/api/services/agent_runner*.py,
+packages/api/src/api/services/llm.py, config/llm.yaml,
+scripts/eval.py, scripts/eval_grader.py, scripts/run-nl-eval.sh,
+.github/workflows/nl-eval.yml). Docs-only and frontend-only commits get
+the regular `CI` workflow only. Cancelled my manual NL Eval on 5d79de1
+since the docs commit doesn't touch NL surface.
+
 ## Top-level decisions
 
 - **Branch strategy**: commit directly to `main` per HUG-42 (matches the
@@ -381,3 +394,33 @@ Without the flag, legacy `coordinator.route_turn` still runs (today's default). 
 
 ### Final commit pushed
 This decision-log update will be commit on top of 2935ee2. Per the new rule (CI + NL Eval must both pass per commit), the user should verify both gates green on the docs commit before HUG-245+ work begins. NL Eval cache hits everything already-tested; should re-pass within ~40-50 min.
+
+## HUG-245 — Frontend reframe (partial; backend + types + hook + SubagentCallList)
+
+After user relaxed the NL-Eval rule to path-triggered only, this scope became feasible to land. Shipped subset:
+
+- **Backend GET `/threads/{tid}/plans/{pid}/subagent-calls`** in `api/routes/research.py` reads the new `subagent_calls` table (HUG-241 schema). Lives in `api.repo.subagent_calls.list_by_plan` — outside the NL Eval path triggers.
+- **TS types**: `SubagentCall`, `SubagentCallStatus`, `GetSubagentCallsResponse` in `research/types.ts`.
+- **RTK Query hook**: `useGetResearchSubagentCallsQuery` in `research/api.ts` + new `ResearchSubagentCalls` tag in `shared/api/tags.ts`.
+- **`SubagentCallList.tsx`**: minimal-viable component renders rows with status chips (pending/running/complete/failed); deferred to ResearchAuditPanel integration.
+- **Tags test updated**: `shared/api/tags.test.ts` now expects 14 tag types.
+
+### Deferred sub-scope (the actual reframe of PlanPreview/audit panel)
+These need the lead agent flag flipped on AND a visual smoke pass (or a deeper RTL fixture set):
+
+- Modify `PlanPreview.tsx`: drop Approve/Cancel buttons, add version badge, show collapsible history of plan versions.
+- Update `researchSseDispatch.ts` to handle `research.subagent.spawned/.completed/.failed` events → invalidate `ResearchSubagentCalls` tag.
+- Update `ResearchAuditPanel.tsx`: render `SubagentCallList` alongside (or instead of) the existing steps/findings; swap deprecated `useGetResearchStepsQuery` to `useGetResearchSubagentCallsQuery` when flag-on.
+- `AssistantTerminal` (or ReferencesModal caller): when a thread_message has `plan_id`, pass it to ReferencesModal.
+- New Playwright E2E for the SubagentCallList flow with mocked SSE.
+
+These are user-review-friendly UI changes; ship-as-needed when the lead-agent flag flips on. Backend contract is in place; frontend wiring is the only missing piece.
+
+### Files changed
+- `packages/api/src/api/repo/subagent_calls.py` (new — list_by_plan)
+- `packages/api/src/api/routes/research.py` (new GET endpoint)
+- `packages/frontend/src/features/intelligence/research/types.ts` (SubagentCall + envelope types)
+- `packages/frontend/src/features/intelligence/research/api.ts` (useGetResearchSubagentCallsQuery)
+- `packages/frontend/src/features/intelligence/research/SubagentCallList.tsx` (new component)
+- `packages/frontend/src/shared/api/tags.ts` (+ ResearchSubagentCalls tag)
+- `packages/frontend/src/shared/api/tags.test.ts` (updated expected list)

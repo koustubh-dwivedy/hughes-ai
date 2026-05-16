@@ -84,6 +84,24 @@ export interface LeadNote {
 	created_at: string;
 }
 
+/** HUG-245: one row per `run_subagent` invocation by the lead agent. */
+export type SubagentCallStatus = "pending" | "running" | "complete" | "failed";
+
+export interface SubagentCall {
+	call_id: string;
+	thread_id: string;
+	plan_id: string | null;
+	plan_step_ordinal: number | null;
+	prompt: string;
+	status: SubagentCallStatus;
+	summary_text: string | null;
+	rows_json: Array<Record<string, unknown>> | null;
+	mf_query_json: Record<string, unknown> | null;
+	error_text: string | null;
+	started_at: string;
+	completed_at: string | null;
+}
+
 /** API response envelopes (one field per resource). */
 export interface GetLatestPlanResponse {
 	plan: Plan | null;
@@ -99,6 +117,10 @@ export interface GetFindingsResponse {
 
 export interface GetNotesResponse {
 	notes: LeadNote[];
+}
+
+export interface GetSubagentCallsResponse {
+	calls: SubagentCall[];
 }
 
 /** Approve/abort POST response is the SSE event envelope: `{event, data}`. */

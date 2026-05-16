@@ -17,6 +17,7 @@ describe("TAG_TYPES", () => {
 			"ResearchSteps",
 			"ResearchFindings",
 			"ResearchLeadNotes",
+			"ResearchSubagentCalls",
 		]);
 	});
 

@@ -18,6 +18,7 @@ export const TAG_TYPES = [
 	"ResearchSteps",
 	"ResearchFindings",
 	"ResearchLeadNotes",
+	"ResearchSubagentCalls",
 ] as const;
 
 export type TagType = (typeof TAG_TYPES)[number];

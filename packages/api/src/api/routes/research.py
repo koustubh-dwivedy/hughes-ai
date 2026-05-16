@@ -104,6 +104,28 @@ def get_plan_findings_route(
     return {"findings": [f.model_dump(mode="json") for f in findings]}
 
 
+@router.get("/threads/{thread_id}/plans/{plan_id}/subagent-calls")
+def get_plan_subagent_calls_route(
+    thread_id: UUID,
+    plan_id: UUID,
+    request: Request,
+    x_hughes_session: str | None = Header(default=None),
+    x_hughes_user: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """List every run_subagent invocation under a plan (HUG-245).
+
+    Frontend's `useGetSubagentCallsQuery` reads this. Returns
+    `{"calls": [...]}` ordered by `started_at` ascending so the audit
+    panel renders chronologically.
+    """
+    from api.repo import subagent_calls as sc_repo
+    plan = _authorize_and_get_plan(
+        thread_id, plan_id, request, x_hughes_user, x_hughes_session
+    )
+    calls = sc_repo.list_by_plan(plan.plan_id, request.app.state.db_url)
+    return {"calls": calls}
+
+
 @router.get("/threads/{thread_id}/plans/{plan_id}/notes")
 def get_plan_notes_route(
     thread_id: UUID,

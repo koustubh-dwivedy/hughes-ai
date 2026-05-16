@@ -20,6 +20,7 @@ import type {
 	GetLatestPlanResponse,
 	GetNotesResponse,
 	GetStepsResponse,
+	GetSubagentCallsResponse,
 	PlanDecisionResponse,
 } from "./types";
 
@@ -66,6 +67,19 @@ const slice = baseApi.injectEndpoints({
 			],
 		}),
 
+		// HUG-245: subagent_calls rows for the audit panel.
+		getResearchSubagentCalls: build.query<
+			GetSubagentCallsResponse,
+			PlanIdentifier
+		>({
+			query: ({ threadId, planId }) => ({
+				url: `/threads/${threadId}/plans/${planId}/subagent-calls`,
+			}),
+			providesTags: (_result, _err, { planId }) => [
+				{ type: "ResearchSubagentCalls", id: planId },
+			],
+		}),
+
 		approvePlan: build.mutation<PlanDecisionResponse, PlanIdentifier>({
 			query: ({ threadId, planId }) => ({
 				url: `/threads/${threadId}/plans/${planId}/approve`,
@@ -94,6 +108,7 @@ export const {
 	useGetResearchStepsQuery,
 	useGetResearchFindingsQuery,
 	useGetResearchLeadNotesQuery,
+	useGetResearchSubagentCallsQuery,
 	useApprovePlanMutation,
 	useAbortPlanMutation,
 } = slice;
