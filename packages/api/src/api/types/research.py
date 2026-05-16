@@ -22,6 +22,10 @@ PlanStatus = Literal[
     "aborted",
     "failed",
     "superseded",
+    # HUG-241 / migration 017: the autonomous lead-agent's `propose_plan`
+    # tool writes rows with this status. Listed last to avoid disturbing
+    # the existing ordering used by status-comparing tests.
+    "proposed",
 ]
 
 StepStatus = Literal[

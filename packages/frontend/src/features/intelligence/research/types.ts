@@ -23,7 +23,10 @@ export type PlanStatus =
 	| "complete"
 	| "aborted"
 	| "failed"
-	| "superseded";
+	| "superseded"
+	// HUG-241 / migration 017: the autonomous lead-agent's `propose_plan`
+	// tool writes rows with this status.
+	| "proposed";
 
 export type StepStatus =
 	| "pending"
