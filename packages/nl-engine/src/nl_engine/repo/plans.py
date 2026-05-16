@@ -50,6 +50,20 @@ class ProposePlanResult(NamedTuple):
     capped: bool
 
 
+def get_latest_plan_id(thread_id: UUID, db_url: str) -> UUID | None:
+    """Return the plan_id of the highest-version plan under `thread_id`,
+    or None if no plan exists yet.
+
+    Used by the lead-agent memory tools (Fix C, 2026-05-17) to bind
+    `read_memory` / `write_memory` to the currently-active research_plans
+    row rather than a placeholder uuid4 that doesn't satisfy the FK on
+    `research_lead_notes.plan_id`.
+    """
+    with psycopg.connect(db_url) as conn, conn.cursor() as cur:
+        row = _latest_plan_row(cur, thread_id)
+    return row[0] if row is not None else None
+
+
 def _latest_plan_row(cur: Any, thread_id: UUID) -> tuple[UUID, int] | None:
     cur.execute(
         "SELECT plan_id, version FROM research_plans"

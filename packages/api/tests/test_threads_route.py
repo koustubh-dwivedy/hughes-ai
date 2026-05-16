@@ -267,11 +267,7 @@ def test_post_message_does_not_overwrite_existing_title(
 
     sid = f"pytest-{uuid4()}"
     headers = {"X-Hughes-Session": sid}
-    created = client.post(
-        "/threads",
-        json={"title": "Manually named"},
-        headers=headers,
-    )
+    created = client.post("/threads", json={"title": "Manually named"}, headers=headers)
     thread_id = created.json()["thread_id"]
     with client.stream(
         "POST",

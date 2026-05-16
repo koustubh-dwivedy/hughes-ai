@@ -41,8 +41,8 @@ def _db_url() -> str:
 
 
 @pytest.fixture
-def plan_id() -> UUID:
-    """Create a throwaway thread + plan, yield the plan_id, clean up."""
+def plan_and_thread() -> tuple[UUID, UUID]:
+    """Create a throwaway thread + plan; yield (plan_id, thread_id)."""
     url = _db_url()
     pid = uuid4()
     with psycopg.connect(url, autocommit=True) as conn, conn.cursor() as cur:
@@ -53,18 +53,31 @@ def plan_id() -> UUID:
         )
         row = cur.fetchone()
         assert row is not None
-        tid = row[0]
+        tid = UUID(str(row[0]))
         cur.execute(
             "INSERT INTO research_plans"
             " (plan_id, thread_id, version, status, plan_json)"
             " VALUES (%s, %s, 1, 'proposed', '{}'::jsonb)",
-            (str(pid), tid),
+            (str(pid), str(tid)),
         )
     try:
-        yield pid
+        yield pid, tid
     finally:
         with psycopg.connect(url, autocommit=True) as conn, conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM research_lead_notes WHERE plan_id = %s", (str(pid),)
+            )
             cur.execute("DELETE FROM threads WHERE session_id = 'memtest'")
+
+
+@pytest.fixture
+def plan_id(plan_and_thread: tuple[UUID, UUID]) -> UUID:
+    return plan_and_thread[0]
+
+
+@pytest.fixture
+def thread_id_fix(plan_and_thread: tuple[UUID, UUID]) -> UUID:
+    return plan_and_thread[1]
 
 
 def test_read_memory_returns_latest(plan_id: UUID) -> None:
@@ -104,10 +117,12 @@ def test_distinct_keys_are_independent(plan_id: UUID) -> None:
 # ── @tool function tests (with context binding) ──────────────────────
 
 
-def test_read_memory_tool_returns_stored_body(plan_id: UUID) -> None:
+def test_read_memory_tool_returns_stored_body(
+    plan_id: UUID, thread_id_fix: UUID
+) -> None:
     url = _db_url()
     write_lead_note(plan_id, "foo", "hello-world", url)
-    tokens = bind_memory_context(plan_id, url)
+    tokens = bind_memory_context(plan_id, url, thread_id=thread_id_fix)
     try:
         result = read_memory.invoke({"key": "foo"})
     finally:
@@ -115,8 +130,10 @@ def test_read_memory_tool_returns_stored_body(plan_id: UUID) -> None:
     assert result == {"body": "hello-world"}
 
 
-def test_read_memory_tool_returns_none_on_missing(plan_id: UUID) -> None:
-    tokens = bind_memory_context(plan_id, _db_url())
+def test_read_memory_tool_returns_none_on_missing(
+    plan_id: UUID, thread_id_fix: UUID
+) -> None:
+    tokens = bind_memory_context(plan_id, _db_url(), thread_id=thread_id_fix)
     try:
         result = read_memory.invoke({"key": "missing"})
     finally:
@@ -130,9 +147,11 @@ def test_read_memory_tool_errors_when_unbound() -> None:
     assert result == {"body": None, "error": "memory_context_not_bound"}
 
 
-def test_write_memory_tool_persists_and_reports(plan_id: UUID) -> None:
+def test_write_memory_tool_persists_and_reports(
+    plan_id: UUID, thread_id_fix: UUID
+) -> None:
     url = _db_url()
-    tokens = bind_memory_context(plan_id, url)
+    tokens = bind_memory_context(plan_id, url, thread_id=thread_id_fix)
     try:
         result = write_memory.invoke({"key": "k1", "body": "v1"})
     finally:
@@ -141,10 +160,10 @@ def test_write_memory_tool_persists_and_reports(plan_id: UUID) -> None:
     assert read_lead_note_by_key(plan_id, "k1", url) == "v1"
 
 
-def test_write_memory_tool_truncates(plan_id: UUID) -> None:
+def test_write_memory_tool_truncates(plan_id: UUID, thread_id_fix: UUID) -> None:
     url = _db_url()
     huge = "y" * (MAX_NOTE_CHARS + 500)
-    tokens = bind_memory_context(plan_id, url)
+    tokens = bind_memory_context(plan_id, url, thread_id=thread_id_fix)
     try:
         result = write_memory.invoke({"key": "big", "body": huge})
     finally:
