@@ -10,25 +10,24 @@ export function productLabel(slug: string): string {
 	return PRODUCT_LABELS[slug] ?? slug;
 }
 
+// HUG-240: each builder treats a missing nested array (partial-mode
+// payload) the same as a null data envelope — empty result, no crash.
 export function buildWaterfallData(d: OfficerBranchData | null) {
-	if (!d) return [];
-	return d.change_by_type_waterfall.map((x) => ({
+	return (d?.change_by_type_waterfall ?? []).map((x) => ({
 		label: productLabel(x.product),
 		value: x.delta / 1_000_000,
 	}));
 }
 
 export function buildSingleLoan(d: OfficerBranchData | null) {
-	if (!d) return [];
-	return d.single_loan_customers_by_type.map((x) => ({
+	return (d?.single_loan_customers_by_type ?? []).map((x) => ({
 		period: productLabel(x.product),
 		count: x.count,
 	}));
 }
 
 export function buildComboData(d: OfficerBranchData | null) {
-	if (!d) return [];
-	return d.combo_balance_rate.map((x) => ({
+	return (d?.combo_balance_rate ?? []).map((x) => ({
 		period: productLabel(x.product),
 		bar: x.balance / 1_000_000,
 		line: x.weighted_avg_rate * 100,
@@ -38,8 +37,7 @@ export function buildComboData(d: OfficerBranchData | null) {
 export function buildBorrowerRows(
 	data: OfficerBranchData | null,
 ): Record<string, unknown>[] {
-	if (!data) return [];
-	return data.top_25_borrowers.map((d) => ({
+	return (data?.top_25_borrowers ?? []).map((d) => ({
 		Member: d.member_name,
 		Balance: formatCurrency(d.balance),
 		"Share %": `${d.share_pct.toFixed(1)}%`,

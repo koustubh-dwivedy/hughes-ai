@@ -111,6 +111,27 @@ describe("PastDue — contract tests", () => {
 	});
 });
 
+describe("PastDue — partial-data resilience (HUG-240)", () => {
+	it("renders heading + alert UI when envelope has no usable fields", async () => {
+		// Mimic the E2E error-matrix's `partial` payload: data is non-null
+		// but missing nearly every field. Components must not crash on
+		// `.map`-on-undefined; PageHeader must still paint.
+		const partial = {
+			data: { total_deposits: 1000, account_count: 5 } as unknown as typeof FIXTURE,
+			as_of_date: "2026-04-30",
+			generated_at: "2026-04-30T00:00:00Z",
+			audit_id: "partial",
+		};
+		vi.spyOn(api, "getPastDue").mockResolvedValue(partial);
+		renderPage();
+		await waitFor(() => {
+			expect(screen.getByText("Past Due")).toBeInTheDocument();
+		});
+		// PageHeader present even on partial data — that's the contract.
+		expect(screen.getByText("Past Due")).toBeInTheDocument();
+	});
+});
+
 describe("PastDue — telemetry", () => {
 	it("emits kpi.tile.clicked when clicking Past Due Total tile", async () => {
 		vi.spyOn(api, "getPastDue").mockResolvedValue(ENVELOPE);

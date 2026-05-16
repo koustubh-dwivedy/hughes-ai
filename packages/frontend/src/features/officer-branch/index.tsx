@@ -69,6 +69,7 @@ function tileFromDef(id: string, fallback: string, value: string): KpiTileSpec {
 
 function buildKpiTiles(d: OfficerBranchData | null): KpiTileSpec[] {
 	if (!d) return [];
+	// HUG-240: partial payloads may omit any of these scalars.
 	return [
 		tileFromDef(
 			"total_loans_balance",
@@ -78,7 +79,7 @@ function buildKpiTiles(d: OfficerBranchData | null): KpiTileSpec[] {
 		tileFromDef(
 			"account_count",
 			"Account Count",
-			d.account_count.toLocaleString(),
+			(d.account_count ?? 0).toLocaleString(),
 		),
 		tileFromDef(
 			"avg_loan_balance",
@@ -89,8 +90,7 @@ function buildKpiTiles(d: OfficerBranchData | null): KpiTileSpec[] {
 }
 
 export function buildLoanMix(data: OfficerBranchData | null) {
-	if (!data) return [];
-	return data.loan_mix_donut.map((d) => ({
+	return (data?.loan_mix_donut ?? []).map((d) => ({
 		label: productLabel(d.product),
 		value: d.balance,
 	}));

@@ -104,3 +104,42 @@ NL Eval crashed downstream with `OllamaProviderError: OLLAMA_API_KEY is not set`
 3. Left `nl-prompt-compile.yml`'s stale `GROQ_API_KEY` reference alone — out of HUG-236 scope; will revisit if HUG-237 surfaces a need.
 
 Local gates re-run: ruff/structural still green. Pushing follow-up commit.
+
+### CI result on b71bd03
+CI failed but **not on my changes** — E2E suite hit:
+1. The dashboard-error-matrix partial-mode flake (HUG-240's exact subject).
+2. `as-of-date sends no qs param` test (`tests/e2e/as-of-date.spec.ts:64`) — flaky URL-param assertion, unrelated to HUG-236 workflow yml. Logged as a follow-up; not absorbing into HUG-236 scope.
+
+Decision: HUG-236's two acceptance criteria are met (workflow parses cleanly past argparse; structural drift gate active). The E2E flake is HUG-240. I'll close HUG-236 once HUG-240 lands and CI turns green.
+
+## HUG-240 — Dashboard-error-matrix partial-mode flake
+
+### Plan
+1. Root cause: `data.<nested>.map(...)` throws when partial-mode payload omits nested fields. Crash inside the function-component body kills the render before PageHeader paints → blank page → `getByRole("heading")` times out.
+2. Apply Fix B (defensive rendering) per the issue body. Use optional chaining + `??` fallback everywhere a partial payload may be missing a nested array.
+3. Apply symmetrically across all 4 dashboards (ExecutiveSummary, PastDue, DepositPortfolio, OfficerBranch) — the test matrix covers all four, so all four need the fix.
+4. Add unit tests for the partial-data render path on ExecutiveSummary + PastDue (fast deterministic signal alongside the slow E2E).
+5. Validate via local frontend tests + lint + typecheck.
+
+### Decisions
+- **Fix B over Fix A** — issue acknowledged Fix B is "the better fix" because partial data should render SOMETHING useful, not just race-pass an arbitrary `waitForLoadState`. Page-side defensiveness is the real fix.
+- **Symmetric across all four dashboards** — the E2E matrix tests all four; a partial-mode regression on any one is the same bug. Fixing only Executive + PastDue would leave latent crashes for the other two.
+- **Removed `biome-ignore` suppression on `PastDue`** — the simplified code is no longer cognitively complex; biome reported "Suppression comment has no effect."
+- **Did NOT touch the test file `dashboard-error-matrix.spec.ts`** — the test's intent is correct (heading must be visible). Fix is in the components, not the test.
+- **`as-of-date sends no qs param` test failure** — separate flake, not in HUG-240 scope. Logged here for follow-up; consider filing a new Linear issue if it recurs.
+
+### Local CI gate results
+- `npm test` (frontend) — 636 passed (added 2 new partial-data tests)
+- `npm run lint` (biome) — clean
+- `npx tsc --noEmit` — clean
+- `uv run ruff check .` — clean
+- `pytest tests/structural/` — 219 passed
+
+### Files changed
+- `packages/frontend/src/features/executive-summary/ExecutiveSummary.tsx`
+- `packages/frontend/src/features/executive-summary/ExecutiveSummary.test.tsx` (new partial-data test)
+- `packages/frontend/src/features/past-due/index.tsx`
+- `packages/frontend/src/features/past-due/PastDue.test.tsx` (new partial-data test)
+- `packages/frontend/src/features/deposit-portfolio/DepositPortfolio.tsx`
+- `packages/frontend/src/features/officer-branch/index.tsx`
+- `packages/frontend/src/features/officer-branch/chartBuilders.ts`

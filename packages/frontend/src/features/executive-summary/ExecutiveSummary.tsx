@@ -78,27 +78,27 @@ export default function ExecutiveSummary() {
 		);
 	}
 
+	// HUG-240: partial-mode E2E tests feed a payload missing most fields.
+	// Treat any missing nested field as empty/absent rather than letting
+	// `.map` throw on undefined — PageHeader must always paint.
 	const loans = data ? loansTiles(data, onTileClick) : [];
 	const deposits = data ? depositsTiles(data, onTileClick) : [];
 	const risk = data ? riskTiles(data, onTileClick) : [];
 	const efficiency = data ? efficiencyTiles(data, onTileClick) : [];
 
-	const loansTrend = data
-		? data.kpi_trend_13_months.map((d) => ({
-				period: formatAxisDate(d.month),
-				bar: d.total_loans_balance / 1_000_000,
-				line: d.rate_spread * 100,
-			}))
-		: [];
+	const trendMonths = data?.kpi_trend_13_months ?? [];
+	const loansTrend = trendMonths.map((d) => ({
+		period: formatAxisDate(d.month),
+		bar: d.total_loans_balance / 1_000_000,
+		line: d.rate_spread * 100,
+	}));
 
-	const ratioTrend = data
-		? data.kpi_trend_13_months.map((d) => ({
-				period: formatAxisDate(d.month),
-				value: Number(
-					formatAxisPercent(d.blended_past_due_ratio * 100).replace("%", ""),
-				),
-			}))
-		: [];
+	const ratioTrend = trendMonths.map((d) => ({
+		period: formatAxisDate(d.month),
+		value: Number(
+			formatAxisPercent(d.blended_past_due_ratio * 100).replace("%", ""),
+		),
+	}));
 
 	return (
 		<div>

@@ -42,6 +42,8 @@ function onTile(kpi_id: string, value: number) {
 }
 
 function topWithOther(data: DepositPortfolioData) {
+	// HUG-240: partial-mode payloads may omit deposit_mix entirely.
+	if (!data.deposit_mix) return [];
 	const sorted = [...data.deposit_mix].sort((a, b) => b.balance - a.balance);
 	const top = sorted.slice(0, TOP_SLICES);
 	const others = sorted.slice(TOP_SLICES);
@@ -90,7 +92,8 @@ function buildKpiTiles(d: DepositPortfolioData) {
 		{
 			id: "account_count",
 			...tileFromDef("account_count", "Account Count"),
-			value: d.account_count.toLocaleString(),
+			// HUG-240: defensive in case account_count is absent from a partial payload.
+			value: (d.account_count ?? 0).toLocaleString(),
 			onClick: () => onTile("account_count", d.account_count),
 		},
 		{
@@ -116,31 +119,28 @@ export default function DepositPortfolio() {
 			</div>
 		);
 
+	// HUG-240: partial-mode payloads may omit any nested field. Source
+	// each defensively rather than assuming completeness from `data`
+	// truthiness — `.map` on undefined throws and blanks the page.
 	const kpiTiles = data ? buildKpiTiles(data) : [];
 	const mixSlices = data ? topWithOther(data) : [];
-	const branchRows = data
-		? data.deposits_by_branch.map((d) => ({
-				Branch: d.branch_name,
-				Balance: formatCurrency(d.balance),
-			}))
-		: [];
-	const waterfallData = data
-		? data.change_by_product.map((d) => ({
-				label: d.product,
-				value: d.delta / 1_000_000,
-			}))
-		: [];
-	const depositorRows = data
-		? data.top_25_deposits.map((d) => ({
-				Member: d.member_name,
-				Balance: formatCurrency(d.balance),
-				"Share %": `${d.share_pct.toFixed(1)}%`,
-			}))
-		: [];
+	const branchRows = (data?.deposits_by_branch ?? []).map((d) => ({
+		Branch: d.branch_name,
+		Balance: formatCurrency(d.balance),
+	}));
+	const waterfallData = (data?.change_by_product ?? []).map((d) => ({
+		label: d.product,
+		value: d.delta / 1_000_000,
+	}));
+	const depositorRows = (data?.top_25_deposits ?? []).map((d) => ({
+		Member: d.member_name,
+		Balance: formatCurrency(d.balance),
+		"Share %": `${d.share_pct.toFixed(1)}%`,
+	}));
 
 	const centerLabel = data ? formatCurrency(data.total_deposits) : undefined;
-	const opened = data?.new_vs_closed_accounts.opened;
-	const closed = data?.new_vs_closed_accounts.closed;
+	const opened = data?.new_vs_closed_accounts?.opened;
+	const closed = data?.new_vs_closed_accounts?.closed;
 
 	return (
 		<div>

@@ -46,7 +46,10 @@ const gridStyle: React.CSSProperties = {
 	marginBottom: spacing[6],
 };
 
-function pseudonymMap(officers: OfficerDelinquency[]): Map<string, string> {
+function pseudonymMap(
+	officers: OfficerDelinquency[] | undefined,
+): Map<string, string> {
+	if (!officers) return new Map<string, string>();
 	const names = [...officers].map((o) => o.officer_name).sort();
 	return new Map(
 		names.map((name, i) => [
@@ -57,7 +60,9 @@ function pseudonymMap(officers: OfficerDelinquency[]): Map<string, string> {
 }
 
 export function buildDelinquencyTrend(data: PastDueData | null) {
-	if (!data) return [];
+	// HUG-240: partial-mode payloads may omit delinquency_trend_13_months.
+	// Treat missing field as empty rather than crashing on `.map`.
+	if (!data?.delinquency_trend_13_months) return [];
 	return data.delinquency_trend_13_months.map((d) => ({
 		period: d.month,
 		"30-59": d.bucket_30_59,
@@ -101,7 +106,9 @@ function buildKpiTiles(d: PastDueData) {
 		{
 			id: "watchlist_count",
 			...tileFromDef("watchlist_count", "Watchlist"),
-			value: d.watchlist_count.toLocaleString(),
+			// HUG-240: partial-mode payloads may omit watchlist_count;
+			// toLocaleString on undefined throws.
+			value: (d.watchlist_count ?? 0).toLocaleString(),
 			deltaPositive: d.watchlist_count_delta <= 0,
 			onClick: () => onTile("watchlist_count", d.watchlist_count),
 		},
@@ -115,7 +122,6 @@ function buildKpiTiles(d: PastDueData) {
 	];
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: dashboard render — conditional sections (loading/error) are intrinsic
 export default function PastDue() {
 	const { asOfDate } = useDashboardContext();
 	const { data, loading, isError } = usePastDue({ asOfDate });
@@ -128,31 +134,27 @@ export default function PastDue() {
 			</div>
 		);
 
-	const aliases = data
-		? pseudonymMap(data.past_due_by_officer)
-		: new Map<string, string>();
+	// HUG-240: partial-mode payloads may omit any of past_due_by_officer,
+	// past_due_ratio_trend, etc. Source each field defensively rather
+	// than assuming completeness from `data` truthiness.
+	const officers = data?.past_due_by_officer;
+	const aliases = pseudonymMap(officers);
 	const kpiTiles = data ? buildKpiTiles(data) : [];
 	const trendData = buildDelinquencyTrend(data);
-	const ratioData = data
-		? data.past_due_ratio_trend.map((d) => ({
-				period: d.month,
-				value: d.ratio * 100,
-			}))
-		: [];
-	const officerBarData = data
-		? data.past_due_by_officer.map((d) => ({
-				period: aliases.get(d.officer_name) ?? d.officer_name,
-				balance: d.balance,
-			}))
-		: [];
-	const tableRows = data
-		? data.past_due_by_officer.map((d) => ({
-				Officer: aliases.get(d.officer_name) ?? d.officer_name,
-				Balance: formatCurrency(d.balance),
-				Count: d.count.toString(),
-				Ratio: formatPercent(d.balance / (data.past_due_total || 1)),
-			}))
-		: [];
+	const ratioData = (data?.past_due_ratio_trend ?? []).map((d) => ({
+		period: d.month,
+		value: d.ratio * 100,
+	}));
+	const officerBarData = (officers ?? []).map((d) => ({
+		period: aliases.get(d.officer_name) ?? d.officer_name,
+		balance: d.balance,
+	}));
+	const tableRows = (officers ?? []).map((d) => ({
+		Officer: aliases.get(d.officer_name) ?? d.officer_name,
+		Balance: formatCurrency(d.balance),
+		Count: d.count.toString(),
+		Ratio: formatPercent(d.balance / ((data?.past_due_total ?? 0) || 1)),
+	}));
 
 	return (
 		<div>
