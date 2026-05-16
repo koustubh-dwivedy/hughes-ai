@@ -81,13 +81,13 @@ jobs:
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ] \
               && [ "${{ github.event_name }}" = "push" ]; then
-            uv run python scripts/eval.py --full \
+            uv run python scripts/eval.py \
               --gate must-pass=80,long-tail=65 \
               --write-ledger \
               --run-id "${{ github.run_id }}" \
               --commit-sha "${{ github.sha }}"
           else
-            uv run python scripts/eval.py --full \
+            uv run python scripts/eval.py \
               --gate must-pass=80,long-tail=65
           fi
       - name: Commit promotion ledger
