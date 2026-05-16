@@ -16,6 +16,7 @@
  */
 
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import SubagentCallList from "./SubagentCallList";
 import {
 	useGetResearchFindingsQuery,
 	useGetResearchLeadNotesQuery,
@@ -80,6 +81,15 @@ export default function ResearchAuditPanel({ threadId, planId }: Props) {
 	const findingByStep = new Map(findings.map((f) => [f.step_id, f]));
 	return (
 		<>
+			{/* HUG-245 Fix D: SubagentCallList is the primary audit surface
+			    for the autonomous lead agent. Renders rows from the
+			    subagent_calls table populated by run_subagent. The legacy
+			    research_steps + research_findings sections below survive
+			    until their tables are dropped — they'll render empty for
+			    new plans (no code writes to those tables anymore). */}
+			<section style={sectionStyle} data-testid="audit-subagent-section">
+				<SubagentCallList threadId={threadId} planId={planId} />
+			</section>
 			{steps.length > 0 ? (
 				<section style={sectionStyle} data-testid="audit-steps">
 					<div style={sectionLabelStyle}>Research steps ({steps.length})</div>

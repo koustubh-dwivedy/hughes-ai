@@ -1,18 +1,15 @@
 /**
- * Plan-preview card (HUG-211, L4).
+ * Plan-preview card (HUG-211 → HUG-245 reframe → Fix D, 2026-05-17).
  *
- * Renders the lead's drafted plan with Approve / Abort buttons.
- * Sits in the conversation layout BELOW the chat thread when a
- * `status='draft'` plan exists; chat stays visible above.
- *
- * Status routing for the parent ResearchWorkspace:
- *   draft        → render this PlanPreview
- *   approved/+   → render StepList (HUG-219, S4 — placeholder for now)
- *   missing      → render nothing
+ * Informational-only view of the lead agent's currently-active research
+ * plan. Renders the proposed steps + a version badge so the user can
+ * see which iteration is active when the lead has called propose_plan
+ * multiple times. The Approve gate is gone (HUG-247 Phase B deleted
+ * the /approve route); only the Abort kill-switch remains.
  */
 
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
-import { useAbortPlanMutation, useApprovePlanMutation } from "./api";
+import { useAbortPlanMutation } from "./api";
 import type { Plan, PlanStepDescriptor } from "./types";
 
 const cardStyle: React.CSSProperties = {
@@ -61,17 +58,6 @@ const buttonRowStyle: React.CSSProperties = {
 	marginTop: spacing[1],
 };
 
-const approveButtonStyle: React.CSSProperties = {
-	background: colors.indigo[700],
-	color: colors.white,
-	border: "none",
-	borderRadius: radii.sm,
-	padding: `${spacing[2]} ${spacing[4]}`,
-	cursor: "pointer",
-	fontSize: typography.size.sm,
-	fontWeight: typography.weight.medium,
-};
-
 const abortButtonStyle: React.CSSProperties = {
 	background: colors.white,
 	color: colors.slate[700],
@@ -82,21 +68,47 @@ const abortButtonStyle: React.CSSProperties = {
 	fontSize: typography.size.sm,
 };
 
+const versionBadgeStyle: React.CSSProperties = {
+	display: "inline-block",
+	background: colors.indigo[100] ?? "#e0e7ff",
+	color: colors.indigo[700],
+	borderRadius: radii.sm,
+	padding: `0 ${spacing[2]}`,
+	fontSize: typography.size.xs,
+	fontWeight: typography.weight.medium,
+	marginLeft: spacing[2],
+};
+
 interface Props {
 	plan: Plan;
 }
 
 export default function PlanPreview({ plan }: Props) {
-	const [approve, approveState] = useApprovePlanMutation();
 	const [abort, abortState] = useAbortPlanMutation();
 	const steps: PlanStepDescriptor[] = plan.plan_json.plan ?? [];
 	const reason = plan.plan_json.reason ?? "";
 	const summary = plan.plan_json.research_question_summary ?? "Research plan";
 	const ids = { threadId: plan.thread_id, planId: plan.plan_id };
-	const busy = approveState.isLoading || abortState.isLoading;
+	const aborted = plan.status === "aborted";
+	const showAbort =
+		!aborted && plan.status !== "complete" && plan.status !== "failed";
 	return (
 		<aside aria-label="Research plan preview" style={cardStyle}>
-			<h3 style={titleStyle}>Proposed research plan</h3>
+			<h3 style={titleStyle}>
+				Research plan
+				<span style={versionBadgeStyle} aria-label={`version ${plan.version}`}>
+					v{plan.version}
+				</span>
+				<span
+					style={{
+						...versionBadgeStyle,
+						background: colors.slate[100],
+						color: colors.slate[600],
+					}}
+				>
+					{plan.status}
+				</span>
+			</h3>
 			<p style={reasonStyle}>
 				<strong>{summary}</strong>
 				{reason ? ` — ${reason}` : null}
@@ -115,24 +127,18 @@ export default function PlanPreview({ plan }: Props) {
 					</li>
 				))}
 			</ol>
-			<div style={buttonRowStyle}>
-				<button
-					type="button"
-					style={abortButtonStyle}
-					disabled={busy}
-					onClick={() => abort(ids)}
-				>
-					Cancel
-				</button>
-				<button
-					type="button"
-					style={approveButtonStyle}
-					disabled={busy}
-					onClick={() => approve(ids)}
-				>
-					{approveState.isLoading ? "Approving…" : "Approve & run"}
-				</button>
-			</div>
+			{showAbort ? (
+				<div style={buttonRowStyle}>
+					<button
+						type="button"
+						style={abortButtonStyle}
+						disabled={abortState.isLoading}
+						onClick={() => abort(ids)}
+					>
+						{abortState.isLoading ? "Stopping…" : "Stop research"}
+					</button>
+				</div>
+			) : null}
 		</aside>
 	);
 }

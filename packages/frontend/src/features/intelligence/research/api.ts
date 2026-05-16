@@ -80,17 +80,10 @@ const slice = baseApi.injectEndpoints({
 			],
 		}),
 
-		approvePlan: build.mutation<PlanDecisionResponse, PlanIdentifier>({
-			query: ({ threadId, planId }) => ({
-				url: `/threads/${threadId}/plans/${planId}/approve`,
-				method: "POST",
-			}),
-			invalidatesTags: (_result, _err, { threadId, planId }) => [
-				{ type: "ResearchPlan", id: threadId },
-				{ type: "ResearchSteps", id: planId },
-			],
-		}),
-
+		// HUG-247 Phase B + Fix D: /approve route deleted server-side
+		// because the autonomous lead agent has no user approval gate.
+		// The frontend mutation hook is removed too — calling it would
+		// 404. Only /abort survives as a kill-switch.
 		abortPlan: build.mutation<PlanDecisionResponse, PlanIdentifier>({
 			query: ({ threadId, planId }) => ({
 				url: `/threads/${threadId}/plans/${planId}/abort`,
@@ -109,7 +102,6 @@ export const {
 	useGetResearchFindingsQuery,
 	useGetResearchLeadNotesQuery,
 	useGetResearchSubagentCallsQuery,
-	useApprovePlanMutation,
 	useAbortPlanMutation,
 } = slice;
 

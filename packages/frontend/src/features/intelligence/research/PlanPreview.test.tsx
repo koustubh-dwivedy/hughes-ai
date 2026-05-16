@@ -65,19 +65,46 @@ describe("PlanPreview", () => {
 		expect(items[2]).toHaveTextContent(/depends on steps 1, 2/);
 	});
 
-	it("exposes Approve + Cancel buttons", () => {
+	it("HUG-245 Fix D: no Approve button (route deleted)", () => {
 		renderPlan(FIXTURE_PLAN);
-		expect(screen.getByRole("button", { name: /Approve/ })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /Cancel/ })).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /Approve/ })).toBeNull();
 	});
 
-	it("Approve button is enabled by default", () => {
+	it("renders Stop research button for an active plan", () => {
+		// Fixture's status='draft' is treated as active.
 		renderPlan(FIXTURE_PLAN);
-		const approve = screen.getByRole("button", { name: /Approve/ });
-		expect(approve).toBeEnabled();
-		// Smoke: clicking doesn't crash. The mutation hook handles the
-		// actual network call; we don't assert on it here (covered by
-		// the api.ts tag-invalidation logic + backend route tests).
-		fireEvent.click(approve);
+		expect(
+			screen.getByRole("button", { name: /Stop research/ }),
+		).toBeInTheDocument();
+	});
+
+	it("hides Stop research when plan is complete/failed/aborted", () => {
+		for (const status of ["complete", "failed", "aborted"] as const) {
+			const { unmount } = renderPlan({ ...FIXTURE_PLAN, status });
+			expect(
+				screen.queryByRole("button", { name: /Stop research/ }),
+			).toBeNull();
+			unmount();
+		}
+	});
+
+	it("renders version badge", () => {
+		const plan = { ...FIXTURE_PLAN, version: 3 };
+		renderPlan(plan);
+		expect(screen.getByLabelText(/version 3/)).toBeInTheDocument();
+	});
+
+	it("renders status badge", () => {
+		const plan = { ...FIXTURE_PLAN, status: "proposed" as const };
+		renderPlan(plan);
+		expect(screen.getByText("proposed")).toBeInTheDocument();
+	});
+
+	it("Stop research button is enabled by default and clickable", () => {
+		renderPlan(FIXTURE_PLAN);
+		const stop = screen.getByRole("button", { name: /Stop research/ });
+		expect(stop).toBeEnabled();
+		// Smoke: click doesn't crash; abort mutation handles network.
+		fireEvent.click(stop);
 	});
 });
