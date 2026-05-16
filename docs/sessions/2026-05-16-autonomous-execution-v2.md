@@ -143,3 +143,41 @@ Decision: HUG-236's two acceptance criteria are met (workflow parses cleanly pas
 - `packages/frontend/src/features/deposit-portfolio/DepositPortfolio.tsx`
 - `packages/frontend/src/features/officer-branch/index.tsx`
 - `packages/frontend/src/features/officer-branch/chartBuilders.ts`
+
+Commit `2962b5c` + biome-format follow-up `e246723`. CI on the follow-up was running at handoff.
+
+## HUG-241 — Schema migration + memory tools
+
+### Plan
+1. Read `migrations/016_research_tables.sql` to copy style; pick next sequential number (017, NOT 018 — issue body's "018" was off-by-one since latest migration is 016).
+2. Write migration 017: add `subagent_calls` (table + 2 indexes + status CHECK), `thread_messages.plan_id` (column + index + FK), `research_lead_notes.key` (column + replaced unique constraint + index), `research_plans.status` (additive `proposed` value alongside existing).
+3. Build memory primitives in `nl_engine.repo.lead_memory` (helpers `read_lead_note_by_key`, `write_lead_note`, both psycopg-based, plus `MAX_NOTE_CHARS=2000` and a `WriteResult` namedtuple).
+4. Add `memory_context` contextvars (`bind_memory_context` / `reset_memory_context` / `current_plan_id` / `current_db_url` + a `MemoryContextNotBoundError`).
+5. Build the LangChain `@tool` wrappers `read_memory` + `write_memory` resolving context via the contextvars.
+6. TDD: migration tests + repo tests + tool tests — all 17 fail before code, all 17 pass after.
+
+### Decisions
+- **Migration number 017, not 018** — issue body said "018" but actually the latest existing migration is 016. Numbering must be sequential. Filed for the user to review the issue title text post-hoc (`HUG-241: Schema migration (018) + memory tools` — the title says 018, but 017 is what landed; minor cosmetic).
+- **Memory tools in their own file `memory_tools.py`** — adding the tools to `tools.py` pushed it past the 300-line cap (379 lines). Split memory tools into a dedicated file; tools.py re-exports them. Cleaner separation and respects the structural-test invariant.
+- **Contextvars over tool args for plan_id + db_url** — the LLM should NOT see infrastructure args in tool signatures. Contextvars are async-task-safe and idiomatic. Tests bind/reset manually around invocations.
+- **Repo helper duplicated in nl_engine, NOT imported from api.repo** — the import-graph rules forbid `nl_engine → api`. Both packages can connect to the same DB independently; api has its own helpers for serving GET endpoints (those land alongside HUG-245 frontend work, since they're frontend-facing routes).
+- **Additive `proposed` status** — kept old plan-status values (`draft`, `approved`, `running`, `superseded`) so existing code paths still work during the migration window. HUG-247 drops the legacy statuses when the legacy plan flow is decommissioned.
+- **`MAX_NOTE_CHARS = 2000`** — matches the issue's "≤2000 chars" cap; substantive paragraphs but not multi-page essays the model can't summarise back.
+
+### Local CI gate results
+- `uv run ruff check .` — clean
+- `uv run mypy packages/nl-engine/src packages/api/src` — Success: no issues
+- `uv run bandit -r packages -c pyproject.toml` — 0 issues
+- `uv run semgrep --config .semgrep/ --error packages/` — 0 findings
+- `pytest tests/structural/` — 224 passed (file-size cap satisfied at 292 lines for tools.py)
+- `pytest packages/nl-engine/tests/` — 187 passed (10 new in test_lead_memory.py)
+- `pytest packages/api/tests/ -m db` — 99 passed (7 new in test_migration_017.py)
+
+### Files changed
+- `migrations/017_lead_agent_schema.sql` (new)
+- `packages/nl-engine/src/nl_engine/repo/lead_memory.py` (new)
+- `packages/nl-engine/src/nl_engine/agent/memory_context.py` (new)
+- `packages/nl-engine/src/nl_engine/agent/memory_tools.py` (new)
+- `packages/nl-engine/src/nl_engine/agent/tools.py` (modified — re-exports + LEAD_AGENT_TOOLS)
+- `packages/nl-engine/tests/test_lead_memory.py` (new)
+- `packages/api/tests/test_migration_017.py` (new)

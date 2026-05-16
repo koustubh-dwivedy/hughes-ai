@@ -15,6 +15,11 @@ from typing import Any
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
+from nl_engine.agent.memory_tools import (  # noqa: F401  # re-export
+    LEAD_AGENT_MEMORY_TOOLS,
+    read_memory,
+    write_memory,
+)
 from nl_engine.agent.mf_query_runner import (
     run_mf_query_with_retry,
     safe_mf,
@@ -275,16 +280,10 @@ def final_answer(
     return payload.model_dump()
 
 
-# Registered tool list — the order matches the prompt template so the
-# LLM sees them in dependency order (catalog lookups before query, query
-# before final_answer).
-ALL_TOOLS = [
-    list_metrics,
-    lookup_metric_definition,
-    mf_query,
-    clarify,
-    final_answer,
-]
+# Chat agent registers ALL_TOOLS. Lead agent (HUG-244) registers
+# LEAD_AGENT_TOOLS = ALL_TOOLS + memory + (propose_plan, run_subagent).
+ALL_TOOLS = [list_metrics, lookup_metric_definition, mf_query, clarify, final_answer]
+LEAD_AGENT_TOOLS = ALL_TOOLS + LEAD_AGENT_MEMORY_TOOLS
 
 
 def serialize_tool_result(value: Any) -> str:
