@@ -30,6 +30,9 @@ _plan_id_var: contextvars.ContextVar[UUID | None] = contextvars.ContextVar(
 _db_url_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "lead_agent_db_url", default=None
 )
+_thread_id_var: contextvars.ContextVar[UUID | None] = contextvars.ContextVar(
+    "lead_agent_thread_id", default=None
+)
 
 
 class MemoryContextNotBoundError(RuntimeError):
@@ -38,21 +41,34 @@ class MemoryContextNotBoundError(RuntimeError):
 
 
 def bind_memory_context(
-    plan_id: UUID, db_url: str
-) -> tuple[contextvars.Token[UUID | None], contextvars.Token[str | None]]:
-    """Bind plan_id and db_url for the calling async task. Returns the
-    reset tokens; the caller must hand them to `reset_memory_context`
-    after the work completes (or use a context manager wrapper)."""
-    return _plan_id_var.set(plan_id), _db_url_var.set(db_url)
+    plan_id: UUID,
+    db_url: str,
+    thread_id: UUID | None = None,
+) -> tuple[
+    contextvars.Token[UUID | None],
+    contextvars.Token[str | None],
+    contextvars.Token[UUID | None],
+]:
+    """Bind plan_id, db_url, and optionally thread_id for the calling
+    async task. Returns the reset tokens; the caller must hand them to
+    `reset_memory_context`."""
+    return (
+        _plan_id_var.set(plan_id),
+        _db_url_var.set(db_url),
+        _thread_id_var.set(thread_id),
+    )
 
 
 def reset_memory_context(
     tokens: tuple[
-        contextvars.Token[UUID | None], contextvars.Token[str | None]
+        contextvars.Token[UUID | None],
+        contextvars.Token[str | None],
+        contextvars.Token[UUID | None],
     ],
 ) -> None:
     _plan_id_var.reset(tokens[0])
     _db_url_var.reset(tokens[1])
+    _thread_id_var.reset(tokens[2])
 
 
 def current_plan_id() -> UUID:
@@ -75,3 +91,13 @@ def current_db_url() -> str:
             "dispatching tools."
         )
     return durl
+
+
+def current_thread_id() -> UUID:
+    tid = _thread_id_var.get()
+    if tid is None:
+        raise MemoryContextNotBoundError(
+            "propose_plan called without thread_id bound. The agent "
+            "runner must include thread_id in bind_memory_context."
+        )
+    return tid

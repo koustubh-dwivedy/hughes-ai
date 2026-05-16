@@ -181,3 +181,37 @@ Commit `2962b5c` + biome-format follow-up `e246723`. CI on the follow-up was run
 - `packages/nl-engine/src/nl_engine/agent/tools.py` (modified — re-exports + LEAD_AGENT_TOOLS)
 - `packages/nl-engine/tests/test_lead_memory.py` (new)
 - `packages/api/tests/test_migration_017.py` (new)
+
+Commit `36d894a`. CI on it was running at the start of HUG-242 work; I proceeded with HUG-242 locally to amortize wait, with HUG-242 commit gated on HUG-241's CI being green.
+
+## HUG-242 — propose_plan tool
+
+### Plan
+1. Read existing `research_plans.*` helpers in `api.repo.research`; understand insert + status transition shape.
+2. Read `events.py` plan_drafted_event factory for the SSE payload shape we want to mirror.
+3. Build event-emitter contextvar pattern in nl_engine (`run_context.py` — `bind_event_emitter` + `emit_run_event`) since nl_engine can't import api.
+4. Build `nl_engine.repo.plans.propose_or_supersede_plan` with `MAX_PLAN_VERSIONS=5` cap.
+5. Build `propose_plan` @tool resolving thread_id + db_url from memory_context (extend memory_context with thread_id field).
+6. TDD: 5 tests — first-call creates v1, second-call supersedes, cap returns error + capped event, drafted event payload shape, unbound-context returns error dict (not crash).
+
+### Decisions
+- **Idempotent stateless tool**: tool reads `max(version)+1` for the thread inside its own transaction. No need to track plan_id state across tool calls — the DB is the source of truth. Simpler than passing plan_id through contextvar mutations between tool calls.
+- **Event-emitter contextvar** (`run_context.py`): tool body calls `emit_run_event(name, payload)` which dispatches through a bound callback. Tests bind a recording callback. Agent runner (HUG-244) will bind a real SSE-pushing callback. No-op when nothing bound — DB writes remain the source of truth.
+- **Extend memory_context with thread_id** (backwards compatible: optional param, defaults to None; old `bind_memory_context(plan_id, url)` still works).
+- **Extract helper functions for cap/drafted response and DB row operations**: structural test caps functions at 50 lines (excluding docstrings); split `propose_plan` and `propose_or_supersede_plan` into smaller pieces. Cleaner anyway.
+- **`PlanStepDescriptor` Pydantic model** with `ordinal`, `description`, optional `notes`. The lead emits a list of these.
+
+### Local CI gate results
+- `uv run ruff check .` — clean
+- `uv run mypy packages/nl-engine/src packages/api/src` — Success: 112 source files
+- `uv run bandit -r packages -c pyproject.toml` — 0 issues
+- `pytest tests/structural/` — 228 passed (function-line-limit gate passes after refactor)
+- `pytest packages/nl-engine/tests/test_propose_plan.py` — 5 passed
+
+### Files changed
+- `packages/nl-engine/src/nl_engine/repo/plans.py` (new)
+- `packages/nl-engine/src/nl_engine/agent/plan_tool.py` (new)
+- `packages/nl-engine/src/nl_engine/agent/run_context.py` (new)
+- `packages/nl-engine/src/nl_engine/agent/memory_context.py` (modified — added thread_id field)
+- `packages/nl-engine/src/nl_engine/agent/tools.py` (modified — re-exports + LEAD_AGENT_TOOLS now includes propose_plan)
+- `packages/nl-engine/tests/test_propose_plan.py` (new)

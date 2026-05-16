@@ -24,6 +24,10 @@ from nl_engine.agent.mf_query_runner import (
     run_mf_query_with_retry,
     safe_mf,
 )
+from nl_engine.agent.plan_tool import (  # noqa: F401  # re-export
+    PlanStepDescriptor,
+    propose_plan,
+)
 from nl_engine.agent.state import ClarifyResult, FinalAnswer
 from nl_engine.logging import get_logger
 
@@ -283,7 +287,7 @@ def final_answer(
 # Chat agent registers ALL_TOOLS. Lead agent (HUG-244) registers
 # LEAD_AGENT_TOOLS = ALL_TOOLS + memory + (propose_plan, run_subagent).
 ALL_TOOLS = [list_metrics, lookup_metric_definition, mf_query, clarify, final_answer]
-LEAD_AGENT_TOOLS = ALL_TOOLS + LEAD_AGENT_MEMORY_TOOLS
+LEAD_AGENT_TOOLS = [*ALL_TOOLS, *LEAD_AGENT_MEMORY_TOOLS, propose_plan]
 
 
 def serialize_tool_result(value: Any) -> str:
