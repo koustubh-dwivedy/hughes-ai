@@ -92,3 +92,15 @@ Files changed:
 - `.github/workflows/nl-eval.yml` (removed `--full` from 2 invocations)
 - `tests/structural/test_workflow_eval_flags.py` (new drift gate)
 - `docs/sessions/2026-05-16-autonomous-execution-v2.md` (this entry)
+
+Commit `f7bacb8`. CI green (5:36s). NL Eval got past argparse cleanly.
+
+### Follow-up landed in same issue: OLLAMA_API_KEY secret
+NL Eval crashed downstream with `OllamaProviderError: OLLAMA_API_KEY is not set`. Workflow yml only exposed `GROQ_API_KEY` (legacy). Since the LLM provider per `config/llm.yaml` is Ollama, the workflow couldn't reach the LLM.
+
+**Decision** — pragmatic extension of HUG-236 scope (not a separate issue): made the workflow actually functional rather than leaving the next-engineer to discover the same gap.
+1. Added `OLLAMA_API_KEY` repo secret via `gh secret set` (value from local `.env`).
+2. Updated `nl-eval.yml` env to expose `OLLAMA_API_KEY` instead of `GROQ_API_KEY`.
+3. Left `nl-prompt-compile.yml`'s stale `GROQ_API_KEY` reference alone — out of HUG-236 scope; will revisit if HUG-237 surfaces a need.
+
+Local gates re-run: ruff/structural still green. Pushing follow-up commit.

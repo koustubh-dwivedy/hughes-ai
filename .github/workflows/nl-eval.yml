@@ -56,7 +56,11 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://cubidev:localdev@localhost:5432/cubi
-      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      # LLM provider per config/llm.yaml (Ollama Cloud + glm-5.1).
+      # The legacy GROQ_API_KEY is no longer used; the env is supplied via
+      # the OLLAMA_API_KEY secret. ADR-0004 amendment 2026-05-07 locks
+      # single-provider config.
+      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
     steps:
       - uses: actions/checkout@v5
         with:
