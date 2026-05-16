@@ -144,7 +144,8 @@
           "complete",
           "aborted",
           "failed",
-          "superseded"
+          "superseded",
+          "proposed"
         ],
         "title": "Status",
         "type": "string"
