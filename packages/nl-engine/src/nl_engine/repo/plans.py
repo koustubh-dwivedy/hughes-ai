@@ -78,7 +78,8 @@ def _insert_proposed(
         (str(thread_id), next_version, Jsonb(plan_json)),
     )
     row = cur.fetchone()
-    assert row is not None  # noqa: S101 — RETURNING contract
+    if row is None:
+        raise RuntimeError("research_plans INSERT...RETURNING returned no row")
     return UUID(str(row[0]))
 
 
@@ -94,7 +95,8 @@ def propose_or_supersede_plan(
         latest = _latest_plan_row(cur, thread_id)
         current_version = latest[1] if latest else 0
         if current_version >= MAX_PLAN_VERSIONS:
-            assert latest is not None  # noqa: S101 — invariant
+            if latest is None:
+                raise RuntimeError("cap reached without a latest plan row")
             return ProposePlanResult(
                 plan_id=latest[0], version=current_version, capped=True
             )

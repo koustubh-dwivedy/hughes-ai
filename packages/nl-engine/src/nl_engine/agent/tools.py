@@ -29,6 +29,7 @@ from nl_engine.agent.plan_tool import (  # noqa: F401  # re-export
     propose_plan,
 )
 from nl_engine.agent.state import ClarifyResult, FinalAnswer
+from nl_engine.agent.subagent_tool import run_subagent  # noqa: F401  # re-export
 from nl_engine.logging import get_logger
 
 slog = get_logger().bind(component="agent.tools")
@@ -284,10 +285,9 @@ def final_answer(
     return payload.model_dump()
 
 
-# Chat agent registers ALL_TOOLS. Lead agent (HUG-244) registers
-# LEAD_AGENT_TOOLS = ALL_TOOLS + memory + (propose_plan, run_subagent).
+# Chat agent uses ALL_TOOLS; lead agent (HUG-244) uses LEAD_AGENT_TOOLS.
 ALL_TOOLS = [list_metrics, lookup_metric_definition, mf_query, clarify, final_answer]
-LEAD_AGENT_TOOLS = [*ALL_TOOLS, *LEAD_AGENT_MEMORY_TOOLS, propose_plan]
+LEAD_AGENT_TOOLS = [*ALL_TOOLS, *LEAD_AGENT_MEMORY_TOOLS, propose_plan, run_subagent]
 
 
 def serialize_tool_result(value: Any) -> str:
