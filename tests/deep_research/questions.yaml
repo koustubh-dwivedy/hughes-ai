@@ -1,0 +1,184 @@
+# Deep-research eval suite (HUG-248).
+#
+# 14 questions that should EXERCISE the lead-agent's autonomous tool surface
+# (propose_plan + run_subagent + read/write_memory + multi-chart OpenUI).
+# Each question has a rubric the LLM-as-judge grader evaluates against the
+# final answer + audit trail (plan versions, subagent calls, memory notes).
+#
+# Lives outside `packages/nl-engine/` so adding/editing the eval doesn't
+# trigger the 50-min NL Eval CI workflow.
+
+version: 1
+default_route: deep
+
+questions:
+
+  - id: dr-001
+    category: yoy_decomposition
+    question: |
+      Decompose YoY past-due delta by branch × product × vintage. Which branches
+      drove the increase?
+    rubric:
+      - Identifies the top 3 branches by absolute YoY delta contribution
+      - Breaks down each of those 3 branches by product + vintage
+      - YoY numbers in the summary are consistent with the rows
+      - Cites the comparison time windows (current month vs same month last year)
+    must_call_subagent: true
+    min_subagent_calls: 2
+    expect_multi_chart: true
+
+  - id: dr-002
+    category: time_comparison
+    question: |
+      Compare past-due ratio now vs a year ago by branch. Which branches
+      improved and which got worse?
+    rubric:
+      - Splits "improved" and "worsened" sets clearly
+      - Quantifies the percentage-point change per branch
+      - Identifies the time windows explicitly (latest month vs same month YoY)
+    must_call_subagent: true
+    min_subagent_calls: 2
+
+  - id: dr-003
+    category: officer_concentration
+    question: |
+      Which officers carry the most past-due balance and how does that compare
+      to their total book? Flag any over-concentration.
+    rubric:
+      - Lists officers ordered by past-due balance
+      - Includes each officer's total book and the % share that is past-due
+      - Surfaces officers with disproportionate past-due share (>30%) explicitly
+    must_call_subagent: true
+    min_subagent_calls: 2
+
+  - id: dr-004
+    category: product_mix_shift
+    question: |
+      Has the product mix of our loan originations shifted over the last 6
+      months? Which products are growing or shrinking?
+    rubric:
+      - Compares month-over-month or first-month-vs-last-month product counts
+      - Identifies the top 2 growing and top 2 shrinking products
+      - States the magnitude of shift (absolute count or % change)
+    must_call_subagent: true
+
+  - id: dr-005
+    category: channel_efficiency
+    question: |
+      Compare origination channels by funded loan count and average loan size.
+      Which channel is most efficient?
+    rubric:
+      - Reports funded count and average loan size per channel
+      - Defines "efficient" explicitly (e.g., highest avg loan size, highest
+        approval-to-funded ratio) and ranks channels by that metric
+    must_call_subagent: true
+
+  - id: dr-006
+    category: trend_synthesis
+    question: |
+      Summarise our portfolio health in 5 bullets: deposits, loans, past-due,
+      yield, and concentration risk.
+    rubric:
+      - Produces exactly 5 bullets covering the 5 named dimensions
+      - Each bullet states a number with a time qualifier
+      - At least one bullet flags a risk or watch-item (not just status quo)
+    must_call_subagent: true
+    min_subagent_calls: 4
+
+  - id: dr-007
+    category: deposit_segmentation
+    question: |
+      Split deposits into core vs non-core, then break each segment down by
+      branch. Where is our funding most stable?
+    rubric:
+      - Reports both core and non-core totals + their share of total deposits
+      - Per-branch table showing core vs non-core balance per branch
+      - Names the most stable branches (highest core share or highest absolute
+        core balance) with reasoning
+    must_call_subagent: true
+    expect_multi_chart: true
+
+  - id: dr-008
+    category: vintage_analysis
+    question: |
+      How do recent loan vintages compare to older ones on delinquency and
+      yield?
+    rubric:
+      - "Reports delinquency rate by vintage cohort (at minimum, last 12 months vs older)"
+      - Reports yield (weighted-avg rate) by the same cohorts
+      - States whether recent vintages are better or worse and quantifies the
+        gap
+    must_call_subagent: true
+    min_subagent_calls: 2
+
+  - id: dr-009
+    category: branch_region_risk
+    question: |
+      Which branch region has the highest concentration of past-due loans and
+      how does that compare to the region's share of total origination volume?
+    rubric:
+      - Reports past-due share by region (must sum to ~100%)
+      - Reports origination share by region (must sum to ~100%)
+      - Flags any region where past-due share materially exceeds origination
+        share
+    must_call_subagent: true
+    min_subagent_calls: 2
+
+  - id: dr-010
+    category: ltd_ratio_drivers
+    question: |
+      Our loan-to-deposit ratio moved this month. Decompose the move into
+      loan-side change and deposit-side change.
+    rubric:
+      - Reports current LTD ratio and prior-month LTD ratio
+      - Reports MoM loan growth and MoM deposit growth separately
+      - Attributes the ratio move to one or both sides quantitatively
+    must_call_subagent: true
+    min_subagent_calls: 2
+
+  - id: dr-011
+    category: watchlist_drilldown
+    question: |
+      For each watchlist loan, report the officer, branch, current balance,
+      and days past due. Group by officer.
+    rubric:
+      - Surfaces a per-officer list of watchlist loans
+      - Each row has officer, branch, balance, days-past-due
+      - Group totals (count + balance) per officer present
+    must_call_subagent: true
+
+  - id: dr-012
+    category: rate_spread_evolution
+    question: |
+      How has our rate spread (loan yield minus deposit cost) evolved over
+      the last 13 months? Is it widening or compressing?
+    rubric:
+      - Reports rate spread for each of the last 13 months
+      - States whether trend is widening, compressing, or stable, with the
+        delta from first to last month
+      - Optionally splits loan yield vs deposit cost contributors
+    must_call_subagent: true
+
+  - id: dr-013
+    category: nonaccrual_evolution
+    question: |
+      Has our nonaccrual balance grown faster than total past-due over the
+      last 6 months? What does that imply for severity?
+    rubric:
+      - Reports nonaccrual balance trend over 6 months
+      - Reports total past-due balance trend over the same window
+      - Compares the two growth rates and states implication for severity
+        (e.g., "increasingly skewed toward late buckets" or "stable mix")
+    must_call_subagent: true
+    min_subagent_calls: 2
+
+  - id: dr-014
+    category: ambiguous_clarify
+    question: |
+      Show me how we're doing on retention.
+    rubric:
+      - Recognises the question is ambiguous (retention of what — deposits?
+        loans? members?) and either asks a clarifying question OR proceeds with
+        a clearly-stated assumption
+      - "If proceeds, states the assumption explicitly in the summary"
+    must_call_subagent: false  # may legitimately clarify instead

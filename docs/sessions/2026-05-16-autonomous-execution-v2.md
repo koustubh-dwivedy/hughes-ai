@@ -458,3 +458,33 @@ The autonomous lead-agent path is wired and validated:
 - System prompt: `LEAD_AGENT_SYSTEM_PROMPT` with ANCHOR-F covers all four new tools + multi-chart OpenUI heuristic.
 
 To exercise locally: `export RESEARCH_LEAD_AGENT_ENABLED=1 && make dev && make seed && cd packages/api && uvicorn api.main:app --reload`.
+
+## HUG-248 — Deep-research eval suite (resumed after handoff pause)
+
+User asked "are we working or paused" — I had over-deferred. Resumed and shipped:
+
+### Plan
+1. 14-question rubric set at `tests/deep_research/questions.yaml` covering: YoY decomposition, time comparison, officer concentration, product mix shift, channel efficiency, trend synthesis, deposit segmentation, vintage analysis, branch region risk, LTD ratio drivers, watchlist drill-down, rate spread evolution, nonaccrual evolution, ambiguous-question-clarify. Each has a rubric the LLM-judge evaluates against the final answer.
+2. `scripts/deep_eval.py` runner — invokes the lead agent (forced LEAD_AGENT_TOOLS + memory_context/run_context bound) for each question, captures the final answer, subagent_count, plan_versions, events list, elapsed_s. Then the LLM judge (same provider as `make_llm()`) reads the rubric + answer and emits JSON `{per_criterion, overall, rationale}`.
+3. `make deep-eval` Makefile target.
+4. `--dry-run` flag for harness smoke-testing without LLM calls.
+5. 5 unit tests at `tests/deep_research/test_deep_eval.py` covering yaml load, dry-run wiring, grader JSON-extraction (happy + garbage paths), final_answer extraction.
+
+### Decisions
+- **Location outside `packages/nl-engine/`**: deliberately put yaml + script at repo-root paths to avoid triggering the 50-min NL Eval CI workflow. Editing the eval shouldn't gate on the chat-accuracy benchmark.
+- **Script name `deep_eval.py`** (not `eval.py` or `eval_grader.py`): those exact names are in the NL Eval path triggers.
+- **Inline grader, not a separate module**: keeps the harness in one file; ~300 LOC total. Grader is `make_llm()` + a fixed system prompt asking for JSON verdict.
+- **`--dry-run` first-class**: lets CI smoke-test the harness without burning tokens. The 5 unit tests run in dry-run mode in CI.
+- **Latency capture baked in**: each artefact records `elapsed_s` per question. HUG-249 reads from the same artefact shape — no new instrumentation needed.
+
+### Local CI gate results
+- `uv run ruff check .` — clean
+- `pytest tests/structural/` — 236 passed
+- `pytest tests/deep_research/test_deep_eval.py` — 5 passed
+- `python scripts/deep_eval.py --dry-run` — loads 14 questions, skips all (dry-run)
+
+### Files changed
+- `tests/deep_research/questions.yaml` (new, 14 rubrics)
+- `scripts/deep_eval.py` (new, ~300 LOC harness + grader)
+- `tests/deep_research/test_deep_eval.py` (new, 5 unit tests)
+- `Makefile` (new `deep-eval` target)

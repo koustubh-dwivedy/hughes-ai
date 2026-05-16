@@ -1,4 +1,4 @@
-.PHONY: up down dev migrate seed lint lint-fix typecheck test audit eval openui-prompt update-sse-goldens
+.PHONY: up down dev migrate seed lint lint-fix typecheck test audit eval deep-eval openui-prompt update-sse-goldens
 
 # HUG-231: regenerate the SSE event-contract goldens. Run when the
 # expected SSE event sequence intentionally changes (new event added,
@@ -70,6 +70,14 @@ test:
 # subset to skip.
 eval:
 	python scripts/eval.py
+
+# HUG-248: deep-research eval harness — runs the 14 rubric questions
+# at tests/deep_research/questions.yaml through the lead-agent path
+# (RESEARCH_LEAD_AGENT_ENABLED=1) and scores each answer with an
+# LLM-as-judge against the rubric. Use --dry-run to validate harness
+# wiring without LLM calls.
+deep-eval:
+	python scripts/deep_eval.py
 
 # HUG-178 Phase B: regenerate the OpenUI agent system prompt artifact.
 # Re-run after bumping @openuidev/react-ui or @openuidev/lang-core.
