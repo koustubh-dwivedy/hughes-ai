@@ -424,3 +424,37 @@ These are user-review-friendly UI changes; ship-as-needed when the lead-agent fl
 - `packages/frontend/src/features/intelligence/research/SubagentCallList.tsx` (new component)
 - `packages/frontend/src/shared/api/tags.ts` (+ ResearchSubagentCalls tag)
 - `packages/frontend/src/shared/api/tags.test.ts` (updated expected list)
+
+## Final session totals (2026-05-16)
+
+| Status | Count | Issues |
+|---|---|---|
+| ✓ Done (CI verified) | 9 | HUG-236, HUG-237, HUG-240, HUG-241, HUG-242, HUG-243, HUG-244, HUG-245 (partial), HUG-246 |
+| ⏳ Pending user review | 4 | HUG-247, HUG-248, HUG-249, HUG-201 |
+
+### Pending issue handoff notes
+
+**HUG-247 — Decommission custom orchestration + flip feature flag.** Deletes ~9 files of legacy orchestration (coordinator/executor/planner/replanner/synthesizer/worker/lead_memory/lead_system_prompt) and flips `RESEARCH_LEAD_AGENT_ENABLED` default to on. The plan's audit doc spec (`docs/sessions/2026-05-16-decommission-audit.md`) lays out the `git grep`-clean checklist. **Why deferred:** user asked for "extra cautious" handling; large deletion + flag flip is the kind of change a human should review the diff for. Also blocked by HUG-245's deferred UI sub-scope (PlanPreview/audit panel reframe) — see HUG-245 comment in Linear.
+
+**HUG-248 — Deep-research eval suite.** 14-question yaml + `scripts/deep_eval.py` runner + LLM-as-judge grader + `make deep-eval` target. **Why deferred:** runner+grader is ~300-500 LOC; LLM-judge integration needs careful prompt design. Standalone (doesn't depend on HUG-247) but substantial.
+
+**HUG-249 — mf_query latency measurement.** Add latency capture to the deep-eval harness (HUG-248); compute median/p95 turn latency + duplicate-query rate; decision gate decides whether HUG-250 (cache extension) gets filed. **Why deferred:** depends on HUG-248.
+
+**HUG-201 — Deep Research umbrella.** Closes when HUG-247 lands. **Why deferred:** chained on HUG-247.
+
+### Recommended next-session order
+1. Land HUG-245's deferred UI sub-scope (PlanPreview reframe, audit panel re-target, SSE handlers). All groundwork in place; just UI wiring + Playwright test.
+2. HUG-247 with a feature-flag default flip — preferably as a PR for review even though main convention is direct commits.
+3. HUG-248 standalone — 14-question scaffolding + runner + grader.
+4. HUG-249 after HUG-248 produces latency data.
+5. Close HUG-201 with a summary comment.
+
+### Backend ready for deep-research
+The autonomous lead-agent path is wired and validated:
+- Tools: `propose_plan`, `run_subagent`, `read_memory`, `write_memory` (HUG-241–243).
+- Lead agent runner: `api.services.lead_agent.stream_lead_turn` (HUG-244).
+- Feature flag: `RESEARCH_LEAD_AGENT_ENABLED=1` flips on the lead path; default off keeps legacy chat agent.
+- Persistence: `subagent_calls` table + audit-panel GET endpoint live.
+- System prompt: `LEAD_AGENT_SYSTEM_PROMPT` with ANCHOR-F covers all four new tools + multi-chart OpenUI heuristic.
+
+To exercise locally: `export RESEARCH_LEAD_AGENT_ENABLED=1 && make dev && make seed && cd packages/api && uvicorn api.main:app --reload`.
