@@ -50,7 +50,11 @@ describe("ThinkingBubble", () => {
 		const store = storeViewing(TID);
 		store.dispatch(streamStarted({ threadId: TID }));
 		store.dispatch(
-			streamThinking({ step: 1, line: "Looking up available metrics…" }),
+			streamThinking({
+				threadId: TID,
+				step: 1,
+				line: "Looking up available metrics…",
+			}),
 		);
 		renderWithStore(store);
 		expect(screen.getByTestId("thinking-line")).toBeInTheDocument();
@@ -59,11 +63,21 @@ describe("ThinkingBubble", () => {
 	it("disappears entirely when streamFinal arrives", () => {
 		const store = storeViewing(TID);
 		store.dispatch(streamStarted({ threadId: TID }));
-		store.dispatch(streamThinking({ step: 1, line: "Working…" }));
+		store.dispatch(
+			streamThinking({ threadId: TID, step: 1, line: "Working…" }),
+		);
 		store.dispatch(
 			streamFinal({
-				message: { message_id: "m", thread_id: TID, role: "tool", content: "" },
-				openui: null,
+				threadId: TID,
+				final: {
+					message: {
+						message_id: "m",
+						thread_id: TID,
+						role: "tool",
+						content: "",
+					},
+					openui: null,
+				},
 			}),
 		);
 		const { container } = renderWithStore(store);
@@ -76,7 +90,9 @@ describe("ThinkingBubble", () => {
 		// because setCurrentThread wiped streaming; now it's explicit.
 		const store = storeViewing("t-other");
 		store.dispatch(streamStarted({ threadId: TID }));
-		store.dispatch(streamThinking({ step: 1, line: "Working…" }));
+		store.dispatch(
+			streamThinking({ threadId: TID, step: 1, line: "Working…" }),
+		);
 		const { container } = renderWithStore(store);
 		expect(container).toBeEmptyDOMElement();
 	});
@@ -84,7 +100,9 @@ describe("ThinkingBubble", () => {
 	it("reappears when the user returns to the streaming thread", () => {
 		const store = storeViewing("t-other");
 		store.dispatch(streamStarted({ threadId: TID }));
-		store.dispatch(streamThinking({ step: 1, line: "Working…" }));
+		store.dispatch(
+			streamThinking({ threadId: TID, step: 1, line: "Working…" }),
+		);
 		store.dispatch(setCurrentThread(TID));
 		renderWithStore(store);
 		expect(screen.getByLabelText("Assistant is thinking")).toBeInTheDocument();
@@ -96,7 +114,10 @@ describe("ThinkingBubble", () => {
 		const store = storeViewing(TID);
 		store.dispatch(streamStarted({ threadId: TID }));
 		store.dispatch(
-			streamPlanDrafted({ plan_id: "p1", version: 2, step_count: 5 }),
+			streamPlanDrafted({
+				threadId: TID,
+				plan: { plan_id: "p1", version: 2, step_count: 5 },
+			}),
 		);
 		renderWithStore(store);
 		const badge = screen.getByTestId("live-plan-badge");
@@ -107,14 +128,26 @@ describe("ThinkingBubble", () => {
 		const store = storeViewing(TID);
 		store.dispatch(streamStarted({ threadId: TID }));
 		store.dispatch(
-			streamSubagentSpawned({ call_id: "c1", prompt: "fetch branch A" }),
+			streamSubagentSpawned({
+				threadId: TID,
+				call_id: "c1",
+				prompt: "fetch branch A",
+			}),
 		);
 		store.dispatch(
-			streamSubagentSpawned({ call_id: "c2", prompt: "fetch branch B" }),
+			streamSubagentSpawned({
+				threadId: TID,
+				call_id: "c2",
+				prompt: "fetch branch B",
+			}),
 		);
-		store.dispatch(streamSubagentCompleted({ call_id: "c1" }));
+		store.dispatch(streamSubagentCompleted({ threadId: TID, call_id: "c1" }));
 		store.dispatch(
-			streamSubagentFailed({ call_id: "c2", error: "metric not found" }),
+			streamSubagentFailed({
+				threadId: TID,
+				call_id: "c2",
+				error: "metric not found",
+			}),
 		);
 		renderWithStore(store);
 		const rows = screen.getAllByTestId("live-subagent-row");
@@ -126,7 +159,7 @@ describe("ThinkingBubble", () => {
 	it("renders the current tool line when liveCurrentTool is set", () => {
 		const store = storeViewing(TID);
 		store.dispatch(streamStarted({ threadId: TID }));
-		store.dispatch(streamTool({ name: "run_subagent" }));
+		store.dispatch(streamTool({ threadId: TID, name: "run_subagent" }));
 		renderWithStore(store);
 		expect(screen.getByTestId("live-current-tool")).toHaveTextContent(
 			/run_subagent/,

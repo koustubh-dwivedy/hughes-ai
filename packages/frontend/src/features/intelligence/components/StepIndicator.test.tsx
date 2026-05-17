@@ -61,8 +61,8 @@ describe("StepIndicator", () => {
 	it("renders human labels for known tool kinds", () => {
 		const store = storeViewing(TID);
 		store.dispatch(streamStarted({ threadId: TID }));
-		store.dispatch(streamStep(callList));
-		store.dispatch(streamStep(callMf));
+		store.dispatch(streamStep({ threadId: TID, step: callList }));
+		store.dispatch(streamStep({ threadId: TID, step: callMf }));
 		renderWithStore(store);
 		expect(
 			screen.getByText(/Looking up available metrics…/),
@@ -75,11 +75,14 @@ describe("StepIndicator", () => {
 		store.dispatch(streamStarted({ threadId: TID }));
 		store.dispatch(
 			streamStep({
-				step: 1,
-				kind: "tool_call",
-				name: "future_tool",
-				args: {},
-				result: null,
+				threadId: TID,
+				step: {
+					step: 1,
+					kind: "tool_call",
+					name: "future_tool",
+					args: {},
+					result: null,
+				},
 			}),
 		);
 		renderWithStore(store);

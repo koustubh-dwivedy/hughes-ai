@@ -13,6 +13,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppSelector } from "../../../shared/api/hooks";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import {
+	selectCurrentStream,
+	selectIsStreamingOnCurrentThread,
+} from "../threadSelectors";
 
 const DEFAULT_LINE = "Thinking…";
 
@@ -120,17 +124,15 @@ function SubagentIcon({
 }
 
 export default function ThinkingBubble() {
-	const streaming = useAppSelector((s) => s.thread.streaming);
-	const streamingThreadId = useAppSelector((s) => s.thread.streamingThreadId);
-	const currentThreadId = useAppSelector((s) => s.thread.currentThreadId);
-	const narration = useAppSelector((s) => s.thread.narrationLine);
-	const livePlan = useAppSelector((s) => s.thread.livePlan);
-	const liveSubagents = useAppSelector((s) => s.thread.liveSubagents);
-	const liveCurrentTool = useAppSelector((s) => s.thread.liveCurrentTool);
-	// Only render the bubble on the thread that owns the in-flight
-	// stream. Otherwise a user who's submitted on A and clicked over to
-	// B would see B sprouting A's "Thinking…" indicator.
-	const liveOnThisThread = streaming && streamingThreadId === currentThreadId;
+	// Per-thread streaming state: each thread has its own live activity
+	// slot. The bubble reads from the slot of the currently-viewed thread
+	// only, so concurrent streams on other threads don't bleed in.
+	const liveOnThisThread = useAppSelector(selectIsStreamingOnCurrentThread);
+	const currentStream = useAppSelector(selectCurrentStream);
+	const narration = currentStream.narrationLine;
+	const livePlan = currentStream.livePlan;
+	const liveSubagents = currentStream.liveSubagents;
+	const liveCurrentTool = currentStream.liveCurrentTool;
 	const visibleLine = narration ?? DEFAULT_LINE;
 	const [displayLine, setDisplayLine] = useState(visibleLine);
 	const [opacity, setOpacity] = useState(1);

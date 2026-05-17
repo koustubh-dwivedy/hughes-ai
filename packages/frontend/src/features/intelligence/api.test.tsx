@@ -123,10 +123,12 @@ describe("usePostMessageMutation — SSE wiring", () => {
 		});
 
 		const state = store.getState().thread;
-		expect(state.streaming).toBe(false);
-		expect(state.steps).toHaveLength(2);
-		expect(state.steps[0].name).toBe("list_metrics");
-		expect(state.lastFinal?.message.message_id).toBe("m1");
+		// After streamFinal the thread is removed from streamingThreadIds
+		// but its slot (steps, lastFinal) persists.
+		expect(state.streamingThreadIds).not.toContain("t1");
+		expect(state.streams.t1.steps).toHaveLength(2);
+		expect(state.streams.t1.steps[0].name).toBe("list_metrics");
+		expect(state.streams.t1.lastFinal?.message.message_id).toBe("m1");
 
 		// Verify session header was attached.
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -150,8 +152,8 @@ describe("usePostMessageMutation — SSE wiring", () => {
 		});
 
 		await waitFor(() => {
-			expect(store.getState().thread.error).toContain("HTTP 500");
-			expect(store.getState().thread.streaming).toBe(false);
+			expect(store.getState().thread.streams.t1?.error).toContain("HTTP 500");
+			expect(store.getState().thread.streamingThreadIds).not.toContain("t1");
 		});
 	});
 
@@ -165,8 +167,8 @@ describe("usePostMessageMutation — SSE wiring", () => {
 			expect("error" in r).toBe(true);
 		});
 
-		expect(store.getState().thread.error).toBe("offline");
-		expect(store.getState().thread.streaming).toBe(false);
+		expect(store.getState().thread.streams.t1?.error).toBe("offline");
+		expect(store.getState().thread.streamingThreadIds).not.toContain("t1");
 	});
 
 	it("flushes a final block that did not end with \\n\\n", async () => {
@@ -184,6 +186,8 @@ describe("usePostMessageMutation — SSE wiring", () => {
 		await act(async () => {
 			await result.current[0]({ threadId: "t1", content: "x" }).unwrap();
 		});
-		expect(store.getState().thread.lastFinal?.message.message_id).toBe("m9");
+		expect(
+			store.getState().thread.streams.t1?.lastFinal?.message.message_id,
+		).toBe("m9");
 	});
 });

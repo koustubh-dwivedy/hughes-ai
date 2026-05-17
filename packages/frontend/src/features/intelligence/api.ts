@@ -99,15 +99,7 @@ interface ParseResult {
 	remainder: string;
 }
 
-/**
- * Split an SSE buffer on `\n\n` event delimiters. Each block becomes
- * `{event, data}`; partial trailing block is returned in `remainder`.
- * Comment lines (starting with `:`) and unknown fields are dropped —
- * this is the minimal subset of the SSE spec that sse_starlette emits.
- *
- * Exported so tests can exercise edge cases (split across reads, ping
- * lines, malformed blocks) without spinning up a real EventSource.
- */
+/** Split an SSE buffer on `\n\n` event delimiters. Exported for tests. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSE parser state machine — splitting it further obscures the per-line dispatch.
 export function parseSseBuffer(buffer: string): ParseResult {
 	const events: ParsedSseEvent[] = [];
@@ -196,12 +188,12 @@ const slice = baseApi.injectEndpoints({
 					});
 				} catch (err) {
 					const message = err instanceof Error ? err.message : "network error";
-					api.dispatch(streamError(message));
+					api.dispatch(streamError({ threadId, error: message }));
 					return { error: { status: "FETCH_ERROR" as const, error: message } };
 				}
 				if (!response.ok || !response.body) {
 					const message = `HTTP ${response.status}`;
-					api.dispatch(streamError(message));
+					api.dispatch(streamError({ threadId, error: message }));
 					return {
 						error: { status: response.status, data: message },
 					};
@@ -217,7 +209,7 @@ const slice = baseApi.injectEndpoints({
 						const { events, remainder } = parseSseBuffer(buffer);
 						buffer = remainder;
 						for (const ev of events) {
-							dispatchSseEvent(api.dispatch, ev);
+							dispatchSseEvent(api.dispatch, threadId, ev);
 						}
 					}
 					// Flush any final block that didn't end with \n\n.
@@ -225,13 +217,13 @@ const slice = baseApi.injectEndpoints({
 					if (buffer.length > 0) {
 						const { events } = parseSseBuffer(`${buffer}\n\n`);
 						for (const ev of events) {
-							dispatchSseEvent(api.dispatch, ev);
+							dispatchSseEvent(api.dispatch, threadId, ev);
 						}
 					}
 				} catch (err) {
 					const message =
 						err instanceof Error ? err.message : "stream read error";
-					api.dispatch(streamError(message));
+					api.dispatch(streamError({ threadId, error: message }));
 					return {
 						error: { status: "CUSTOM_ERROR" as const, error: message },
 					};
@@ -254,6 +246,7 @@ const slice = baseApi.injectEndpoints({
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSE event-name dispatch — each branch is one tagged event with bespoke payload typing; routing this through a Map would obscure the contract.
 function dispatchSseEvent(
 	dispatch: (a: { type: string; payload?: unknown }) => unknown,
+	threadId: string,
 	ev: ParsedSseEvent,
 ): void {
 	let parsed: unknown;
@@ -264,17 +257,18 @@ function dispatchSseEvent(
 	}
 	if (ev.event === "step") {
 		const step = parsed as ThreadStreamStep;
-		dispatch(streamStep(step));
-		// Bug 4 — surface the current tool to the live activity panel.
+		dispatch(streamStep({ threadId, step }));
 		if (step.kind === "tool_call" && step.name) {
-			dispatch(streamTool({ name: step.name }));
+			dispatch(streamTool({ threadId, name: step.name }));
 		}
 	} else if (ev.event === "thinking") {
-		dispatch(streamThinking(parsed as { step: number; line: string }));
+		const p = parsed as { step: number; line: string };
+		dispatch(streamThinking({ threadId, step: p.step, line: p.line }));
 	} else if (ev.event === "token") {
-		dispatch(streamToken(parsed as { content_delta: string }));
+		const p = parsed as { content_delta: string };
+		dispatch(streamToken({ threadId, content_delta: p.content_delta }));
 	} else if (ev.event === "final") {
-		dispatch(streamFinal(parsed as ThreadStreamFinal));
+		dispatch(streamFinal({ threadId, final: parsed as ThreadStreamFinal }));
 	} else if (ev.event === "title") {
 		const t = parsed as { thread_id: string; title: string };
 		dispatch(
@@ -284,10 +278,10 @@ function dispatchSseEvent(
 			]) as unknown as { type: string; payload?: unknown },
 		);
 	} else if (RESEARCH_SUBAGENT_EVENTS.has(ev.event)) {
-		dispatchSubagentEvent(dispatch, ev.event, parsed);
+		dispatchSubagentEvent(dispatch, threadId, ev.event, parsed);
 	} else if (RESEARCH_PLAN_EVENTS.has(ev.event)) {
 		if (ev.event === "research.plan.drafted")
-			dispatchLivePlan(dispatch, parsed);
+			dispatchLivePlan(dispatch, threadId, parsed);
 		dispatchResearchPlanInvalidation(dispatch, parsed);
 	}
 }

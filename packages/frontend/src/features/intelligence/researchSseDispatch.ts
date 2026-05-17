@@ -52,10 +52,13 @@ export function dispatchResearchPlanInvalidation(
 	);
 }
 
-export function dispatchLivePlan(dispatch: Dispatch, parsed: unknown): void {
+export function dispatchLivePlan(
+	dispatch: Dispatch,
+	threadId: string,
+	parsed: unknown,
+): void {
 	// plan_tool emits plan_json = {"steps": [...]} (see plan_tool.py:127).
-	// Older snapshots used a `plan` key; accept either so a future shape
-	// tweak doesn't silently regress the badge to "0 steps".
+	// Older snapshots used a `plan` key; accept either.
 	const p = parsed as {
 		plan_id: string;
 		version: number;
@@ -64,25 +67,35 @@ export function dispatchLivePlan(dispatch: Dispatch, parsed: unknown): void {
 	const step_count =
 		p.plan_json?.steps?.length ?? p.plan_json?.plan?.length ?? 0;
 	dispatch(
-		streamPlanDrafted({ plan_id: p.plan_id, version: p.version, step_count }),
+		streamPlanDrafted({
+			threadId,
+			plan: { plan_id: p.plan_id, version: p.version, step_count },
+		}),
 	);
 }
 
 export function dispatchSubagentEvent(
 	dispatch: Dispatch,
+	threadId: string,
 	event: string,
 	parsed: unknown,
 ): void {
 	if (event === "research.subagent.spawned") {
 		const p = parsed as { call_id: string; prompt: string };
-		dispatch(streamSubagentSpawned({ call_id: p.call_id, prompt: p.prompt }));
+		dispatch(
+			streamSubagentSpawned({ threadId, call_id: p.call_id, prompt: p.prompt }),
+		);
 	} else if (event === "research.subagent.completed") {
 		const p = parsed as { call_id: string };
-		dispatch(streamSubagentCompleted({ call_id: p.call_id }));
+		dispatch(streamSubagentCompleted({ threadId, call_id: p.call_id }));
 	} else if (event === "research.subagent.failed") {
 		const p = parsed as { call_id: string; error?: string };
 		dispatch(
-			streamSubagentFailed({ call_id: p.call_id, error: p.error ?? "failed" }),
+			streamSubagentFailed({
+				threadId,
+				call_id: p.call_id,
+				error: p.error ?? "failed",
+			}),
 		);
 	}
 }

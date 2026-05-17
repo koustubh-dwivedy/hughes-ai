@@ -81,15 +81,13 @@ export default function IntelligencePage() {
 	const dispatch = useAppDispatch();
 
 	const threadId = params.threadId ?? null;
-	const streaming = useAppSelector((s) => s.thread.streaming);
-	const streamingThreadId = useAppSelector((s) => s.thread.streamingThreadId);
 	const pendingQuestion = useAppSelector((s) => s.thread.pendingQuestion);
-	// True iff the in-flight stream belongs to the thread the user is
-	// currently viewing. Used to gate the auto-scroll triggers and the
-	// optimistic pending-bubble. Without this gate, switching to a
-	// different thread mid-stream made the source-thread's streaming
-	// UI disappear (because setCurrentThread used to wipe buffers).
-	const liveOnThisThread = streaming && streamingThreadId === threadId;
+	// True iff a stream is in-flight on the thread the user is currently
+	// viewing. With the per-thread slice refactor each thread owns its
+	// own streaming slot, so this is simply a set-membership check.
+	const liveOnThisThread = useAppSelector((s) =>
+		threadId ? s.thread.streamingThreadIds.includes(threadId) : false,
+	);
 	const conversationRef = useRef<HTMLDivElement | null>(null);
 	// True iff the user was scrolled to (or near) the bottom of the
 	// conversation *before* the most recent re-render. We sample this

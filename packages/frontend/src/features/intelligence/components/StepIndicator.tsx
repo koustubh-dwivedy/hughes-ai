@@ -9,6 +9,10 @@
 
 import { useAppSelector } from "../../../shared/api/hooks";
 import { colors, spacing, typography } from "../../../theme/tokens";
+import {
+	selectCurrentStream,
+	selectIsStreamingOnCurrentThread,
+} from "../threadSelectors";
 import type { ThreadStreamStep } from "../threadSlice";
 
 const wrapperStyle: React.CSSProperties = {
@@ -52,13 +56,8 @@ function labelForStep(step: ThreadStreamStep): string {
 }
 
 export default function StepIndicator() {
-	const streaming = useAppSelector((s) => s.thread.streaming);
-	const streamingThreadId = useAppSelector((s) => s.thread.streamingThreadId);
-	const currentThreadId = useAppSelector((s) => s.thread.currentThreadId);
-	const steps = useAppSelector((s) => s.thread.steps);
-	// Same per-thread gate as ThinkingBubble — don't leak A's step
-	// indicator onto B when the user switches mid-stream.
-	const liveOnThisThread = streaming && streamingThreadId === currentThreadId;
+	const liveOnThisThread = useAppSelector(selectIsStreamingOnCurrentThread);
+	const steps = useAppSelector((s) => selectCurrentStream(s).steps);
 	if (!liveOnThisThread && steps.length === 0) return null;
 	if (steps.length === 0) return null;
 	return (

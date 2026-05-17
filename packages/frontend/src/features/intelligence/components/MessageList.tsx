@@ -18,6 +18,10 @@ import { useAppSelector } from "../../../shared/api/hooks";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import type { ThreadMessageWire } from "../api";
 import OpenUIRenderer from "../openui/OpenUIRenderer";
+import {
+	selectCurrentStream,
+	selectIsStreamingOnCurrentThread,
+} from "../threadSelectors";
 import MarkdownText from "./MarkdownText";
 import ReferencesModal from "./ReferencesModal";
 
@@ -199,11 +203,11 @@ function ensureCaretKeyframes(): void {
 	document.head.appendChild(style);
 }
 
-/** In-flight assistant bubble fed by the slice's `streamingSummary`.
- *  Replaced by the persisted AssistantTerminal as soon as the
- *  thread-cache refetch lands (HUG-202 Phase 2). */
+/** In-flight assistant bubble fed by the current thread's
+ *  `streamingSummary` slot. Replaced by the persisted AssistantTerminal
+ *  as soon as the thread-cache refetch lands (HUG-202 Phase 2). */
 function StreamingAssistant() {
-	const text = useAppSelector((s) => s.thread.streamingSummary);
+	const text = useAppSelector((s) => selectCurrentStream(s).streamingSummary);
 	if (!text) return null;
 	ensureCaretKeyframes();
 	return (
@@ -243,14 +247,11 @@ function AssistantText({ msg }: { msg: ThreadMessageWire }) {
 }
 
 export default function MessageList({ messages, pendingUserContent }: Props) {
-	const streaming = useAppSelector((s) => s.thread.streaming);
-	const streamingThreadId = useAppSelector((s) => s.thread.streamingThreadId);
-	const currentThreadId = useAppSelector((s) => s.thread.currentThreadId);
-	const streamingSummary = useAppSelector((s) => s.thread.streamingSummary);
-	// Live-bubble belongs to whichever thread owns the in-flight stream.
-	// Without this gate, viewing thread B while A is still streaming
-	// would surface A's streamingSummary inside B's MessageList.
-	const liveOnThisThread = streaming && streamingThreadId === currentThreadId;
+	// Live state for the currently-viewed thread only — the slot is
+	// per-thread, so concurrent streams on other threads don't bleed in.
+	const liveOnThisThread = useAppSelector(selectIsStreamingOnCurrentThread);
+	const currentStream = useAppSelector(selectCurrentStream);
+	const streamingSummary = currentStream.streamingSummary;
 	// Find the last persisted final-answer tool message — when it
 	// matches the streaming summary's content, switch from the in-flight
 	// bubble to the persisted one to avoid double-render.
@@ -263,9 +264,7 @@ export default function MessageList({ messages, pendingUserContent }: Props) {
 	})();
 	const showStreamingBubble =
 		liveOnThisThread ||
-		(streamingSummary.length > 0 &&
-			streamingThreadId === currentThreadId &&
-			!persistedHasMatchingTerminal);
+		(streamingSummary.length > 0 && !persistedHasMatchingTerminal);
 	return (
 		<div style={containerStyle} role="log" aria-live="polite">
 			{messages.map((msg) => {
