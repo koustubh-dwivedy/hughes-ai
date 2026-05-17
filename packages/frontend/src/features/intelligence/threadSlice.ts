@@ -58,6 +58,25 @@ export interface PendingQuestion {
 	submittedAt: number;
 }
 
+/**
+ * Live activity surfaces during a lead-agent turn so the user can see
+ * what the agent is currently doing (plan version, in-flight subagents,
+ * last tool name). All three fields reset on streamStarted /
+ * streamFinal / streamError. Drives the live-activity panel inside
+ * ThinkingBubble.
+ */
+export interface LivePlan {
+	plan_id: string;
+	version: number;
+	step_count: number;
+}
+export interface LiveSubagent {
+	call_id: string;
+	prompt: string;
+	status: "spawned" | "completed" | "failed";
+	error: string | null;
+}
+
 export interface ThreadState {
 	currentThreadId: string | null;
 	draftInput: string;
@@ -83,6 +102,13 @@ export interface ThreadState {
 	// Cleared at the start of each turn and on streamFinal once the
 	// canonical persisted message takes over.
 	streamingSummary: string;
+	// Live activity (Bug 4, 2026-05-17) — populated from
+	// research.plan.drafted, research.subagent.*, and step events so
+	// the user can see what the lead is currently doing. Reset on
+	// streamStarted/Final/Error.
+	livePlan: LivePlan | null;
+	liveSubagents: LiveSubagent[];
+	liveCurrentTool: string | null;
 }
 
 export const initialThreadState: ThreadState = {
@@ -96,6 +122,9 @@ export const initialThreadState: ThreadState = {
 	pendingQuestion: null,
 	narrationLine: null,
 	streamingSummary: "",
+	livePlan: null,
+	liveSubagents: [],
+	liveCurrentTool: null,
 };
 
 const slice = createSlice({
@@ -137,6 +166,53 @@ const slice = createSlice({
 			state.error = null;
 			state.narrationLine = null;
 			state.streamingSummary = "";
+			state.livePlan = null;
+			state.liveSubagents = [];
+			state.liveCurrentTool = null;
+		},
+		streamPlanDrafted(state, action: PayloadAction<LivePlan>) {
+			state.livePlan = action.payload;
+		},
+		streamSubagentSpawned(
+			state,
+			action: PayloadAction<{ call_id: string; prompt: string }>,
+		) {
+			const { call_id, prompt } = action.payload;
+			// Drop any prior entry for this call_id so a re-spawn updates in
+			// place rather than duplicating.
+			state.liveSubagents = state.liveSubagents.filter(
+				(s) => s.call_id !== call_id,
+			);
+			// Most-recent-first; cap at 10 so a runaway lead doesn't bloat
+			// the slice.
+			state.liveSubagents.unshift({
+				call_id,
+				prompt,
+				status: "spawned",
+				error: null,
+			});
+			state.liveSubagents = state.liveSubagents.slice(0, 10);
+		},
+		streamSubagentCompleted(state, action: PayloadAction<{ call_id: string }>) {
+			const row = state.liveSubagents.find(
+				(s) => s.call_id === action.payload.call_id,
+			);
+			if (row) row.status = "completed";
+		},
+		streamSubagentFailed(
+			state,
+			action: PayloadAction<{ call_id: string; error: string }>,
+		) {
+			const row = state.liveSubagents.find(
+				(s) => s.call_id === action.payload.call_id,
+			);
+			if (row) {
+				row.status = "failed";
+				row.error = action.payload.error;
+			}
+		},
+		streamTool(state, action: PayloadAction<{ name: string | null }>) {
+			state.liveCurrentTool = action.payload.name;
 		},
 		streamStep(state, action: PayloadAction<ThreadStreamStep>) {
 			state.steps.push(action.payload);
@@ -155,6 +231,9 @@ const slice = createSlice({
 			state.streaming = false;
 			state.streamingThreadId = null;
 			state.narrationLine = null;
+			state.livePlan = null;
+			state.liveSubagents = [];
+			state.liveCurrentTool = null;
 			// Keep streamingSummary populated briefly so the bubble
 			// doesn't flash empty between final-event landing and the
 			// persisted-thread refetch arriving. The next streamStarted
@@ -173,6 +252,9 @@ const slice = createSlice({
 			state.streamingThreadId = null;
 			state.narrationLine = null;
 			state.streamingSummary = "";
+			state.livePlan = null;
+			state.liveSubagents = [];
+			state.liveCurrentTool = null;
 		},
 	},
 });
@@ -188,6 +270,11 @@ export const {
 	streamFinal,
 	streamCleared,
 	streamError,
+	streamPlanDrafted,
+	streamSubagentSpawned,
+	streamSubagentCompleted,
+	streamSubagentFailed,
+	streamTool,
 	pendingQuestionSubmitted,
 	pendingQuestionCleared,
 } = slice.actions;

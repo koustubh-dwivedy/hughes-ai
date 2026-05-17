@@ -1,23 +1,20 @@
 /**
  * RTK Query slice for the conversational `/intelligence` surface
  * (HUG-179). Pairs with `threadSlice` — RTK Query owns the persisted
- * server state (thread list, full message history) and this file
- * defines a `usePostMessageMutation` whose custom `queryFn` parses
- * the streaming SSE response and dispatches each event into the slice.
- *
- * The SSE custom queryFn bypasses `fetchBaseQuery`, so the session
- * header (`X-Hughes-Session`) is added manually here. On stream close
- * it invalidates the `Thread:{id}` tag so `useGetThreadQuery` refetches
- * the persisted history (the agent ran tools and wrote rows that
- * weren't in the assistant message stream).
+ * server state and this file defines `usePostMessageMutation` whose
+ * custom `queryFn` parses the streaming SSE response and dispatches
+ * each event into the slice. The SSE queryFn bypasses fetchBaseQuery
+ * so session/user headers are added manually here.
  */
-
 import { baseApi } from "../../shared/api/client";
 import { SESSION_HEADER, getSessionId } from "../../shared/telemetry/session";
 import { USER_HEADER, getUserId } from "../../shared/telemetry/user";
 import {
 	RESEARCH_PLAN_EVENTS,
+	RESEARCH_SUBAGENT_EVENTS,
+	dispatchLivePlan,
 	dispatchResearchPlanInvalidation,
+	dispatchSubagentEvent,
 } from "./researchSseDispatch";
 import {
 	type ThreadStreamFinal,
@@ -28,6 +25,7 @@ import {
 	streamStep,
 	streamThinking,
 	streamToken,
+	streamTool,
 } from "./threadSlice";
 
 // ── Wire types (mirror api.types.threads / api.types.threads_api) ─────────
@@ -253,6 +251,7 @@ const slice = baseApi.injectEndpoints({
 	overrideExisting: false,
 });
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSE event-name dispatch — each branch is one tagged event with bespoke payload typing; routing this through a Map would obscure the contract.
 function dispatchSseEvent(
 	dispatch: (a: { type: string; payload?: unknown }) => unknown,
 	ev: ParsedSseEvent,
@@ -264,7 +263,12 @@ function dispatchSseEvent(
 		return;
 	}
 	if (ev.event === "step") {
-		dispatch(streamStep(parsed as ThreadStreamStep));
+		const step = parsed as ThreadStreamStep;
+		dispatch(streamStep(step));
+		// Bug 4 — surface the current tool to the live activity panel.
+		if (step.kind === "tool_call" && step.name) {
+			dispatch(streamTool({ name: step.name }));
+		}
 	} else if (ev.event === "thinking") {
 		dispatch(streamThinking(parsed as { step: number; line: string }));
 	} else if (ev.event === "token") {
@@ -272,18 +276,18 @@ function dispatchSseEvent(
 	} else if (ev.event === "final") {
 		dispatch(streamFinal(parsed as ThreadStreamFinal));
 	} else if (ev.event === "title") {
-		// Real-time sidebar title arrives after the agent's last step.
-		// Re-invalidate ThreadList so the sidebar refetches the new
-		// title, and the specific Thread cache in case the chat header
-		// renders the title too.
-		const titlePayload = parsed as { thread_id: string; title: string };
+		const t = parsed as { thread_id: string; title: string };
 		dispatch(
 			baseApi.util.invalidateTags([
 				"ThreadList",
-				{ type: "Thread", id: titlePayload.thread_id },
+				{ type: "Thread", id: t.thread_id },
 			]) as unknown as { type: string; payload?: unknown },
 		);
+	} else if (RESEARCH_SUBAGENT_EVENTS.has(ev.event)) {
+		dispatchSubagentEvent(dispatch, ev.event, parsed);
 	} else if (RESEARCH_PLAN_EVENTS.has(ev.event)) {
+		if (ev.event === "research.plan.drafted")
+			dispatchLivePlan(dispatch, parsed);
 		dispatchResearchPlanInvalidation(dispatch, parsed);
 	}
 }

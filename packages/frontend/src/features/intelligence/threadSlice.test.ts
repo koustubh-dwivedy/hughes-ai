@@ -64,6 +64,9 @@ describe("threadSlice", () => {
 			},
 			narrationLine: "Looking up…",
 			streamingSummary: "partial answer ",
+			livePlan: null,
+			liveSubagents: [],
+			liveCurrentTool: null,
 		};
 		const next = reducer(dirty, setCurrentThread("t-new"));
 		expect(next.currentThreadId).toBe("t-new");
@@ -100,6 +103,9 @@ describe("threadSlice", () => {
 			},
 			narrationLine: null,
 			streamingSummary: "",
+			livePlan: null,
+			liveSubagents: [],
+			liveCurrentTool: null,
 		};
 		const next = reducer(inFlight, setCurrentThread("t-new"));
 		expect(next.currentThreadId).toBe("t-new");
@@ -179,6 +185,9 @@ describe("threadSlice", () => {
 			pendingQuestion: null,
 			narrationLine: null,
 			streamingSummary: "",
+			livePlan: null,
+			liveSubagents: [],
+			liveCurrentTool: null,
 		};
 		const next = reducer(dirty, streamCleared());
 		expect(next.steps).toEqual([]);

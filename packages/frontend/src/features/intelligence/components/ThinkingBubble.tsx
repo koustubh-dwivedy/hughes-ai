@@ -26,8 +26,48 @@ const bubbleStyle: React.CSSProperties = {
 	border: `1px solid ${colors.slate[200]}`,
 	fontSize: typography.size.sm,
 	display: "flex",
+	flexDirection: "column",
+	gap: spacing[2],
+};
+
+const narrationRowStyle: React.CSSProperties = {
+	display: "flex",
 	alignItems: "center",
 	gap: spacing[2],
+};
+
+const activityPanelStyle: React.CSSProperties = {
+	display: "flex",
+	flexDirection: "column",
+	gap: spacing[1],
+	maxHeight: 240,
+	overflow: "auto",
+	borderTop: `1px solid ${colors.slate[200]}`,
+	paddingTop: spacing[2],
+};
+
+const planBadgeStyle: React.CSSProperties = {
+	alignSelf: "flex-start",
+	background: colors.indigo[100] ?? "#e0e7ff",
+	color: colors.indigo[700],
+	borderRadius: radii.sm,
+	padding: `0 ${spacing[2]}`,
+	fontSize: typography.size.xs,
+	fontWeight: typography.weight.medium,
+};
+
+const subagentRowStyle: React.CSSProperties = {
+	display: "flex",
+	alignItems: "center",
+	gap: spacing[2],
+	fontSize: typography.size.xs,
+	color: colors.slate[700],
+};
+
+const currentToolStyle: React.CSSProperties = {
+	fontFamily: "monospace",
+	fontSize: typography.size.xs,
+	color: colors.slate[500],
 };
 
 const dotsStyle: React.CSSProperties = {
@@ -71,11 +111,22 @@ function ensureKeyframes(): void {
 	document.head.appendChild(style);
 }
 
+function SubagentIcon({
+	status,
+}: { status: "spawned" | "completed" | "failed" }) {
+	if (status === "completed") return <span aria-hidden>✓</span>;
+	if (status === "failed") return <span aria-hidden>✗</span>;
+	return <span aria-hidden>…</span>;
+}
+
 export default function ThinkingBubble() {
 	const streaming = useAppSelector((s) => s.thread.streaming);
 	const streamingThreadId = useAppSelector((s) => s.thread.streamingThreadId);
 	const currentThreadId = useAppSelector((s) => s.thread.currentThreadId);
 	const narration = useAppSelector((s) => s.thread.narrationLine);
+	const livePlan = useAppSelector((s) => s.thread.livePlan);
+	const liveSubagents = useAppSelector((s) => s.thread.liveSubagents);
+	const liveCurrentTool = useAppSelector((s) => s.thread.liveCurrentTool);
 	// Only render the bubble on the thread that owns the in-flight
 	// stream. Otherwise a user who's submitted on A and clicked over to
 	// B would see B sprouting A's "Thinking…" indicator.
@@ -99,23 +150,63 @@ export default function ThinkingBubble() {
 
 	if (!liveOnThisThread) return null;
 	ensureKeyframes();
+	const hasActivity =
+		livePlan !== null || liveSubagents.length > 0 || liveCurrentTool !== null;
 	return (
 		<article
 			aria-label="Assistant is thinking"
 			aria-live="polite"
+			data-testid="thinking-bubble"
 			style={bubbleStyle}
 		>
-			<span style={dotsStyle}>
-				<span style={{ ...dotBaseStyle, animationDelay: "0s" }} aria-hidden />
-				<span
-					style={{ ...dotBaseStyle, animationDelay: "0.15s" }}
-					aria-hidden
-				/>
-				<span style={{ ...dotBaseStyle, animationDelay: "0.3s" }} aria-hidden />
-			</span>
-			<span data-testid="thinking-line" style={{ ...lineWrapStyle, opacity }}>
-				{displayLine}
-			</span>
+			<div style={narrationRowStyle}>
+				<span style={dotsStyle}>
+					<span style={{ ...dotBaseStyle, animationDelay: "0s" }} aria-hidden />
+					<span
+						style={{ ...dotBaseStyle, animationDelay: "0.15s" }}
+						aria-hidden
+					/>
+					<span
+						style={{ ...dotBaseStyle, animationDelay: "0.3s" }}
+						aria-hidden
+					/>
+				</span>
+				<span data-testid="thinking-line" style={{ ...lineWrapStyle, opacity }}>
+					{displayLine}
+				</span>
+			</div>
+			{hasActivity ? (
+				<div style={activityPanelStyle} data-testid="thinking-activity-panel">
+					{livePlan ? (
+						<span data-testid="live-plan-badge" style={planBadgeStyle}>
+							Plan v{livePlan.version} drafted — {livePlan.step_count} steps
+						</span>
+					) : null}
+					{liveSubagents.map((sa) => (
+						<div
+							key={sa.call_id}
+							style={subagentRowStyle}
+							data-testid="live-subagent-row"
+						>
+							<SubagentIcon status={sa.status} />
+							<span
+								style={{
+									whiteSpace: "nowrap",
+									overflow: "hidden",
+									textOverflow: "ellipsis",
+								}}
+							>
+								{sa.prompt}
+							</span>
+						</div>
+					))}
+					{liveCurrentTool ? (
+						<span data-testid="live-current-tool" style={currentToolStyle}>
+							&gt; {liveCurrentTool}
+						</span>
+					) : null}
+				</div>
+			) : null}
 		</article>
 	);
 }

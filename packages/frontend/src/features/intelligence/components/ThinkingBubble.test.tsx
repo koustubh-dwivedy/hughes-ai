@@ -5,8 +5,13 @@ import { createStore } from "../../../shared/api/store";
 import {
 	setCurrentThread,
 	streamFinal,
+	streamPlanDrafted,
 	streamStarted,
+	streamSubagentCompleted,
+	streamSubagentFailed,
+	streamSubagentSpawned,
 	streamThinking,
+	streamTool,
 } from "../threadSlice";
 import ThinkingBubble from "./ThinkingBubble";
 
@@ -83,5 +88,55 @@ describe("ThinkingBubble", () => {
 		store.dispatch(setCurrentThread(TID));
 		renderWithStore(store);
 		expect(screen.getByLabelText("Assistant is thinking")).toBeInTheDocument();
+	});
+
+	// ── Bug 4 (2026-05-17): live activity panel ──────────────────────
+
+	it("renders the plan badge when livePlan is populated", () => {
+		const store = storeViewing(TID);
+		store.dispatch(streamStarted({ threadId: TID }));
+		store.dispatch(
+			streamPlanDrafted({ plan_id: "p1", version: 2, step_count: 5 }),
+		);
+		renderWithStore(store);
+		const badge = screen.getByTestId("live-plan-badge");
+		expect(badge).toHaveTextContent(/Plan v2 drafted.*5 steps/);
+	});
+
+	it("renders a subagent row per spawned worker with correct icon", () => {
+		const store = storeViewing(TID);
+		store.dispatch(streamStarted({ threadId: TID }));
+		store.dispatch(
+			streamSubagentSpawned({ call_id: "c1", prompt: "fetch branch A" }),
+		);
+		store.dispatch(
+			streamSubagentSpawned({ call_id: "c2", prompt: "fetch branch B" }),
+		);
+		store.dispatch(streamSubagentCompleted({ call_id: "c1" }));
+		store.dispatch(
+			streamSubagentFailed({ call_id: "c2", error: "metric not found" }),
+		);
+		renderWithStore(store);
+		const rows = screen.getAllByTestId("live-subagent-row");
+		expect(rows).toHaveLength(2);
+		expect(screen.getByText(/fetch branch A/)).toBeInTheDocument();
+		expect(screen.getByText(/fetch branch B/)).toBeInTheDocument();
+	});
+
+	it("renders the current tool line when liveCurrentTool is set", () => {
+		const store = storeViewing(TID);
+		store.dispatch(streamStarted({ threadId: TID }));
+		store.dispatch(streamTool({ name: "run_subagent" }));
+		renderWithStore(store);
+		expect(screen.getByTestId("live-current-tool")).toHaveTextContent(
+			/run_subagent/,
+		);
+	});
+
+	it("activity panel is hidden until at least one live field is set", () => {
+		const store = storeViewing(TID);
+		store.dispatch(streamStarted({ threadId: TID }));
+		renderWithStore(store);
+		expect(screen.queryByTestId("thinking-activity-panel")).toBeNull();
 	});
 });
