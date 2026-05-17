@@ -88,7 +88,12 @@ export default function ThreadRail({ currentThreadId, onNewThread }: Props) {
 
 	return (
 		<aside aria-label="Recent threads" style={wrapperStyle}>
-			<button type="button" style={newButtonStyle} onClick={onNewThread}>
+			<button
+				type="button"
+				style={newButtonStyle}
+				onClick={onNewThread}
+				data-testid="new-thread-button"
+			>
 				+ New thread
 			</button>
 			<div style={headingStyle}>Recent</div>

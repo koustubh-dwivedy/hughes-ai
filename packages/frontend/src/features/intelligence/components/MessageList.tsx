@@ -132,6 +132,7 @@ function ReferencesSection({ payload }: { payload: FinalPayload }) {
 				style={referencesPillStyle}
 				onClick={() => setOpen(true)}
 				aria-haspopup="dialog"
+				data-testid="references-button"
 			>
 				<span aria-hidden>📎</span>
 				References ({count})
@@ -152,9 +153,15 @@ function AssistantTerminal({ msg }: { msg: ThreadMessageWire }) {
 	const summary = payload.summary ?? "";
 	const dsl = payload.openui_dsl;
 	return (
-		<article aria-label="Assistant answer" style={assistantBubbleStyle}>
+		<article
+			aria-label="Assistant answer"
+			data-testid="final-answer"
+			style={assistantBubbleStyle}
+		>
 			{summary !== "" && (
-				<MarkdownText style={summaryStyle}>{summary}</MarkdownText>
+				<div data-testid="final-summary">
+					<MarkdownText style={summaryStyle}>{summary}</MarkdownText>
+				</div>
 			)}
 			{dsl && dsl.length > 0 ? (
 				<div data-testid="openui-renderer">

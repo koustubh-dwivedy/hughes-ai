@@ -85,3 +85,11 @@ deep-eval:
 openui-prompt:
 	cd packages/frontend && node scripts/generate-openui-prompt.mjs \
 		> ../nl-engine/src/nl_engine/agent/openui_prompt.txt
+
+# Bug 5 (2026-05-17): comprehensive end-to-end deep-query test.
+# Drives the live API + frontend through Playwright, asserts SSE
+# events, DB rows, structlog, and Prometheus all line up on a real
+# deep starter question. Needs the API process up at :8000 with a
+# real LLM key + a warm MetricFlow catalog (first call pays 3-4 min).
+e2e-deep:
+	cd packages/frontend && RUN_DEEP_E2E=1 npx playwright test deep-query-full-stack.spec.ts --reporter=list
