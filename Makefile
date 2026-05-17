@@ -102,7 +102,9 @@ e2e-deep:
 verify-prod-role:
 	@PROXY=$$HOME/.cache/hughes-ai/cloud-sql-proxy; \
 	if [ ! -x "$$PROXY" ]; then echo "Run infra/bootstrap.sh first (it installs the proxy)."; exit 1; fi; \
-	$$PROXY tryhughes:europe-west1:hughes-pg --port=5433 > /tmp/proxy.log 2>&1 & \
+	TOKEN=$$(gcloud auth print-access-token 2>/dev/null); \
+	if [ -z "$$TOKEN" ]; then echo "gcloud has no active credential. Run 'gcloud auth login'."; exit 1; fi; \
+	$$PROXY tryhughes:europe-west1:hughes-pg --port=5433 --token="$$TOKEN" > /tmp/proxy.log 2>&1 & \
 	PID=$$!; trap "kill $$PID 2>/dev/null" EXIT INT TERM; \
 	for i in $$(seq 1 30); do (echo > /dev/tcp/localhost/5433) 2>/dev/null && break; sleep 1; done; \
 	uv run pytest infra/tests/test_runtime_role.py -v

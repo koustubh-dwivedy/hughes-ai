@@ -294,8 +294,18 @@ The autonomous run's gcloud attempt to grant `run.invoker` (in `deploy-api.sh` s
 - Status: **docs shipped; DNS additions are operator step (Namecheap)** by design
 
 ### HUG-257 — Cost cap + tests + runbook
-- Status: **code shipped + tests passing live; Ollama Cloud cost cap is operator step (web-only)**
+- Status: **code shipped + tests passing live; Ollama Cloud cost cap dropped (user has flat-fee monthly plan)**
 - `infra/tests/test_runtime_role.py` passes 6/6 against the live Cloud SQL.
+
+---
+
+### 2026-05-17 — `make verify-prod-role` fix: pass gcloud access token to cloud-sql-proxy
+
+**Context:** Initial make target spawned cloud-sql-proxy with no auth flags, expecting Application Default Credentials. ADC isn't set up locally, so the proxy fails to authenticate and the test loop times out with `connection refused`.
+
+**Fix:** Mirror the pattern from `bootstrap.sh` — pre-fetch `gcloud auth print-access-token` and pass it as `--token=$TOKEN` to the proxy. Same one-line approach.
+
+**Verified:** `make verify-prod-role` returns 6/6 PASSED in 6.37s.
 
 ### HUG-256 — Custom domain
 - Status: code/docs shipped (docs-only by design — operator step)
