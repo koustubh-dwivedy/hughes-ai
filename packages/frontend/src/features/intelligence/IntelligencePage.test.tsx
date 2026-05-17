@@ -165,6 +165,34 @@ describe("IntelligencePage — cross-thread streaming visibility", () => {
 	});
 });
 
+describe("IntelligencePage — per-thread composer gate", () => {
+	it("composer is ENABLED when another thread is streaming (user can submit to this one)", async () => {
+		mockThreadFetch();
+		const { store } = renderAt("t1");
+		await waitFor(() =>
+			expect(screen.getByTestId("conversation-pane")).toBeInTheDocument(),
+		);
+		act(() => {
+			store.dispatch(streamStarted({ threadId: "t-other" }));
+		});
+		const composer = screen.getByLabelText("Ask Hughes") as HTMLTextAreaElement;
+		expect(composer.disabled).toBe(false);
+	});
+
+	it("composer is DISABLED when THIS thread is the one streaming", async () => {
+		mockThreadFetch();
+		const { store } = renderAt("t1");
+		await waitFor(() =>
+			expect(screen.getByTestId("conversation-pane")).toBeInTheDocument(),
+		);
+		act(() => {
+			store.dispatch(streamStarted({ threadId: "t1" }));
+		});
+		const composer = screen.getByLabelText("Ask Hughes") as HTMLTextAreaElement;
+		expect(composer.disabled).toBe(true);
+	});
+});
+
 describe("IntelligencePage — follow-tail auto-scroll", () => {
 	it("scrolls the conversation pane to the bottom on streamStarted when user was at the tail", async () => {
 		mockThreadFetch();

@@ -241,7 +241,7 @@ export default function IntelligencePage() {
 						</>
 					)}
 				</div>
-				<ComposerInput onSubmit={handleSubmit} disabled={streaming} />
+				<ComposerInput onSubmit={handleSubmit} disabled={liveOnThisThread} />
 			</div>
 		</div>
 	);
