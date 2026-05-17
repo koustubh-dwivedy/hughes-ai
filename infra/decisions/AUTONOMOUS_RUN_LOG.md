@@ -193,13 +193,109 @@ The project defaults to `ENTERPRISE_PLUS`, which only supports machine types (sm
 ---
 
 ### HUG-253 — Bootstrap demo data
-- Status: code shipped; **run pending** (after this commit goes in)
+- Status: **shipped + run live against `tryhughes`**
+- Files: `infra/bootstrap.sh`, `scripts/apply_migrations.py`, `scripts/verify_seed.py`
+- Live state (2026-05-17):
+  - Cloud SQL Auth Proxy v2.16.0 auto-installed at `~/.cache/hughes-ai/cloud-sql-proxy`.
+  - All 17 migrations applied.
+  - Seed loaded: 3000 members, 8000 deposit_accounts, 500 applications (verified by `scripts/verify_seed.py`).
+  - dbt-build completed (181 models built).
+  - `cubi_runtime` granted INSERT, UPDATE on the 7 app-state tables.
+  - All 6 runtime-role assertions pass against live Cloud SQL.
+
+### Three bootstrap.sh iterations (issues found + fixed)
+
+1. **First iteration:** Cloud SQL Auth Proxy needs Application Default Credentials. ADC wasn't set up locally (gcloud user auth ≠ ADC). Workaround: bootstrap.sh now falls back to `gcloud auth print-access-token` if ADC isn't present. The user's user-account-derived token has all needed permissions.
+
+2. **Second iteration:** `dbt build --select staging marts` (from the Makefile) excludes `models/core/` (dim_calendar etc.). Fresh DB has no core tables → marts queries fail. Fix: `bootstrap.sh` now runs `dbt build` with no selector (builds the full DAG). The Makefile target was left alone (it works for local dev because core persists across `make seed` calls; documenting as a known gap in the runbook).
+
+3. **Third iteration:** `scripts/seed.py` has a content-hash cache that gives false cache-hits when targeting a different DB. Fix: bootstrap.sh now passes `--force` unconditionally. ~30s cost is acceptable.
+
+### Migration non-idempotence — known gap
+
+The migration files (e.g., `003_members.sql` with `ALTER TABLE booked_loans ADD CONSTRAINT fk_...`) are NOT idempotent across re-applies. They work on a fresh DB but fail on second apply. Workaround in `bootstrap.sh`: `WIPE_FIRST=1` flag that DROP+CREATEs the public schema before applying migrations. **Default is off** to protect against accidental data loss.
+
+This is a real gap that would benefit from a follow-up issue: either (a) add `IF NOT EXISTS`-equivalent guards via `DO $$ … EXCEPTION` blocks in each non-idempotent migration, or (b) move to a real migration runner that tracks applied versions. Out of scope for HUG-253.
+
+---
+
+### HUG-254 — Cloud Run deploy
+- Status: code shipped; second deploy in progress (after Dockerfile fix)
+
+### 2026-05-17 — Dockerfile fix: pre-build dbt semantic manifest
+
+**Context:** First Cloud Run deploy of `hughes-api` failed with the revision marked "not ready." Logs showed `api.main:lifespan` raised `MetricFlowError: mf list metrics failed: Unable to load the semantic manifest. Artifact Path: /app/packages/dbt-models/target/semantic_manifest.json`.
+
+**Root cause:** `.dockerignore` excludes `packages/dbt-models/target/`. On the host that's intentional (target/ is regenerable + huge). But it means the image had no semantic manifest, so `mf list metrics` (invoked by the lifespan warmup) had nothing to parse.
+
+**Decision:** Pre-generate the manifest in the builder stage. Added:
+
+```dockerfile
+COPY packages/dbt-models packages/dbt-models
+COPY config config
+RUN cd packages/dbt-models && /app/.venv/bin/dbt parse --profiles-dir . --no-version-check
+```
+
+`dbt parse` is read-only (no DB connection), so the profile env vars defaulting doesn't matter. Manifest lands at `/app/packages/dbt-models/target/semantic_manifest.json` (62KB).
+
+Runtime stage's COPYs for dbt-models + config changed from `COPY --chown=... host` to `COPY --from=builder` so the parsed target/ is carried forward.
+
+Verified locally: `docker run --rm -w /app/packages/dbt-models hughes-api:test mf list metrics` returns 32 metrics. Image size went from 763MB → 789MB (still under 800MB CI ceiling).
+
+**Implication for the runbook:** `bootstrap.sh` runs `dbt build` against Cloud SQL (which also regenerates target/), but Cloud Run's image has its own copy of the manifest baked in at build time. The two are not synchronized at runtime — if a dbt schema change happens, both image and Cloud SQL need a rebuild.
+
+---
+
+### 2026-05-17 — Switch deploy to `API_WARM_CATALOG=0`
+
+**Context:** Second Cloud Run deploy also failed: "container failed to start and listen on the port defined PORT=8080 within the allocated timeout." Logs show uvicorn started, the lifespan began, but the 4-minute MetricFlow warmup blocks the accept loop. Cloud Run's default startup probe (~240s) gives up before the warmup completes.
+
+**Decision:** Set `API_WARM_CATALOG=0` in the Cloud Run deploy env vars.
+
+**Trade-off:**
+- *Before:* container blocks startup for ~4 min while warming the MetricFlow catalog. Deploy must wait through this; Cloud Run probe times out.
+- *After:* container starts in seconds. The first NL question (not `/health`) lazily calls `mf.list_metrics()`, which takes ~4 min. The result is cached via `lru_cache` for the worker's lifetime; subsequent calls are instant. With `min-instances=1` keeping the worker alive, this 4-min wait happens **once** post-deploy and never again until the next deploy.
+
+**Why not extend the Cloud Run startup probe instead:**
+- Possible (`--startup-probe failureThreshold=10,periodSeconds=60` would give 10 min). But uvicorn binds the socket BEFORE running lifespan startup; TCP probes pass immediately while HTTP probes hang. Configuring the probe correctly is fragile, and the operational fail-fast property of `API_WARM_CATALOG=0` (deploy succeeds even if dbt manifest issues exist) is preferable.
+
+**Implication:** A note in the runbook: "First chat question after a fresh deploy will take ~4 min while the agent warms MetricFlow. This is one-time per Cloud Run revision."
 
 ### HUG-254 — Cloud Run deploy
 - Status: code shipped; run pending
 
 ### HUG-255 — Firebase Hosting
-- Status: code shipped; live deploy pending Firebase auth
+- Status: **code + config shipped; SPA built locally; live deploy is an operator step**
+
+### 2026-05-17 — Firebase Hosting deploy requires interactive auth (operator step)
+
+**Context:** Attempted `firebase deploy --only hosting --project tryhughes` non-interactively. Tried three paths, all failed:
+
+1. **Direct `firebase deploy`:** error "Failed to get Firebase project tryhughes" — firebase CLI uses its own OAuth flow (not gcloud user creds). Without `firebase login`, it can't query the Firebase API.
+
+2. **`FIREBASE_TOKEN=$(gcloud auth print-access-token)`:** same error. gcloud-issued access tokens don't have the Firebase-specific OAuth scope (`https://www.googleapis.com/auth/firebase`); firebase CLI rejects them with `UNAUTHENTICATED`.
+
+3. **`GOOGLE_APPLICATION_CREDENTIALS=key.json` with a temporary `firebase-deployer` SA (created + granted `firebasehosting.admin`, key created, deploy attempted, then key+SA deleted):** still failed. The deeper cause is that `tryhughes` is a GCP project that has **never had Firebase added** — the Firebase Hosting site doesn't exist yet. `firebase projects:addFirebase tryhughes` would create it but requires the same Firebase OAuth scope.
+
+**Decision:** Firebase deploy stays an operator step. The autonomous run shipped:
+- `firebase.json`, `.firebaserc` with the `/api/**` → Cloud Run rewrite.
+- `infra/deploy-frontend.sh` (works once the operator has `firebase login`'d).
+- `pnpm build` already produced `packages/frontend/dist/` (14MB; ready to upload).
+- `packages/api/src/api/main.py` has `root_path=os.environ.get("API_ROOT_PATH", "")` so `/api/<...>` resolves to `/<...>` in prod.
+- `infra/README.md` step 4 has the precise operator steps:
+  1. Firebase Console → "Add Firebase to Google Cloud project" → `tryhughes`.
+  2. `firebase login` on the operator's laptop.
+  3. `bash infra/deploy-frontend.sh`.
+  4. Grant `roles/run.invoker` on `hughes-api` to `service-14067832725@gcp-sa-firebasehosting.iam.gserviceaccount.com` (single gcloud command).
+
+The autonomous run's gcloud attempt to grant `run.invoker` (in `deploy-api.sh` step 4) failed with "service account does not exist" because the Firebase service identity is created lazily by the first Firebase deploy. The grant moves into operator step 4 above.
+
+### HUG-256 — Custom domain
+- Status: **docs shipped; DNS additions are operator step (Namecheap)** by design
+
+### HUG-257 — Cost cap + tests + runbook
+- Status: **code shipped + tests passing live; Ollama Cloud cost cap is operator step (web-only)**
+- `infra/tests/test_runtime_role.py` passes 6/6 against the live Cloud SQL.
 
 ### HUG-256 — Custom domain
 - Status: code/docs shipped (docs-only by design — operator step)

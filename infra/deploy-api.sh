@@ -89,7 +89,7 @@ gcloud run deploy "$SERVICE" \
   --add-cloudsql-instances="$INSTANCE_CONN" \
   --service-account="$SA_EMAIL" \
   --set-secrets=DATABASE_URL=database-url:latest,OLLAMA_API_KEY=ollama-api-key:latest \
-  --set-env-vars=API_WARM_CATALOG=1,API_ROOT_PATH=/api \
+  --set-env-vars=API_WARM_CATALOG=0,API_ROOT_PATH=/api \
   --no-allow-unauthenticated \
   --quiet
 ok "service deployed"

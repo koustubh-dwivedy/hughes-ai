@@ -108,11 +108,27 @@ What it does:
 
 ### 4. Deploy the SPA to Firebase Hosting
 
-```bash
-bash infra/deploy-frontend.sh
-```
+**One-time Firebase project setup** (the autonomous run could not do this):
 
-If the script exits with an auth error, run `firebase login` once (interactive), then re-run.
+1. Go to [Firebase Console](https://console.firebase.google.com/) → "Add project" → "Add Firebase to Google Cloud project" → select `tryhughes`. Step through the wizard (you can skip Google Analytics).
+2. Once Firebase Console recognizes `tryhughes`, run on your machine:
+   ```bash
+   firebase login                        # interactive OAuth, one-time
+   bash infra/deploy-frontend.sh         # deploys the SPA
+   ```
+3. After firebase deploy creates the Hosting site, the Firebase service identity (`service-14067832725@gcp-sa-firebasehosting.iam.gserviceaccount.com`) is auto-created. Grant it `run.invoker` on the API so the `/api/**` rewrite works:
+   ```bash
+   gcloud run services add-iam-policy-binding hughes-api \
+     --member="serviceAccount:service-14067832725@gcp-sa-firebasehosting.iam.gserviceaccount.com" \
+     --role="roles/run.invoker" \
+     --region=europe-west1 --project=tryhughes
+   ```
+
+Verify:
+```bash
+curl -sI https://tryhughes.web.app/                # 200, SPA
+curl -sI https://tryhughes.web.app/api/health      # 200 (proves the rewrite + grant)
+```
 
 ### 5. Wire `app.tryhughes.com` (DNS at Namecheap)
 
