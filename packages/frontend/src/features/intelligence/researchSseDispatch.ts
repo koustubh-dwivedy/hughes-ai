@@ -53,17 +53,18 @@ export function dispatchResearchPlanInvalidation(
 }
 
 export function dispatchLivePlan(dispatch: Dispatch, parsed: unknown): void {
+	// plan_tool emits plan_json = {"steps": [...]} (see plan_tool.py:127).
+	// Older snapshots used a `plan` key; accept either so a future shape
+	// tweak doesn't silently regress the badge to "0 steps".
 	const p = parsed as {
 		plan_id: string;
 		version: number;
-		plan_json?: { plan?: unknown[] };
+		plan_json?: { steps?: unknown[]; plan?: unknown[] };
 	};
+	const step_count =
+		p.plan_json?.steps?.length ?? p.plan_json?.plan?.length ?? 0;
 	dispatch(
-		streamPlanDrafted({
-			plan_id: p.plan_id,
-			version: p.version,
-			step_count: p.plan_json?.plan?.length ?? 0,
-		}),
+		streamPlanDrafted({ plan_id: p.plan_id, version: p.version, step_count }),
 	);
 }
 
