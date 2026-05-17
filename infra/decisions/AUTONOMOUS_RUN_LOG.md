@@ -291,7 +291,38 @@ Verified locally: `docker run --rm -w /app/packages/dbt-models hughes-api:test m
 The autonomous run's gcloud attempt to grant `run.invoker` (in `deploy-api.sh` step 4) failed with "service account does not exist" because the Firebase service identity is created lazily by the first Firebase deploy. The grant moves into operator step 4 above.
 
 ### HUG-256 — Custom domain
-- Status: **docs shipped; DNS additions are operator step (Namecheap)** by design
+- Status: **LIVE** — `app.tryhughes.com` resolves, SSL issued by Google Trust Services (valid through Aug 15 2026), HTTP redirects to HTTPS, SPA loads, `/api/health` returns 200.
+- DNS records added at Namecheap: CNAME `app → tryhughes.web.app` + TXT `_acme-challenge.app → o8VL...bjk`.
+- Apex `tryhughes.com` + `www.tryhughes.com` (Google Sites) + Zoho mail untouched (verified).
+
+---
+
+### 2026-05-17 — Firebase Hosting service identity SU_INTERNAL bug → opened Cloud Run to allUsers
+
+**Context:** `firebasehosting.googleapis.com` refused to generate the project's service identity (`service-14067832725@gcp-sa-firebasehosting.iam.gserviceaccount.com`) with `IAM_SERVICE_NOT_CONFIGURED_FOR_IDENTITIES` / `SU_INTERNAL_GENERATE_SERVICE_IDENTITY`. Three attempts failed (initial, after 30s sleep, raw REST). Without that SA, the Firebase Hosting `run:` rewrite couldn't be granted `roles/run.invoker` and `https://tryhughes.web.app/api/health` returned 403.
+
+**Decision (with operator approval):** Drop `--no-allow-unauthenticated` on the Cloud Run service — `gcloud run services add-iam-policy-binding hughes-api --member=allUsers --role=roles/run.invoker`.
+
+**Why this was OK:**
+- `max-instances=3` caps abuse.
+- User has a flat-fee Ollama Cloud plan — no token-bill risk.
+- Demo data is synthetic.
+- The `*.run.app` URL is not advertised; legitimate traffic comes through `app.tryhughes.com`.
+
+**`infra/deploy-api.sh` updated:** `--no-allow-unauthenticated` → `--allow-unauthenticated`; the Firebase-SA grant block is removed with a comment pointing back at this log entry. When Google resolves the SA bug, swap back to authenticated + grant `roles/run.invoker` to the Firebase Hosting service identity.
+
+---
+
+### HUG-258 / HUG-250 — Closed
+
+End-state verification (live, 2026-05-17):
+- `curl -sI https://app.tryhughes.com/` → 200 (Firebase-issued SSL cert).
+- `curl https://app.tryhughes.com/api/health` → `{"status":"ok"}`.
+- `dig app.tryhughes.com` → CNAME to `tryhughes.web.app` → 199.36.158.100.
+- `make verify-prod-role` → 6/6 PASSED.
+- Apex `tryhughes.com` + `www` + Zoho MX records all unchanged.
+
+HUG-251 → HUG-258 all marked Done on Linear. Parent epic HUG-250 marked Done.
 
 ### HUG-257 — Cost cap + tests + runbook
 - Status: **code shipped + tests passing live; Ollama Cloud cost cap dropped (user has flat-fee monthly plan)**

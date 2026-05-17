@@ -90,18 +90,24 @@ gcloud run deploy "$SERVICE" \
   --service-account="$SA_EMAIL" \
   --set-secrets=DATABASE_URL=database-url:latest,OLLAMA_API_KEY=ollama-api-key:latest \
   --set-env-vars=API_WARM_CATALOG=0,API_ROOT_PATH=/api \
-  --no-allow-unauthenticated \
+  --allow-unauthenticated \
   --quiet
 ok "service deployed"
 
-# 4. Grant Firebase Hosting permission to invoke Cloud Run.
-log "Granting Firebase Hosting → run.invoker"
-FH_SA="service-${PROJECT_NUMBER}@gcp-sa-firebasehosting.iam.gserviceaccount.com"
-gcloud run services add-iam-policy-binding "$SERVICE" \
-  --member="serviceAccount:${FH_SA}" \
-  --role="roles/run.invoker" \
-  --region="$REGION" --project="$PROJECT" --quiet >/dev/null
-ok "${FH_SA} can invoke ${SERVICE}"
+# 4. NOTE: originally we used --no-allow-unauthenticated + a run.invoker
+#    grant to the Firebase Hosting service identity. That identity is
+#    auto-created when Firebase Hosting first sees a `run:` rewrite, but
+#    Google's API hit a persistent IAM_SERVICE_NOT_CONFIGURED_FOR_IDENTITIES
+#    bug on this project (logged 2026-05-17 in AUTONOMOUS_RUN_LOG.md). The
+#    pragmatic resolution was to make Cloud Run public (--allow-unauthenticated
+#    above). Trade-off:
+#      - max-instances=3 caps abuse
+#      - Ollama Cloud is a flat-fee plan (no token-bill risk)
+#      - Synthetic data only
+#      - The *.run.app URL isn't advertised; real users hit app.tryhughes.com
+#    When the Google bug is resolved, switch back to --no-allow-unauthenticated
+#    and grant `service-${PROJECT_NUMBER}@gcp-sa-firebasehosting.iam.gserviceaccount.com`
+#    the `roles/run.invoker` role on this service.
 
 SERVICE_URL=$(gcloud run services describe "$SERVICE" --region="$REGION" --project="$PROJECT" --format='value(status.url)')
 
