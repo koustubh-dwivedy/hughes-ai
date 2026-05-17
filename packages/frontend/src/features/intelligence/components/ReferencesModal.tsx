@@ -50,6 +50,11 @@ const headerStyle: React.CSSProperties = {
 	display: "flex",
 	alignItems: "center",
 	justifyContent: "space-between",
+	position: "sticky",
+	top: 0,
+	background: colors.white,
+	zIndex: 1,
+	paddingBottom: spacing[2],
 };
 
 const titleStyle: React.CSSProperties = {
@@ -252,13 +257,14 @@ export default function ReferencesModal({
 				onClick={(e) => e.stopPropagation()}
 				onKeyDown={(e) => e.stopPropagation()}
 			>
-				<header style={headerStyle}>
+				<header style={headerStyle} data-testid="references-modal-header">
 					<h2 style={titleStyle}>References</h2>
 					<button
 						type="button"
 						aria-label="Close references"
 						onClick={onClose}
 						style={closeButtonStyle}
+						data-testid="references-modal-close"
 					>
 						×
 					</button>
