@@ -37,7 +37,10 @@ const dialogStyle: React.CSSProperties = {
 	background: colors.white,
 	borderRadius: radii.lg,
 	width: "min(880px, 100%)",
+	height: "85vh",
 	maxHeight: "85vh",
+	padding: 0,
+	border: "none",
 	overflow: "hidden",
 	display: "flex",
 	flexDirection: "column",
@@ -54,13 +57,18 @@ const headerStyle: React.CSSProperties = {
 	flexShrink: 0,
 };
 
+// `flex: 1 1 0` + `minHeight: 0` is the canonical fix for "scrollable
+// flex child" — without minHeight:0, flex items default to
+// min-height:min-content and refuse to shrink, so overflow:auto never
+// kicks in and the body collapses to the wrong height inside the dialog.
 const bodyStyle: React.CSSProperties = {
+	flex: "1 1 0",
+	minHeight: 0,
 	overflow: "auto",
 	padding: spacing[6],
 	display: "flex",
 	flexDirection: "column",
 	gap: spacing[4],
-	flex: 1,
 };
 
 const titleStyle: React.CSSProperties = {

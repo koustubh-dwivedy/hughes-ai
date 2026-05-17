@@ -95,11 +95,31 @@ jobs:
               --gate must-pass=80,long-tail=65
           fi
       - name: Commit promotion ledger
+        # NL Eval runs for ~40-50 min (catalog warmup + 94 questions +
+        # LLM-as-judge). Concurrent pushes to main during the run leave
+        # this job's checkout stale, so a naive `git push` is rejected
+        # with `(fetch first)`. Rebase-and-retry handles that without
+        # touching the ledger row we appended.
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add packages/nl-engine/benchmarks/.promotion-ledger.csv
-          git diff --cached --quiet || git commit -m \
+          if git diff --cached --quiet; then
+            echo "No ledger changes to commit."
+            exit 0
+          fi
+          git commit -m \
             "chore(eval): append promotion ledger row from run ${{ github.run_id }} [skip ci]"
-          git push origin main
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin main
+            if git push origin main; then
+              echo "Pushed ledger on attempt $attempt."
+              exit 0
+            fi
+            echo "Push attempt $attempt rejected; will rebase and retry."
+            sleep $((attempt * 5))
+          done
+          echo "Ledger push failed after 5 attempts — main is moving faster than the eval can land its row."
+          exit 1
