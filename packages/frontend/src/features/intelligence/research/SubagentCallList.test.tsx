@@ -58,10 +58,7 @@ describe("SubagentCallList — per-worker mf_query expander (Issue 3)", () => {
 	});
 
 	it("does NOT render a toggle for a call with no mf_query_json", () => {
-		renderWithCalls([
-			_call("c1", { mf_query_json: null }),
-			_call("c2"),
-		]);
+		renderWithCalls([_call("c1", { mf_query_json: null }), _call("c2")]);
 		const toggles = screen.getAllByTestId("subagent-mfquery-toggle");
 		expect(toggles).toHaveLength(1);
 	});
@@ -76,7 +73,10 @@ describe("SubagentCallList — per-worker mf_query expander (Issue 3)", () => {
 	});
 
 	it("renders the section + chip + prompt text for each row", () => {
-		renderWithCalls([_call("c1", { prompt: "Q1" }), _call("c2", { prompt: "Q2" })]);
+		renderWithCalls([
+			_call("c1", { prompt: "Q1" }),
+			_call("c2", { prompt: "Q2" }),
+		]);
 		expect(screen.getByTestId("audit-subagent-calls")).toBeInTheDocument();
 		expect(screen.getByText("Q1")).toBeInTheDocument();
 		expect(screen.getByText("Q2")).toBeInTheDocument();
