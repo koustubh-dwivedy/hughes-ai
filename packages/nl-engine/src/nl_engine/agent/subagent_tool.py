@@ -31,6 +31,7 @@ from nl_engine.agent.run_context import emit_run_event
 from nl_engine.agent.state import AgentState
 from nl_engine.logging import get_logger
 from nl_engine.repo import subagent_calls
+from nl_engine.repo.plans import get_latest_plan_id
 
 slog = get_logger().bind(component="agent.subagent_tool")
 
@@ -127,6 +128,7 @@ def _record_success(
 def _spawn_pending(
     sub: dict[str, Any],
     thread_id: Any,
+    plan_id: Any,
     db_url: str,
 ) -> tuple[Any, str, int | None]:
     """Insert + mark_running + emit spawned event. Returns (call_id, prompt,
@@ -136,7 +138,7 @@ def _spawn_pending(
     ordinal = int(raw_ordinal) if isinstance(raw_ordinal, int) else None
     call_id = subagent_calls.insert_pending(
         thread_id=thread_id,
-        plan_id=None,
+        plan_id=plan_id,
         prompt=prompt,
         plan_step_ordinal=ordinal,
         db_url=db_url,
@@ -245,9 +247,14 @@ def run_subagent(subagents: list[dict[str, Any]]) -> list[dict[str, Any]]:
         slog.warning("agent.run_subagent.unbound", error=str(exc))
         return [{"error": "agent_context_not_bound"}]
 
+    # Bind subagent_calls rows to the lead's active plan (if any) so the
+    # audit panel (`/plans/{pid}/subagent-calls`) returns them. Without
+    # this each row is plan_id=NULL and the panel renders empty rows.
+    plan_id = get_latest_plan_id(thread_id, db_url)
+
     # Phase 1: persist + emit spawned (sequential — fast DB inserts).
     entries: list[tuple[Any, str, int | None]] = [
-        _spawn_pending(sub, thread_id, db_url) for sub in subagents
+        _spawn_pending(sub, thread_id, plan_id, db_url) for sub in subagents
     ]
     slog.info(
         "agent.run_subagent.batch_dispatched",

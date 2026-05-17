@@ -1,23 +1,17 @@
 /**
- * Persistent message history for a single thread (HUG-179).
- *
- * Reads from the RTK Query cache (`useGetThreadQuery`) — the source of
- * truth for everything that's been written to `thread_messages`. The
- * in-flight SSE step list lives in `threadSlice` and is rendered by
- * <StepIndicator> separately; here we only show what's been persisted.
- *
+ * Persistent message history for a single thread. Reads from the RTK
+ * Query cache (`useGetThreadQuery`); the in-flight SSE step list lives
+ * in `threadSlice` and renders via `<StepIndicator>` separately.
  * Tool messages from `final_answer` carry the rich payload (OpenUI DSL,
- * MetricFlow query, source rows). When the persisted columns are
- * populated we use them directly; when they're empty (older threads or
- * if the runner doesn't thread the fields through) we fall back to
- * parsing the JSON `content` blob.
+ * mf_query, rows); persisted columns take precedence, falling back to
+ * the JSON `content` blob.
  */
-
 import { useState } from "react";
 import { useAppSelector } from "../../../shared/api/hooks";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import type { ThreadMessageWire } from "../api";
 import OpenUIRenderer from "../openui/OpenUIRenderer";
+import { useGetResearchPlanQuery } from "../research/api";
 import {
 	selectCurrentStream,
 	selectIsStreamingOnCurrentThread,
@@ -76,10 +70,8 @@ const summaryStyle: React.CSSProperties = {
 };
 
 function parseFinalPayload(msg: ThreadMessageWire): FinalPayload {
-	// `summary` only lives inside the content JSON blob — the
-	// persistence layer doesn't have a dedicated column for it. Parse
-	// the blob first so we always have access to it, then prefer the
-	// dedicated columns for the rich fields when populated.
+	// `summary` only lives inside the content JSON blob; dedicated
+	// columns take precedence for the rich fields when populated.
 	let blob: FinalPayload = {};
 	if (msg.content) {
 		try {
@@ -122,12 +114,22 @@ const referencesPillStyle: React.CSSProperties = {
 	gap: spacing[1],
 };
 
-function ReferencesSection({ payload }: { payload: FinalPayload }) {
+function ReferencesSection({
+	payload,
+	threadId,
+}: {
+	payload: FinalPayload;
+	threadId: string;
+}) {
 	const [open, setOpen] = useState(false);
 	const rows = payload.rows ?? null;
 	const mfQuery = payload.mf_query ?? null;
 	const trace = payload.thinking_trace ?? null;
 	const count = (rows?.length ?? 0) + (mfQuery ? 1 : 0) + (trace?.length ?? 0);
+	// Lazy-fetch the latest plan so the audit panel can render per-worker
+	// mf_queries when this is a deep-research answer. Skipped until open.
+	const { data: planResp } = useGetResearchPlanQuery(threadId, { skip: !open });
+	const researchPlanId = planResp?.plan?.plan_id ?? undefined;
 	if (count === 0) return null;
 	return (
 		<>
@@ -147,6 +149,8 @@ function ReferencesSection({ payload }: { payload: FinalPayload }) {
 				rows={rows}
 				mfQuery={mfQuery}
 				thinkingTrace={trace}
+				researchPlanId={researchPlanId}
+				researchThreadId={researchPlanId ? threadId : undefined}
 			/>
 		</>
 	);
@@ -172,7 +176,7 @@ function AssistantTerminal({ msg }: { msg: ThreadMessageWire }) {
 					<OpenUIRenderer dsl={dsl} />
 				</div>
 			) : null}
-			<ReferencesSection payload={payload} />
+			<ReferencesSection payload={payload} threadId={msg.thread_id} />
 		</article>
 	);
 }

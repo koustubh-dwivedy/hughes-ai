@@ -10,9 +10,11 @@
  * Designed to live inside ResearchAuditPanel — no own chrome.
  */
 
+import { useState } from "react";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import JsonBlock from "../../../ui/primitives/JsonBlock/JsonBlock";
 import { useGetResearchSubagentCallsQuery } from "./api";
-import type { SubagentCallStatus } from "./types";
+import type { SubagentCall, SubagentCallStatus } from "./types";
 
 interface Props {
 	threadId: string;
@@ -50,11 +52,91 @@ const chipStyle: React.CSSProperties = {
 	marginRight: spacing[2],
 };
 
+const expanderButtonStyle: React.CSSProperties = {
+	background: "transparent",
+	border: "none",
+	cursor: "pointer",
+	color: colors.indigo[700],
+	fontSize: typography.size.xs,
+	padding: 0,
+	marginTop: spacing[1],
+	textDecoration: "underline",
+};
+
+type CallRow = SubagentCall;
+
+function SubagentRow({
+	call,
+	expanded,
+	toggle,
+}: {
+	call: CallRow;
+	expanded: boolean;
+	toggle: () => void;
+}) {
+	return (
+		<div style={rowStyle}>
+			<div>
+				<span style={{ ...chipStyle, ...STATUS_STYLES[call.status] }}>
+					{call.status}
+				</span>
+				{call.plan_step_ordinal != null ? (
+					<span
+						style={{
+							fontFamily: "monospace",
+							fontSize: typography.size.xs,
+							color: colors.slate[500],
+							marginRight: spacing[2],
+						}}
+					>
+						#step{call.plan_step_ordinal}
+					</span>
+				) : null}
+				{call.prompt}
+			</div>
+			{call.summary_text ? (
+				<div style={{ color: colors.slate[600], marginTop: spacing[1] }}>
+					→ {call.summary_text}
+				</div>
+			) : null}
+			{call.error_text ? (
+				<div style={{ color: "#991b1b", marginTop: spacing[1] }} role="alert">
+					{call.error_text}
+				</div>
+			) : null}
+			{call.mf_query_json ? (
+				<>
+					<button
+						type="button"
+						style={expanderButtonStyle}
+						onClick={toggle}
+						data-testid="subagent-mfquery-toggle"
+					>
+						{expanded ? "Hide MetricFlow query" : "Show MetricFlow query"}
+					</button>
+					{expanded ? (
+						<div
+							style={{ marginTop: spacing[2] }}
+							data-testid="subagent-mfquery-block"
+						>
+							<JsonBlock
+								value={call.mf_query_json}
+								label={`subagent-${call.call_id.slice(0, 8)}`}
+							/>
+						</div>
+					) : null}
+				</>
+			) : null}
+		</div>
+	);
+}
+
 export default function SubagentCallList({ threadId, planId }: Props) {
 	const { data, isLoading, isError } = useGetResearchSubagentCallsQuery({
 		threadId,
 		planId,
 	});
+	const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 	if (isLoading) {
 		return (
 			<div style={{ color: colors.slate[500] }}>Loading subagent calls…</div>
@@ -68,51 +150,22 @@ export default function SubagentCallList({ threadId, planId }: Props) {
 		);
 	}
 	const calls = data?.calls ?? [];
-	if (calls.length === 0) {
-		return null;
-	}
+	if (calls.length === 0) return null;
 	return (
 		<section data-testid="audit-subagent-calls">
 			<div style={sectionLabelStyle}>Subagent calls ({calls.length})</div>
 			{calls.map((call) => (
-				<div key={call.call_id} style={rowStyle}>
-					<div>
-						<span style={{ ...chipStyle, ...STATUS_STYLES[call.status] }}>
-							{call.status}
-						</span>
-						{call.plan_step_ordinal != null ? (
-							<span
-								style={{
-									fontFamily: "monospace",
-									fontSize: typography.size.xs,
-									color: colors.slate[500],
-									marginRight: spacing[2],
-								}}
-							>
-								#step{call.plan_step_ordinal}
-							</span>
-						) : null}
-						{call.prompt}
-					</div>
-					{call.summary_text ? (
-						<div
-							style={{
-								color: colors.slate[600],
-								marginTop: spacing[1],
-							}}
-						>
-							→ {call.summary_text}
-						</div>
-					) : null}
-					{call.error_text ? (
-						<div
-							style={{ color: "#991b1b", marginTop: spacing[1] }}
-							role="alert"
-						>
-							{call.error_text}
-						</div>
-					) : null}
-				</div>
+				<SubagentRow
+					key={call.call_id}
+					call={call}
+					expanded={!!expanded[call.call_id]}
+					toggle={() =>
+						setExpanded((s) => ({
+							...s,
+							[call.call_id]: !s[call.call_id],
+						}))
+					}
+				/>
 			))}
 		</section>
 	);
