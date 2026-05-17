@@ -123,8 +123,8 @@ def test_plan_step_descriptor_schema() -> None:
 
 
 def test_run_subagent_unbound_returns_error_dict() -> None:
-    result = run_subagent.invoke({"prompt": "x"})
-    assert result == {"error": "agent_context_not_bound"}
+    result = run_subagent.invoke({"subagents": [{"prompt": "x"}]})
+    assert result == [{"error": "agent_context_not_bound"}]
 
 
 def test_extract_final_answer_parses_json_content() -> None:

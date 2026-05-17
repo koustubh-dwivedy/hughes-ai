@@ -70,12 +70,14 @@ def test_lead_prompt_mandates_delegation() -> None:
     assert "delegate" in LEAD_AGENT_SYSTEM_PROMPT.lower()
 
 
-def test_lead_prompt_mandates_parallel_dispatch() -> None:
-    """ANCHOR-F must instruct the model to batch run_subagent calls in
-    a single response rather than serializing across turns."""
-    assert "MULTIPLE" in LEAD_AGENT_SYSTEM_PROMPT
-    assert "parallel" in LEAD_AGENT_SYSTEM_PROMPT.lower()
-    assert "single response" in LEAD_AGENT_SYSTEM_PROMPT.lower()
+def test_lead_prompt_documents_batch_run_subagent() -> None:
+    """ANCHOR-F must describe the new batch-shaped run_subagent — a list
+    of sub-questions in one call — and tell the model that workers
+    dispatch in parallel."""
+    assert "PARALLEL" in LEAD_AGENT_SYSTEM_PROMPT
+    assert "subagents=[" in LEAD_AGENT_SYSTEM_PROMPT
+    assert "Max 8 per" in LEAD_AGENT_SYSTEM_PROMPT
+    assert "ONE call" in LEAD_AGENT_SYSTEM_PROMPT
 
 
 def test_lead_prompt_states_step_budget() -> None:
