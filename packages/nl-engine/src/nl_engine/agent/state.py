@@ -25,6 +25,12 @@ from pydantic import BaseModel, Field
 # `run_agent_isolated` primitive lets the worker path opt into a tighter
 # cap (5) without disturbing the chat agent.
 MAX_STEPS_PER_TURN = 10
+# The autonomous lead path orchestrates rather than fetches: it pays one
+# LLM call per propose_plan, per run_subagent dispatch, per memory write,
+# and per final_answer. A typical deep question needs ~6-12 calls plus
+# headroom for one replan. 20 holds meaning as a runaway guard; >25 would
+# effectively be no ceiling.
+LEAD_MAX_STEPS_PER_TURN = 20
 
 
 class AgentState(BaseModel):

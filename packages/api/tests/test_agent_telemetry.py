@@ -113,3 +113,48 @@ def test_build_initial_state_handles_missing_request_id(rid: str) -> None:
         request_id=rid,
     )
     assert s.request_id == rid
+
+
+# ── Telemetry-naming locks (2026-05-17) ─────────────────────────────
+# Before this change, two unrelated counters were both logged as `step`:
+# state.step_count (LLM calls — gates the cap) and step_idx
+# (message index — jumps by N for parallel tool_calls). agent.turn_completed
+# logged `steps: 31` even with cap=10 firing. The rename pulls them apart.
+
+
+def test_turn_completed_logs_llm_steps_as_steps() -> None:
+    """`steps` in agent.turn_completed = LLM-call count, not message
+    fanout. Matches the per-turn cap so logs and the gate agree."""
+    import inspect
+
+    from api.services import agent_runner
+
+    src = inspect.getsource(agent_runner._finalize_turn)
+    assert "steps=llm_step_count" in src
+    assert "messages=message_count" in src
+
+
+def test_narration_emitted_uses_message_idx_not_step() -> None:
+    """Per-message narration uses `message_idx` so it no longer
+    collides with the LLM-call `step`."""
+    import inspect
+
+    from api.services import agent_runner_chat
+
+    src = inspect.getsource(agent_runner_chat.chat_process_message)
+    assert "message_idx=step_idx" in src
+    assert '"agent.narration_emitted"' in src
+    assert "step=step_idx" not in src, (
+        "the colliding `step=` field was renamed to `message_idx=`"
+    )
+
+
+def test_turn_state_tracks_llm_step_count_separately() -> None:
+    """TurnState's llm_step_count increments only on AIMessage so the
+    LLM-call total never conflates with message fanout."""
+    from api.services.agent_runner_loop import TurnState
+
+    state = TurnState(initial_history_len=0)
+    assert state.llm_step_count == 0
+    assert state.step_idx == 0
+    assert "llm_step_count" in TurnState.__slots__

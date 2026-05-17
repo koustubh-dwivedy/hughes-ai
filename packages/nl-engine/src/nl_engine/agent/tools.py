@@ -285,9 +285,11 @@ def final_answer(
     return payload.model_dump()
 
 
-# Chat agent uses ALL_TOOLS; lead agent (HUG-244) uses LEAD_AGENT_TOOLS.
+# Chat agent uses ALL_TOOLS; lead agent uses LEAD_AGENT_TOOLS. Lead omits
+# mf_query + lookup_metric_definition so it must delegate via run_subagent.
 ALL_TOOLS = [list_metrics, lookup_metric_definition, mf_query, clarify, final_answer]
-LEAD_AGENT_TOOLS = [*ALL_TOOLS, *LEAD_AGENT_MEMORY_TOOLS, propose_plan, run_subagent]
+LEAD_AGENT_TOOLS = [list_metrics, clarify, final_answer, *LEAD_AGENT_MEMORY_TOOLS,
+                    propose_plan, run_subagent]
 
 
 def serialize_tool_result(value: Any) -> str:

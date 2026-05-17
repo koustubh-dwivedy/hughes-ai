@@ -11,7 +11,7 @@ from collections.abc import AsyncIterator, Callable
 from typing import Any
 from uuid import UUID
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 
 class TurnState:
@@ -29,6 +29,7 @@ class TurnState:
     __slots__ = (
         "seen",
         "step_idx",
+        "llm_step_count",
         "trace",
         "token_count",
         "token_chars",
@@ -37,7 +38,8 @@ class TurnState:
 
     def __init__(self, initial_history_len: int = 0) -> None:
         self.seen: set[int] = set()
-        self.step_idx = 0
+        self.step_idx = 0  # message index — bumped per AIMessage + per ToolMessage
+        self.llm_step_count = 0  # actual LLM-call count — bumped per AIMessage only
         self.trace: list[dict[str, Any]] = []
         self.token_count = 0
         self.token_chars = 0
@@ -87,6 +89,8 @@ async def consume_queue(
                 continue
             state.seen.add(id(msg))
             state.step_idx += 1
+            if isinstance(msg, AIMessage):
+                state.llm_step_count += 1
             for event in process_message(
                 msg, state.step_idx, thread_id, db_url, state.trace
             ):

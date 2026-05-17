@@ -190,7 +190,9 @@ async def run_agent_isolated(
             token_count=state.token_count,
             total_chars=state.token_chars,
         )
-        _finalize_turn(thread_id, turn_start, state.step_idx, token)
+        _finalize_turn(
+            thread_id, turn_start, state.llm_step_count, state.step_idx, token
+        )
 
 
 async def stream_user_turn(
@@ -227,16 +229,23 @@ async def stream_user_turn(
 
 
 def _finalize_turn(
-    thread_id: UUID, turn_start: float, step_idx: int, token: Any
+    thread_id: UUID,
+    turn_start: float,
+    llm_step_count: int,
+    message_count: int,
+    token: Any,
 ) -> None:
     elapsed = time.monotonic() - turn_start
     agent_turn_duration_seconds.observe(elapsed)
-    agent_steps_per_turn.observe(step_idx)
+    # The Prometheus histogram measures actual LLM calls (the cost driver),
+    # not the message fanout from parallel tool_calls.
+    agent_steps_per_turn.observe(llm_step_count)
     slog.info(
         "agent.turn_completed",
         thread_id=str(thread_id),
         elapsed_ms=int(elapsed * 1000),
-        steps=step_idx,
+        steps=llm_step_count,  # LLM-call count — matches state.step_count + the cap
+        messages=message_count,  # fan-out count — useful for traces with parallel tools
     )
     structlog.contextvars.unbind_contextvars("request_id", "thread_id")
     if token is not None:

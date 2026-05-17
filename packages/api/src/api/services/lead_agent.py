@@ -30,7 +30,7 @@ from nl_engine.agent.run_context import (
     bind_event_emitter,
     reset_event_emitter,
 )
-from nl_engine.agent.state import MAX_STEPS_PER_TURN
+from nl_engine.agent.state import LEAD_MAX_STEPS_PER_TURN
 from nl_engine.agent.tools import LEAD_AGENT_TOOLS
 
 from api.repo import threads as threads_repo
@@ -95,7 +95,7 @@ async def stream_lead_turn(
             db_url=db_url,
             llm=llm,
             process_message=chat_process_message,
-            max_steps=MAX_STEPS_PER_TURN,
+            max_steps=LEAD_MAX_STEPS_PER_TURN,
             request_id=request_id,
             initial_state_extras=extras,
             tools=LEAD_AGENT_TOOLS,

@@ -38,11 +38,47 @@ def test_lead_prompt_includes_multi_chart_heuristic() -> None:
     assert "KpiTile" in LEAD_AGENT_SYSTEM_PROMPT
 
 
-def test_lead_agent_tools_proper_superset() -> None:
+def test_lead_agent_orchestrator_toolset_overlaps_chat() -> None:
+    """The lead is an orchestrator — it shares some tools with the chat
+    path (list_metrics, clarify, final_answer) but DROPS direct data
+    reads (mf_query, lookup_metric_definition) and ADDS orchestration
+    tools (propose_plan, run_subagent, read/write_memory). It is NOT a
+    superset of chat — that pattern was changed to force delegation."""
     chat_names = {t.name for t in ALL_TOOLS}
     lead_names = {t.name for t in LEAD_AGENT_TOOLS}
-    assert chat_names < lead_names, "lead must be a strict superset of chat"
-    delta = lead_names - chat_names
-    assert delta == {"propose_plan", "run_subagent", "read_memory", "write_memory"}, (
-        f"unexpected lead-only tools: {delta}"
+    shared = chat_names & lead_names
+    assert shared == {"list_metrics", "clarify", "final_answer"}, (
+        f"shared tools changed: {shared}"
     )
+    lead_only = lead_names - chat_names
+    assert lead_only == {
+        "propose_plan",
+        "run_subagent",
+        "read_memory",
+        "write_memory",
+    }, f"lead-only tools changed: {lead_only}"
+    chat_only = chat_names - lead_names
+    assert chat_only == {"mf_query", "lookup_metric_definition"}, (
+        f"chat-only tools changed: {chat_only}"
+    )
+
+
+def test_lead_prompt_mandates_delegation() -> None:
+    """ANCHOR-F must explicitly tell the model it lacks mf_query so it
+    delegates rather than fetching directly."""
+    assert "DO NOT have `mf_query`" in LEAD_AGENT_SYSTEM_PROMPT
+    assert "delegate" in LEAD_AGENT_SYSTEM_PROMPT.lower()
+
+
+def test_lead_prompt_mandates_parallel_dispatch() -> None:
+    """ANCHOR-F must instruct the model to batch run_subagent calls in
+    a single response rather than serializing across turns."""
+    assert "MULTIPLE" in LEAD_AGENT_SYSTEM_PROMPT
+    assert "parallel" in LEAD_AGENT_SYSTEM_PROMPT.lower()
+    assert "single response" in LEAD_AGENT_SYSTEM_PROMPT.lower()
+
+
+def test_lead_prompt_states_step_budget() -> None:
+    """ANCHOR-F must surface the 20-step budget so the model paces itself."""
+    assert "20 LLM calls" in LEAD_AGENT_SYSTEM_PROMPT
+    assert "Step Budget" in LEAD_AGENT_SYSTEM_PROMPT

@@ -177,6 +177,43 @@ def test_lead_agent_tools_includes_extras() -> None:
     assert {"run_subagent", "propose_plan", "read_memory", "write_memory"} <= names
 
 
+def test_lead_agent_tools_excludes_direct_data_fetches() -> None:
+    """The lead orchestrates; workers fetch. Direct data tools must be
+    absent so the model cannot bypass delegation."""
+    names = {t.name for t in LEAD_AGENT_TOOLS}
+    assert "mf_query" not in names, (
+        "lead must delegate data reads via run_subagent — mf_query is a "
+        "worker-only tool"
+    )
+    assert "lookup_metric_definition" not in names, (
+        "lead must delegate data reads — lookup_metric_definition is "
+        "worker-only"
+    )
+
+
+def test_lead_agent_tools_keeps_list_metrics() -> None:
+    """list_metrics is read-only catalog discovery; the lead needs it
+    to write good sub-questions for workers."""
+    names = {t.name for t in LEAD_AGENT_TOOLS}
+    assert "list_metrics" in names
+
+
+def test_lead_agent_tools_complete_allow_list() -> None:
+    """Exact allow-list so adding a new lead tool requires updating the
+    test deliberately."""
+    names = {t.name for t in LEAD_AGENT_TOOLS}
+    expected = {
+        "list_metrics",
+        "clarify",
+        "final_answer",
+        "read_memory",
+        "write_memory",
+        "propose_plan",
+        "run_subagent",
+    }
+    assert names == expected, f"unexpected diff: {names ^ expected}"
+
+
 # ── Constants ───────────────────────────────────────────────────────
 
 

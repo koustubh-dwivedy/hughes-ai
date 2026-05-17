@@ -54,7 +54,7 @@ def chat_process_message(
     if thinking is not None:
         _slog.info(
             "agent.narration_emitted",
-            step=step_idx,
+            message_idx=step_idx,
             msg_kind=type(msg).__name__,
         )
         out.append(thinking)
