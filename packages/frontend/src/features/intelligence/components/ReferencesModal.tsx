@@ -7,6 +7,7 @@ import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import JsonBlock from "../../../ui/primitives/JsonBlock/JsonBlock";
 import type { ThreadTraceEntry } from "../api";
 import ResearchAuditPanel from "../research/ResearchAuditPanel";
+import ReferencesTrace from "./ReferencesTrace";
 
 interface Props {
 	open: boolean;
@@ -37,22 +38,29 @@ const dialogStyle: React.CSSProperties = {
 	borderRadius: radii.lg,
 	width: "min(880px, 100%)",
 	maxHeight: "85vh",
-	overflow: "auto",
-	padding: spacing[6],
-	boxShadow: "0 24px 60px rgba(15, 23, 42, 0.25)",
+	overflow: "hidden",
 	display: "flex",
 	flexDirection: "column",
-	gap: spacing[4],
+	boxShadow: "0 24px 60px rgba(15, 23, 42, 0.25)",
 };
 
 const headerStyle: React.CSSProperties = {
 	display: "flex",
 	alignItems: "center",
 	justifyContent: "space-between",
-	position: "sticky",
-	top: 0,
 	background: colors.white,
-	zIndex: 1,
+	padding: `${spacing[5]} ${spacing[6]}`,
+	borderBottom: `1px solid ${colors.slate[200]}`,
+	flexShrink: 0,
+};
+
+const bodyStyle: React.CSSProperties = {
+	overflow: "auto",
+	padding: spacing[6],
+	display: "flex",
+	flexDirection: "column",
+	gap: spacing[4],
+	flex: 1,
 };
 
 const titleStyle: React.CSSProperties = {
@@ -139,85 +147,6 @@ function RowsTable({ rows }: { rows: Record<string, unknown>[] }) {
 	);
 }
 
-const traceListStyle: React.CSSProperties = {
-	listStyle: "none",
-	margin: 0,
-	padding: spacing[3],
-	display: "flex",
-	flexDirection: "column",
-	gap: spacing[2],
-	border: `1px solid ${colors.slate[200]}`,
-	borderRadius: radii.md,
-	background: colors.slate[50],
-};
-
-const traceItemStyle: React.CSSProperties = {
-	display: "grid",
-	gridTemplateColumns: "auto 1fr",
-	columnGap: spacing[3],
-	rowGap: spacing[1],
-	fontSize: typography.size.xs,
-};
-
-const traceStepBadgeStyle: React.CSSProperties = {
-	background: colors.indigo[700],
-	color: colors.white,
-	borderRadius: radii.sm,
-	padding: `0 ${spacing[2]}`,
-	fontWeight: typography.weight.medium,
-	alignSelf: "start",
-	minWidth: 28,
-	textAlign: "center",
-};
-
-const traceLabelStyle: React.CSSProperties = {
-	color: colors.slate[800],
-	fontWeight: typography.weight.medium,
-};
-
-const traceMetaStyle: React.CSSProperties = {
-	gridColumn: "2 / -1",
-	color: colors.slate[500],
-	fontSize: typography.size.xs,
-};
-
-function _kindIcon(kind: string): string {
-	switch (kind) {
-		case "tool_call":
-			return "→";
-		case "tool_result":
-			return "←";
-		case "thinking_text":
-			return "•";
-		default:
-			return "·";
-	}
-}
-
-function TraceList({ entries }: { entries: ThreadTraceEntry[] }) {
-	return (
-		<ol style={traceListStyle}>
-			{entries.map((entry) => (
-				<li
-					key={`${entry.step}-${entry.kind}-${entry.at}`}
-					style={traceItemStyle}
-				>
-					<span style={traceStepBadgeStyle} aria-label={`step ${entry.step}`}>
-						{entry.step}
-					</span>
-					<span style={traceLabelStyle}>
-						{_kindIcon(entry.kind)} {entry.label}
-					</span>
-					<span style={traceMetaStyle}>
-						{entry.kind}
-						{entry.tool ? ` · ${entry.tool}` : ""}
-					</span>
-				</li>
-			))}
-		</ol>
-	);
-}
-
 export default function ReferencesModal({
 	open,
 	onClose,
@@ -267,32 +196,34 @@ export default function ReferencesModal({
 						×
 					</button>
 				</header>
-				{thinkingTrace && thinkingTrace.length > 0 ? (
-					<section data-testid="trace-section">
-						<div style={sectionLabelStyle}>
-							Thinking trace ({thinkingTrace.length})
-						</div>
-						<TraceList entries={thinkingTrace} />
-					</section>
-				) : null}
-				{rows && rows.length > 0 ? (
-					<section>
-						<div style={sectionLabelStyle}>Source rows ({rows.length})</div>
-						<RowsTable rows={rows} />
-					</section>
-				) : null}
-				{mfQuery ? (
-					<section>
-						<div style={sectionLabelStyle}>MetricFlow query</div>
-						<JsonBlock value={mfQuery} label="MetricFlow query" />
-					</section>
-				) : null}
-				{researchPlanId && researchThreadId ? (
-					<ResearchAuditPanel
-						threadId={researchThreadId}
-						planId={researchPlanId}
-					/>
-				) : null}
+				<div style={bodyStyle} data-testid="references-modal-body">
+					{thinkingTrace && thinkingTrace.length > 0 ? (
+						<section data-testid="trace-section">
+							<div style={sectionLabelStyle}>
+								Thinking trace ({thinkingTrace.length})
+							</div>
+							<ReferencesTrace entries={thinkingTrace} />
+						</section>
+					) : null}
+					{rows && rows.length > 0 ? (
+						<section>
+							<div style={sectionLabelStyle}>Source rows ({rows.length})</div>
+							<RowsTable rows={rows} />
+						</section>
+					) : null}
+					{mfQuery ? (
+						<section>
+							<div style={sectionLabelStyle}>MetricFlow query</div>
+							<JsonBlock value={mfQuery} label="MetricFlow query" />
+						</section>
+					) : null}
+					{researchPlanId && researchThreadId ? (
+						<ResearchAuditPanel
+							threadId={researchThreadId}
+							planId={researchPlanId}
+						/>
+					) : null}
+				</div>
 			</dialog>
 		</div>
 	);

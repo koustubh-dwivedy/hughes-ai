@@ -23,28 +23,36 @@ function renderModal(
 	);
 }
 
-describe("ReferencesModal — sticky header", () => {
-	it("renders the header with position: sticky so the close button stays in view when scrolling", () => {
+describe("ReferencesModal — non-scrolling header", () => {
+	it("places the header OUTSIDE the scrolling body so it never scrolls", () => {
 		renderModal();
 		const header = screen.getByTestId("references-modal-header");
+		const body = screen.getByTestId("references-modal-body");
 		expect(header).toBeInTheDocument();
-		// Inline style assertions: jsdom does not run the layout engine, so we
-		// verify the CSS contract directly rather than via getComputedStyle.
-		expect(header.style.position).toBe("sticky");
-		expect(header.style.top).toBe("0px");
-		expect(header.style.zIndex).toBe("1");
+		expect(body).toBeInTheDocument();
+		// Body is the overflow:auto container; header must NOT be inside it.
+		expect(body.contains(header)).toBe(false);
+		// Body owns the scroll; header is a peer flex child above it.
+		expect(body.style.overflow).toBe("auto");
 	});
 
-	it("gives the sticky header an opaque background so scrolled content does not bleed through", () => {
+	it("gives the header an opaque background + border so scrolled content cannot bleed through", () => {
 		renderModal();
 		const header = screen.getByTestId("references-modal-header");
-		// Must NOT be transparent — if it were, table rows behind it during
-		// scroll would show through the close button.
 		expect(header.style.background).not.toBe("");
 		expect(header.style.background).not.toBe("transparent");
+		// The border-bottom is the visual anchor that separates the header
+		// from the scrolling content. Locks the "no floating" guarantee.
+		expect(header.style.borderBottom).not.toBe("");
 	});
 
-	it("close button stays a descendant of the sticky header (so it sticks with it)", () => {
+	it("header does not shrink when body content grows (flex-shrink: 0)", () => {
+		renderModal();
+		const header = screen.getByTestId("references-modal-header");
+		expect(header.style.flexShrink).toBe("0");
+	});
+
+	it("close button stays a descendant of the header", () => {
 		renderModal();
 		const closeButton = screen.getByTestId("references-modal-close");
 		const header = screen.getByTestId("references-modal-header");

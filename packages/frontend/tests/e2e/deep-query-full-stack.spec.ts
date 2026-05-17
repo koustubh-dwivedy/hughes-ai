@@ -97,28 +97,34 @@ test.describe("Full-stack deep-query E2E (Bug 5)", () => {
 		expect(summary ?? "").not.toMatch(/couldn't reach an answer/i);
 		expect((summary ?? "").length).toBeGreaterThan(40);
 
-		// ── Step 5: References modal opens; sticky header stays
-		//   pinned during scroll (Bug 1) ───────────────────────────────
+		// ── Step 5: References modal opens; non-scrolling header stays
+		//   anchored when body scrolls (Bug 1) ────────────────────────
 		await page.getByTestId("references-button").first().click();
 		const modalHeader = page.getByTestId("references-modal-header");
 		await expect(modalHeader).toBeVisible();
-		// Find the scrollable dialog and scroll it; assert the sticky
-		// header is still at the top of the viewport.
+		// Capture header position BEFORE scrolling, then scroll the body
+		// 400px, and assert the header's viewport y is unchanged. With
+		// the dialog restructure the header is OUTSIDE the scroll
+		// container, so it should be pixel-stable regardless of body
+		// scroll position.
+		const headerBefore = await modalHeader.boundingBox();
 		await page.evaluate(() => {
-			const dialog = document.querySelector(
-				"dialog[aria-label='Answer references']",
-			);
-			(dialog as HTMLElement | null)?.scrollTo({
-				top: 400,
-				behavior: "instant",
-			});
+			document
+				.querySelector("[data-testid='references-modal-body']")
+				?.scrollTo({ top: 400, behavior: "instant" });
 		});
-		const headerBox = await modalHeader.boundingBox();
+		const headerAfter = await modalHeader.boundingBox();
 		expect(
-			headerBox,
-			"header must remain laid-out after scroll",
+			headerBefore,
+			"header must be laid out before scroll",
 		).not.toBeNull();
-		expect(headerBox?.y ?? 0).toBeLessThan(120);
+		expect(
+			headerAfter,
+			"header must remain laid out after scroll",
+		).not.toBeNull();
+		expect(
+			Math.abs((headerAfter?.y ?? 0) - (headerBefore?.y ?? 0)),
+		).toBeLessThan(2);
 		// Close button still clickable.
 		await page.getByTestId("references-modal-close").click();
 		await expect(modalHeader).not.toBeVisible();
@@ -132,9 +138,7 @@ test.describe("Full-stack deep-query E2E (Bug 5)", () => {
 		await page.getByTestId("references-button").first().click();
 		await expect(page.getByTestId("trace-section")).toBeVisible();
 		// At least two run_subagent entries in the trace.
-		const runSubagentMatches = await page
-			.getByText(/run_subagent/)
-			.count();
+		const runSubagentMatches = await page.getByText(/run_subagent/).count();
 		expect(
 			runSubagentMatches,
 			"trace must show >= 2 run_subagent rows so we know the lead delegated",
@@ -148,7 +152,8 @@ test.describe("Full-stack deep-query E2E (Bug 5)", () => {
 		const threadId = url.pathname.split("/").pop();
 		expect(threadId, "URL must end in a thread id").toBeTruthy();
 		const headers = await page.evaluate(() => ({
-			"X-Hughes-Session": window.sessionStorage.getItem("hughes_session_id") ?? "",
+			"X-Hughes-Session":
+				window.sessionStorage.getItem("hughes_session_id") ?? "",
 			"X-Hughes-User": window.localStorage.getItem("hughes_user_id") ?? "",
 		}));
 
