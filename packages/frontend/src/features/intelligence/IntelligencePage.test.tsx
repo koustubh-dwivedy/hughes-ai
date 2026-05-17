@@ -22,6 +22,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStore } from "../../shared/api/store";
 import IntelligencePage from "./IntelligencePage";
 import {
+	pendingQuestionRebound,
 	pendingQuestionSubmitted,
 	setCurrentThread,
 	streamStarted,
@@ -213,6 +214,40 @@ describe("IntelligencePage — '+ New thread' lands on starter questions", () =>
 				name: /Decompose|Compare|Summarise|How has/,
 			}).length,
 		).toBeGreaterThan(0);
+	});
+
+	it("after rebind, /intelligence shows starter questions again (the user's repro)", async () => {
+		// The exact bug path:
+		//   1. Open /intelligence (empty state), click a starter.
+		//   2. pendingQuestion dispatched with threadId=null.
+		//   3. createThread returns newId; handleSubmit dispatches
+		//      pendingQuestionRebound({threadId: newId}) before navigating.
+		//   4. User watches stream on /intelligence/{newId}.
+		//   5. User clicks "+ New thread" → URL = /intelligence, threadId=null.
+		//   6. Starter screen MUST render (pendingQuestion.threadId is now
+		//      a real id, no longer matches the null view).
+		// Pre-rebind this test would fail: pendingQuestion.threadId would
+		// still be null, pendingForThisView would be true, and the
+		// empty state would be suppressed.
+		mockThreadFetch();
+		const { store } = renderAtRoot();
+		// Step 2: user submitted from empty state.
+		act(() => {
+			store.dispatch(
+				pendingQuestionSubmitted({ content: "first Q", threadId: null }),
+			);
+		});
+		// Step 3: createThread completed, handleSubmit rebound the pending.
+		act(() => {
+			store.dispatch(streamStarted({ threadId: "newId" }));
+			store.dispatch(pendingQuestionRebound({ threadId: "newId" }));
+		});
+		// Step 5: user is now back on /intelligence (the test fixture
+		// renders at /intelligence root). Starter heading visible.
+		await waitFor(() =>
+			expect(screen.getByText(/Ask Hughes/)).toBeInTheDocument(),
+		);
+		expect(screen.queryByText(/first Q/)).toBeNull();
 	});
 
 	it("still hides the empty state while we're actively creating a thread from /intelligence", () => {

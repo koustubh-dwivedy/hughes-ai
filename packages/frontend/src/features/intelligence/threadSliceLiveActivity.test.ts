@@ -11,6 +11,8 @@
 import { describe, expect, it } from "vitest";
 import reducer, {
 	initialThreadState,
+	pendingQuestionRebound,
+	pendingQuestionSubmitted,
 	streamError,
 	streamFinal,
 	streamPlanDrafted,
@@ -125,5 +127,28 @@ describe("threadSlice — live activity (Bug 4)", () => {
 		expect(next.livePlan).toBeNull();
 		expect(next.liveSubagents).toEqual([]);
 		expect(next.liveCurrentTool).toBeNull();
+	});
+});
+
+describe("threadSlice — pendingQuestionRebound (the '+ New thread' fix)", () => {
+	it("rebinds an existing pendingQuestion's threadId in place", () => {
+		const a = reducer(
+			initialThreadState,
+			pendingQuestionSubmitted({ content: "Q1", threadId: null }),
+		);
+		expect(a.pendingQuestion?.threadId).toBeNull();
+		const b = reducer(a, pendingQuestionRebound({ threadId: "newId" }));
+		expect(b.pendingQuestion?.threadId).toBe("newId");
+		// Other fields untouched.
+		expect(b.pendingQuestion?.content).toBe("Q1");
+		expect(b.pendingQuestion?.submittedAt).toBe(a.pendingQuestion?.submittedAt);
+	});
+
+	it("is a safe no-op when there is no pendingQuestion to rebind", () => {
+		const next = reducer(
+			initialThreadState,
+			pendingQuestionRebound({ threadId: "newId" }),
+		);
+		expect(next.pendingQuestion).toBeNull();
 	});
 });

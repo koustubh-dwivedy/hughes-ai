@@ -31,6 +31,7 @@ import ThreadRail from "./components/ThreadRail";
 import ResearchWorkspace from "./research/ResearchWorkspace";
 import {
 	pendingQuestionCleared,
+	pendingQuestionRebound,
 	pendingQuestionSubmitted,
 	setCurrentThread,
 } from "./threadSlice";
@@ -114,6 +115,12 @@ export default function IntelligencePage() {
 		if (!activeThreadId) {
 			const created = await createThread({}).unwrap();
 			activeThreadId = created.thread_id;
+			// Rebind the pendingQuestion (dispatched above with threadId=null)
+			// to the real thread id. Without this, a later "+ New thread"
+			// click would return the user to /intelligence (threadId=null)
+			// where the still-null-scoped pending falsely matches the view
+			// and suppresses the starter screen.
+			dispatch(pendingQuestionRebound({ threadId: activeThreadId }));
 			navigate(`/intelligence/${activeThreadId}`, { replace: true });
 		}
 		// Fire and forget — the queryFn dispatches step/final into the

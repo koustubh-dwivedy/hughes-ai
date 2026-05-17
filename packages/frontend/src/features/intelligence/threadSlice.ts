@@ -155,6 +155,19 @@ const slice = createSlice({
 		pendingQuestionCleared(state) {
 			state.pendingQuestion = null;
 		},
+		// Rebind an existing pendingQuestion's threadId. Used right after
+		// createThread completes for a submit-from-empty-state flow: the
+		// pendingQuestion was dispatched with threadId=null (before the
+		// new thread existed); once we know its id, we rebind so the
+		// pending is correctly scoped. Without this, clicking "+ New
+		// thread" later puts the user back on /intelligence (threadId=null)
+		// and the pending (still null-scoped) falsely matches the view,
+		// suppressing the starter screen.
+		pendingQuestionRebound(state, action: PayloadAction<{ threadId: string }>) {
+			if (state.pendingQuestion !== null) {
+				state.pendingQuestion.threadId = action.payload.threadId;
+			}
+		},
 		setDraft(state, action: PayloadAction<string>) {
 			state.draftInput = action.payload;
 		},
@@ -277,5 +290,6 @@ export const {
 	streamTool,
 	pendingQuestionSubmitted,
 	pendingQuestionCleared,
+	pendingQuestionRebound,
 } = slice.actions;
 export default slice.reducer;
