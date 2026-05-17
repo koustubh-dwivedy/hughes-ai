@@ -38,6 +38,14 @@ from api.services.agent_runner import run_agent_isolated
 from api.services.agent_runner_chat import chat_process_message
 from api.types.threads import ThreadMessage
 
+# Firebase Hosting's `rewrites.run` enforces a hard ~60s time-to-first-byte
+# ceiling. When the LLM's first response is slow (typical 10-30s, p99 60+s)
+# the agent's first `event: thinking` arrives too late and Firebase 502s
+# the user out. `stream_lead_turn` yields this frame *before* the LLM call so
+# the client / proxy chain sees data within milliseconds. SSE clients silently
+# ignore unknown event types.
+_LEAD_STREAM_START: dict[str, Any] = {"event": "stream.start", "data": "{}"}
+
 
 def _make_sse_emitter(events: list[dict[str, Any]]) -> Any:
     """Build an event emitter that collects SSE-shaped events into a
@@ -75,6 +83,7 @@ async def stream_lead_turn(
     )
     structlog.contextvars.bind_contextvars(thread_id=str(thread_id))
 
+    yield _LEAD_STREAM_START
     pending_events: list[dict[str, Any]] = []
     emitter = _make_sse_emitter(pending_events)
     memory_tokens = bind_memory_context(uuid4(), db_url, thread_id=thread_id)

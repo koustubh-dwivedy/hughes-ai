@@ -196,6 +196,9 @@ APP_STATE_TABLES = [
     "research_lead_notes",
     "research_steps",
     "research_findings",
+    # HUG-258 follow-up: missed by the original bootstrap; subagent_calls
+    # is written by the lead-agent's run_subagent tool path.
+    "subagent_calls",
 ]
 
 with psycopg.connect(db_url) as conn, conn.cursor() as cur:
