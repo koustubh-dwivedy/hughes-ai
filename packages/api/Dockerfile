@@ -43,6 +43,16 @@ COPY config config
 # env vars (DBT_HOST etc.) are unused by `parse`; default values are fine.
 RUN cd packages/dbt-models && /app/.venv/bin/dbt parse --profiles-dir . --no-version-check
 
+# HUG-260: pre-compute the MetricFlow catalog so the first chat request
+# doesn't pay the 65-subprocess, ~4-min `mf list metrics/dimensions/entities`
+# tax. The fast Cloud Build runners finish this in ~1-2 min (vs ~4 min on
+# Cloud Run's smaller CPU). Writes target/metric_catalog.json which the
+# runtime reads via nl_engine.repo.metricflow._load_cached_catalog().
+COPY scripts/build_metric_catalog.py scripts/build_metric_catalog.py
+# Need /app/.venv/bin on PATH so the script's _mf_command() can resolve `mf`
+# via shutil.which.
+RUN PATH="/app/.venv/bin:${PATH}" /app/.venv/bin/python scripts/build_metric_catalog.py
+
 # ---------- stage 2: runtime ----------
 FROM python:3.12-slim AS runtime
 

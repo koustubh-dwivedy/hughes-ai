@@ -28,12 +28,24 @@ function enrich(event: TelemetryEvent): EnrichedEvent {
 	};
 }
 
+// HUG-261: backend /api/log expects {level, message, context} per
+// packages/api/src/api/routes/log.py:LogRequest. Wrap the batch as a
+// single info-level log entry with the events in `context`. Previous
+// shape `{events: [...]}` was rejected with 422.
+function _payload(events: EnrichedEvent[]): string {
+	return JSON.stringify({
+		level: "info",
+		message: "telemetry_batch",
+		context: { events },
+	});
+}
+
 async function flushHttp(events: EnrichedEvent[]): Promise<void> {
 	try {
 		await fetch("/api/log", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ events }),
+			body: _payload(events),
 		});
 	} catch (err: unknown) {
 		log.warn(
@@ -44,7 +56,7 @@ async function flushHttp(events: EnrichedEvent[]): Promise<void> {
 }
 
 function flushBeacon(events: EnrichedEvent[]): void {
-	navigator.sendBeacon("/api/log", JSON.stringify({ events }));
+	navigator.sendBeacon("/api/log", _payload(events));
 }
 
 function scheduleFlush(): void {

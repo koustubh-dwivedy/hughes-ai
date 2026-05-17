@@ -18,6 +18,9 @@ tests/
 docs/
 infra/
 scripts/
+# HUG-260: but DO include the build-time catalog script that the
+# Dockerfile invokes during the builder stage.
+!scripts/build_metric_catalog.py
 docker-compose.yml
 .dockerignore
 **/Dockerfile

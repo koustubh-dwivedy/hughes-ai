@@ -53,27 +53,33 @@ describe("emit — batching", () => {
 		expect(fetchMock).toHaveBeenCalledOnce();
 	});
 
-	it("POSTs to /api/log with events array", async () => {
+	it("POSTs to /api/log wrapped in the backend LogRequest shape (HUG-261)", async () => {
 		const fetchMock = mockFetch();
 		emit({ type: "app.error", message: "boom" });
 		await vi.runAllTimersAsync();
 		expect(fetchMock).toHaveBeenCalledOnce();
 		const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
 		expect(url).toBe("/api/log");
-		const body = JSON.parse(opts.body as string) as { events: unknown[] };
-		expect(body.events).toHaveLength(1);
+		const body = JSON.parse(opts.body as string) as {
+			level: string;
+			message: string;
+			context: { events: unknown[] };
+		};
+		expect(body.level).toBe("info");
+		expect(body.message).toBe("telemetry_batch");
+		expect(body.context.events).toHaveLength(1);
 	});
 
-	it("enriches events with session_id and route", async () => {
+	it("enriches events with session_id and route inside context.events", async () => {
 		const fetchMock = mockFetch();
 		emit({ type: "app.error", message: "test" });
 		await vi.runAllTimersAsync();
 		const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
 		const body = JSON.parse(opts.body as string) as {
-			events: Array<{ session_id: string; route: string }>;
+			context: { events: Array<{ session_id: string; route: string }> };
 		};
-		expect(body.events[0].session_id).toBeTruthy();
-		expect(body.events[0].route).toBeTruthy();
+		expect(body.context.events[0].session_id).toBeTruthy();
+		expect(body.context.events[0].route).toBeTruthy();
 	});
 });
 

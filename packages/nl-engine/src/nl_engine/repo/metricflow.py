@@ -129,36 +129,34 @@ def _list_entities_for(metric: str) -> list[str]:
     return entities
 
 
-@lru_cache(maxsize=1)
-def list_metrics() -> list[MfMetric]:
-    """Return the metric catalog with each metric's FULL group-by surface.
+_CATALOG_CACHE_FILE = _DBT_PROJECT_DIR / "target" / "metric_catalog.json"
 
-    PROCESS-LEVEL CACHED (`lru_cache`, size 1). The first call within a
-    process pays the full ~65-subprocess cost (~3-4 minutes on the
-    32-metric catalog); subsequent calls return the cached catalog in
-    microseconds. Safe because every eval invocation runs in a fresh
-    Python process and we don't hot-reload semantic models within a
-    process. Saves ~96 minutes per 24-question must-pass eval.
 
-    Production note (long-running API workers): the cache lives for the
-    worker lifetime. A redeploy / process restart clears it. If you
-    ever need a mid-process hot reload, call
-    `list_metrics.cache_clear()` (tests do this between cases via an
-    autouse fixture in `test_metricflow_list_entities.py`).
+def _load_cached_catalog() -> list[MfMetric] | None:
+    """Read the pre-computed catalog written at image build time.
 
-    Built in three passes per metric:
-      1. `mf list metrics` for names (CLI truncates dim lists with "and
-         N more", so we discard its dim suffix).
-      2. `mf list dimensions --metrics <name>` for the full dimension
-         list (not truncated).
-      3. `mf list entities --metrics <name>` for foreign entities,
-         which `list dimensions` does not enumerate. Without this the
-         agent cannot see e.g. `product_type` as a slice for
-         `delinquency_rate`.
+    Cloud Run instances pay the full ~4-min, 65-subprocess cost otherwise,
+    which exceeds Firebase Hosting's 60s rewrite ceiling and breaks chat.
+    `scripts/build_metric_catalog.py` writes this file during `docker build`;
+    `list_metrics()` reads it in microseconds at runtime.
 
-    Both helpers fall back to empty on `MetricFlowError` with a
-    structured log entry.
+    Returns None when the file is absent (local dev, eval harness, tests),
+    falling back to the full subprocess path.
     """
+    if not _CATALOG_CACHE_FILE.exists():
+        return None
+    try:
+        data = json.loads(_CATALOG_CACHE_FILE.read_text())
+        return [MfMetric(name=m["name"], dimensions=m["dimensions"]) for m in data]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+        log.exception(
+            "metric_catalog.json present but unreadable; falling back to subprocess"
+        )
+        return None
+
+
+def _compute_catalog_via_subprocess() -> list[MfMetric]:
+    """The original 65-subprocess path. Kept for first-time builds + tests."""
     names = _parse_metric_names()
     metrics: list[MfMetric] = []
     for name in names:
@@ -175,6 +173,38 @@ def list_metrics() -> list[MfMetric]:
         combined = sorted(set(dims) | set(ents))
         metrics.append(MfMetric(name=name, dimensions=combined))
     return metrics
+
+
+@lru_cache(maxsize=1)
+def list_metrics() -> list[MfMetric]:
+    """Return the metric catalog with each metric's FULL group-by surface.
+
+    Fast path: read `packages/dbt-models/target/metric_catalog.json` if it
+    exists (baked into the Docker image at build time by
+    `scripts/build_metric_catalog.py`). ~1ms.
+
+    Slow path: run 65 `mf` subprocess calls (~4 min). Used in local dev,
+    tests, and the eval harness where the cache file isn't generated.
+
+    Either path's result is `@lru_cache`d for the worker's lifetime;
+    `list_metrics.cache_clear()` resets (used by tests via an autouse
+    fixture in `test_metricflow_list_entities.py`).
+
+    Subprocess path detail (only when cache miss):
+      1. `mf list metrics` for names (CLI truncates dim lists with
+         "and N more", so we discard its dim suffix).
+      2. `mf list dimensions --metrics <name>` for the full dimension
+         list (not truncated).
+      3. `mf list entities --metrics <name>` for foreign entities,
+         which `list dimensions` does not enumerate. Without this the
+         agent cannot see e.g. `product_type` as a slice for
+         `delinquency_rate`.
+    """
+    cached = _load_cached_catalog()
+    if cached is not None:
+        log.debug("metric_catalog loaded from cache (%d metrics)", len(cached))
+        return cached
+    return _compute_catalog_via_subprocess()
 
 
 def query(
