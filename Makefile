@@ -1,4 +1,4 @@
-.PHONY: up down dev migrate seed lint lint-fix typecheck test audit eval deep-eval openui-prompt update-sse-goldens
+.PHONY: up down dev migrate seed lint lint-fix typecheck test audit eval deep-eval openui-prompt update-sse-goldens verify-prod-role
 
 # HUG-231: regenerate the SSE event-contract goldens. Run when the
 # expected SSE event sequence intentionally changes (new event added,
@@ -93,3 +93,16 @@ openui-prompt:
 # real LLM key + a warm MetricFlow catalog (first call pays 3-4 min).
 e2e-deep:
 	cd packages/frontend && RUN_DEEP_E2E=1 npx playwright test deep-query-full-stack.spec.ts --reporter=list
+
+# HUG-257: starts the Cloud SQL Auth Proxy and runs pytest
+# infra/tests/test_runtime_role.py, which asserts the cubi_runtime role's
+# privilege model (read-only on lending, INSERT/UPDATE on app-state, no
+# DELETE anywhere). Requires gcloud authenticated and the proxy installed
+# at ~/.cache/hughes-ai/cloud-sql-proxy (auto-installed by bootstrap.sh).
+verify-prod-role:
+	@PROXY=$$HOME/.cache/hughes-ai/cloud-sql-proxy; \
+	if [ ! -x "$$PROXY" ]; then echo "Run infra/bootstrap.sh first (it installs the proxy)."; exit 1; fi; \
+	$$PROXY tryhughes:europe-west1:hughes-pg --port=5433 > /tmp/proxy.log 2>&1 & \
+	PID=$$!; trap "kill $$PID 2>/dev/null" EXIT INT TERM; \
+	for i in $$(seq 1 30); do (echo > /dev/tcp/localhost/5433) 2>/dev/null && break; sleep 1; done; \
+	uv run pytest infra/tests/test_runtime_role.py -v

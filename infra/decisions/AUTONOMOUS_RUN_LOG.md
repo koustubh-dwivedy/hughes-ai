@@ -152,7 +152,60 @@ Chronological log of decisions made while executing HUG-250 → HUG-257 autonomo
 ---
 
 ### HUG-252 — GCP data plane provisioning
-- Status: pending
+- Status: **shipped + run live against `tryhughes`**
+- Files: `infra/setup.sh`, `infra/sql/init.sql`, `infra/README.md` (skeleton).
+- Live state (2026-05-17 against `tryhughes`):
+  - Cloud SQL instance `hughes-pg` created (POSTGRES_16, db-f1-micro, europe-west1, RUNNABLE). Primary IP `34.76.60.89`.
+  - Connection name: `tryhughes:europe-west1:hughes-pg`.
+  - Database `cubi` created.
+  - DB users `cubi_migrate`, `cubi_runtime` created.
+  - Artifact Registry repo `hughes` in `europe-west1`.
+  - Secrets `database-url`, `database-url-migrate`, `ollama-api-key` created (version 1 each).
+  - Runtime SA `hughes-api-sa@tryhughes.iam.gserviceaccount.com` created.
+  - IAM bindings applied (secretAccessor on the two consumed secrets; cloudsql.client at project).
+
+---
+
+### 2026-05-17 — Edition downgrade: `db-f1-micro` requires `ENTERPRISE`, not `ENTERPRISE_PLUS`
+
+**Context:** First run of `setup.sh` failed at Cloud SQL creation:
+> `Invalid Tier (db-f1-micro) for (ENTERPRISE_PLUS) Edition. Use a predefined Tier like db-perf-optimized-N-* instead.`
+
+The project defaults to `ENTERPRISE_PLUS`, which only supports machine types (smallest ~$70+/mo). Shared-core tiers like `db-f1-micro` (~$8-10/mo) are only on `ENTERPRISE`.
+
+**Decision:** Add `--edition=ENTERPRISE` to the `gcloud sql instances create` invocation in `setup.sh`.
+
+**Implication:** When the operator returns and inspects Cloud SQL Console, the instance will show "Enterprise" edition (not Enterprise Plus). This is intentional — Enterprise Plus's advanced features (zero-downtime maintenance, read replicas) aren't worth ~$60/mo extra for the demo.
+
+---
+
+### 2026-05-17 — Move `gcloud sql connect` SQL execution out of `setup.sh`
+
+**Context:** Second `setup.sh` run failed at `gcloud sql connect ... < infra/sql/init.sql`:
+> `Cloud SQL Proxy (v2) couldn't be found in PATH. Either install the component with gcloud components install cloud-sql-proxy or see …`
+
+`gcloud sql connect` requires the cloud-sql-proxy v2 binary, which isn't bundled with the gcloud CLI by default. Installing it (`gcloud components install cloud-sql-proxy`) requires the gcloud-installed-via-installer variant; brew/apt installs of gcloud don't support `gcloud components`.
+
+**Decision:** Move the `init.sql` application from `setup.sh` to `bootstrap.sh`. `bootstrap.sh` already needs the Cloud SQL Auth Proxy v2 to apply migrations and seed, and it auto-downloads the binary on first run. Doing init.sql in the same step keeps things consistent and avoids forcing a `gcloud components install` step.
+
+**Implication:** `setup.sh` is now pure-gcloud (no Auth Proxy needed). `bootstrap.sh` does init.sql as step 5a before migrations.
+
+---
+
+### HUG-253 — Bootstrap demo data
+- Status: code shipped; **run pending** (after this commit goes in)
+
+### HUG-254 — Cloud Run deploy
+- Status: code shipped; run pending
+
+### HUG-255 — Firebase Hosting
+- Status: code shipped; live deploy pending Firebase auth
+
+### HUG-256 — Custom domain
+- Status: code/docs shipped (docs-only by design — operator step)
+
+### HUG-257 — Cost cap + tests + runbook
+- Status: code shipped; live test run pending after bootstrap
 
 ### HUG-253 — Bootstrap demo data into Cloud SQL
 - Status: pending

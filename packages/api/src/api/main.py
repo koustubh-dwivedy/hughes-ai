@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, root_path=os.environ.get("API_ROOT_PATH", ""))
 app.add_middleware(RequestIDMiddleware)
 app.include_router(dashboards.router)
 app.include_router(data_model.router)

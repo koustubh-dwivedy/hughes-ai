@@ -34,6 +34,10 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "T20", "S", "C90"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "S608"]
 "packages/*/tests/**/*.py" = ["S101"]
+# HUG-257: infra/tests connect to prod Cloud SQL via gcloud secrets +
+# subprocess. Calling gcloud by short name and asserting on results are
+# both intentional patterns there.
+"infra/tests/**/*.py" = ["S101", "S603", "S607"]
 "scripts/audit_data_model.py" = ["T201"]
 "scripts/backfill_thread_titles.py" = ["T201"]
 "scripts/compile_prompts.py" = ["T201"]
