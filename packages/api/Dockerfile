@@ -30,6 +30,19 @@ COPY packages/synth-data/src packages/synth-data/src
 # invokes it via subprocess through nl_engine.repo.metricflow.
 RUN uv sync --frozen --no-dev --group runtime-extras
 
+# Copy dbt project + config into the builder so we can generate the
+# semantic manifest at image-build time. `mf list metrics` (invoked by
+# api.main:lifespan) refuses to start without target/semantic_manifest.json.
+# .dockerignore excludes packages/dbt-models/target on the host side; we
+# materialize it inside the image here so the runtime stage carries it.
+COPY packages/dbt-models packages/dbt-models
+COPY config config
+
+# `dbt parse` is read-only — it Jinja-renders + validates the project and
+# writes target/semantic_manifest.json. No DB connection needed. The profile
+# env vars (DBT_HOST etc.) are unused by `parse`; default values are fine.
+RUN cd packages/dbt-models && /app/.venv/bin/dbt parse --profiles-dir . --no-version-check
+
 # ---------- stage 2: runtime ----------
 FROM python:3.12-slim AS runtime
 
@@ -52,11 +65,11 @@ COPY --from=builder --chown=hughes:hughes /app/packages/api ./packages/api
 COPY --from=builder --chown=hughes:hughes /app/packages/nl-engine ./packages/nl-engine
 COPY --from=builder --chown=hughes:hughes /app/packages/synth-data ./packages/synth-data
 
-# Runtime data assets read by the agent:
-#   config/llm.yaml          — LLM provider selector (nl_engine.llm.factory)
-#   packages/dbt-models/     — dbt project the `mf` subprocess reads
-COPY --chown=hughes:hughes config ./config
-COPY --chown=hughes:hughes packages/dbt-models ./packages/dbt-models
+# dbt-models comes from the builder (it contains the parsed
+# target/semantic_manifest.json that `mf` requires). config does too —
+# llm.yaml is read by nl_engine.llm.factory at first use.
+COPY --from=builder --chown=hughes:hughes /app/packages/dbt-models ./packages/dbt-models
+COPY --from=builder --chown=hughes:hughes /app/config ./config
 
 USER hughes
 
