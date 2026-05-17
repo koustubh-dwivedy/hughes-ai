@@ -1,7 +1,6 @@
 /** Modal lifting auditing material (rows + mfQuery + thinking trace,
  * plus the HUG-224 research audit panel when applicable) out of the
  * answer bubble. Closes on overlay click, ESC, or close button. */
-
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
@@ -54,7 +53,6 @@ const headerStyle: React.CSSProperties = {
 	top: 0,
 	background: colors.white,
 	zIndex: 1,
-	paddingBottom: spacing[2],
 };
 
 const titleStyle: React.CSSProperties = {
