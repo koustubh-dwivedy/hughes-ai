@@ -81,7 +81,21 @@ MIGRATE_PASS=$(echo "$MIGRATE_URL" | sed -E 's|^postgresql\+psycopg://[^:]+:([^@
 # 4. Start the Auth Proxy in background; clean up on exit.
 log "Starting Auth Proxy on localhost:${PROXY_PORT}"
 
-"$PROXY_BIN" "$INSTANCE_CONN" --port="$PROXY_PORT" > /tmp/cloud-sql-proxy.log 2>&1 &
+# Prefer Application Default Credentials when set. Otherwise fall back to
+# the gcloud user's current access token (short-lived; refreshed each run).
+if [[ -f "$HOME/.config/gcloud/application_default_credentials.json" ]]; then
+  PROXY_AUTH=""
+else
+  ACCESS_TOKEN=$(gcloud auth print-access-token 2>/dev/null)
+  if [[ -z "$ACCESS_TOKEN" ]]; then
+    echo "ERROR: no ADC and no gcloud access token. Run 'gcloud auth login' first." >&2
+    exit 1
+  fi
+  PROXY_AUTH="--token=$ACCESS_TOKEN"
+fi
+
+# shellcheck disable=SC2086
+"$PROXY_BIN" "$INSTANCE_CONN" --port="$PROXY_PORT" $PROXY_AUTH > /tmp/cloud-sql-proxy.log 2>&1 &
 PROXY_PID=$!
 trap 'kill "$PROXY_PID" 2>/dev/null || true' EXIT
 
@@ -102,7 +116,26 @@ done
 # TCP DATABASE_URL for everything that runs through the proxy.
 TCP_DATABASE_URL="postgresql://${MIGRATE_USER}:${MIGRATE_PASS}@localhost:${PROXY_PORT}/${DB_NAME}"
 
-# 5a. init.sql (pgvector + role default privileges). Applied here rather
+# 5a. Optional: wipe the public schema. Set WIPE_FIRST=1 when re-bootstrapping
+#     against a DB that already has previous migration state. The migrations
+#     here are NOT idempotent across re-applies (e.g., ALTER TABLE ADD
+#     CONSTRAINT in 003_members.sql doesn't guard with IF NOT EXISTS — that's
+#     a known gap in the migration files, fixable but out of scope here).
+if [[ "${WIPE_FIRST:-0}" == "1" ]]; then
+  log "WIPE_FIRST=1 — dropping public schema"
+  uv run python - "$TCP_DATABASE_URL" <<'PY'
+import sys
+import psycopg
+with psycopg.connect(sys.argv[1], autocommit=True) as conn, conn.cursor() as cur:
+    cur.execute("DROP SCHEMA IF EXISTS public CASCADE")
+    cur.execute("CREATE SCHEMA public")
+    cur.execute("GRANT ALL ON SCHEMA public TO cubi_migrate")
+    cur.execute("GRANT USAGE ON SCHEMA public TO cubi_runtime")
+PY
+  ok "public schema dropped + recreated"
+fi
+
+# 5b. init.sql (pgvector + role default privileges). Applied here rather
 #     than in setup.sh because setup.sh has no Auth Proxy / psql equivalent
 #     available without an extra binary install. Idempotent (CREATE
 #     EXTENSION IF NOT EXISTS + ALTER DEFAULT PRIVILEGES that can be
@@ -126,19 +159,24 @@ log "Applying migrations"
 DATABASE_URL="$TCP_DATABASE_URL" uv run python "$REPO_ROOT/scripts/apply_migrations.py"
 ok "migrations applied"
 
-# 6. Seed.
-log "Seeding (small_cu profile)"
-DATABASE_URL="$TCP_DATABASE_URL" uv run python "$REPO_ROOT/scripts/seed.py" --profile small_cu
+# 6. Seed. Always use --force here: the content-hash cache in seed.py is
+#    laptop-local and shared across DBs, so a cache hit from a prior local
+#    Postgres seed would falsely skip Cloud SQL seeding. --force costs
+#    ~30s and guarantees the rows land in this DB.
+log "Seeding (small_cu profile, --force)"
+DATABASE_URL="$TCP_DATABASE_URL" uv run python "$REPO_ROOT/scripts/seed.py" --profile small_cu --force
 ok "seed complete"
 
-# 7. dbt build.
+# 7. dbt build. NOTE: not `--select staging marts` (which the Makefile uses
+#    for local dev) — that excludes `models/core/` (dim_calendar etc.) and
+#    fails on a fresh DB. For first-time bootstrap we need everything.
 log "Building dbt models"
 export DBT_HOST=localhost
 export DBT_PORT="$PROXY_PORT"
 export DBT_USER="$MIGRATE_USER"
 export DBT_PASSWORD="$MIGRATE_PASS"
 export DBT_DBNAME="$DB_NAME"
-(cd "$REPO_ROOT/packages/dbt-models" && uv run dbt build --select staging marts --profiles-dir . --quiet)
+(cd "$REPO_ROOT/packages/dbt-models" && uv run dbt build --profiles-dir . --quiet)
 ok "dbt build done"
 
 # 8. Grant cubi_runtime the precise app-state writes it needs. Lending-data
@@ -200,8 +238,8 @@ with psycopg.connect(db_url) as conn:
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO members (member_id, household_id, opened_date, status) "
-                "VALUES (gen_random_uuid(), gen_random_uuid(), CURRENT_DATE, 'active')"
+                "INSERT INTO members (member_id, first_name, last_name, joined_at) "
+                "VALUES (gen_random_uuid(), 'x', 'x', NOW())"
             )
         conn.rollback()
         print("   ✗ INSERT INTO members SHOULD have been denied")
@@ -209,25 +247,16 @@ with psycopg.connect(db_url) as conn:
     except psycopg.errors.InsufficientPrivilege:
         conn.rollback()
 
-    # cubi_runtime CAN INSERT on query_history (app-state).
+    # cubi_runtime CAN INSERT on query_history (app-state). The harmless
+    # 'smoke' row stays — query_history is append-only; that's the design.
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO query_history (asked_at, question, sql_text, result_json) "
-            "VALUES (NOW(), 'smoke', 'SELECT 1', '{}'::jsonb) "
-            "RETURNING query_id"
+            "INSERT INTO query_history (question, sql) VALUES ('smoke', 'SELECT 1')"
         )
-        qid = cur.fetchone()[0]
-        cur.execute("DELETE FROM query_history WHERE query_id = %s", (qid,))
-        # ^ this DELETE will fail with InsufficientPrivilege; that's OK,
-        #   we catch it below.
     conn.commit()
 
 print("   ✓ cubi_runtime read-only on lending, INSERT-able on app-state")
 PY
-
-# Note: the DELETE above is expected to be denied. We do not rely on it for
-# cleanup — the smoke row stays in query_history (harmless: it's the audit
-# log table and a single 'smoke' row is fine).
 
 ok "privilege model verified"
 

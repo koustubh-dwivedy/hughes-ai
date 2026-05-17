@@ -46,7 +46,7 @@ def _runtime_url() -> str:
     # raw looks like postgresql+psycopg://USER:PASS@/cubi?host=/cloudsql/...
     # Convert to postgresql://USER:PASS@localhost:5433/cubi
     user_pass = raw.split("://", 1)[1].split("@", 1)[0]
-    db_name = raw.split("/")[-1].split("?")[0]
+    db_name = os.environ.get("DB_NAME", "cubi")
     return f"postgresql://{user_pass}@localhost:5433/{db_name}"
 
 
@@ -69,8 +69,8 @@ def test_cannot_insert_lending_table(conn):
     """cubi_runtime CANNOT write to lending tables."""
     with pytest.raises(psycopg.errors.InsufficientPrivilege), conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO members (member_id, household_id, opened_date, status) "
-            "VALUES (gen_random_uuid(), gen_random_uuid(), CURRENT_DATE, 'active')"
+            "INSERT INTO members (member_id, first_name, last_name, joined_at) "
+            "VALUES (gen_random_uuid(), 'x', 'x', NOW())"
         )
     conn.rollback()
 
@@ -78,16 +78,14 @@ def test_cannot_insert_lending_table(conn):
 def test_cannot_update_lending_table(conn):
     """cubi_runtime CANNOT update lending tables."""
     with pytest.raises(psycopg.errors.InsufficientPrivilege), conn.cursor() as cur:
-        cur.execute(
-            "UPDATE members SET status = 'x' WHERE member_id = gen_random_uuid()"
-        )
+        cur.execute("UPDATE members SET first_name = 'x' WHERE 1 = 0")
     conn.rollback()
 
 
 def test_cannot_delete_lending_table(conn):
     """cubi_runtime CANNOT delete from lending tables."""
     with pytest.raises(psycopg.errors.InsufficientPrivilege), conn.cursor() as cur:
-        cur.execute("DELETE FROM members WHERE member_id = gen_random_uuid()")
+        cur.execute("DELETE FROM members WHERE 1 = 0")
     conn.rollback()
 
 
@@ -95,9 +93,9 @@ def test_can_insert_app_state_table(conn):
     """cubi_runtime CAN insert into query_history (audit log)."""
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO query_history (asked_at, question, sql_text, result_json) "
-            "VALUES (NOW(), 'test_runtime_role', 'SELECT 1', '{}'::jsonb) "
-            "RETURNING query_id"
+            "INSERT INTO query_history (question, sql) "
+            "VALUES ('test_runtime_role', 'SELECT 1') "
+            "RETURNING id"
         )
         qid = cur.fetchone()[0]
     assert qid is not None
@@ -105,7 +103,12 @@ def test_can_insert_app_state_table(conn):
 
 
 def test_cannot_delete_app_state_table(conn):
-    """cubi_runtime CANNOT delete from app-state tables either."""
+    """cubi_runtime CANNOT delete from app-state tables either.
+
+    Note: query_history also has an append-only trigger, but for `threads`
+    the only thing blocking DELETE is the missing GRANT — exactly what we
+    want to assert.
+    """
     with pytest.raises(psycopg.errors.InsufficientPrivilege), conn.cursor() as cur:
-        cur.execute("DELETE FROM threads WHERE thread_id = gen_random_uuid()")
+        cur.execute("DELETE FROM threads WHERE 1 = 0")
     conn.rollback()
