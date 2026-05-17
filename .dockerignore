@@ -1,0 +1,46 @@
+# Build context is the repo root. Keep the image lean and rebuilds fast.
+
+# Python build artefacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.venv/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Tests aren't shipped in the prod image; they run on the host in CI.
+**/tests/
+tests/
+
+# CI / infra / docs — not needed at runtime.
+.github/
+docs/
+infra/
+scripts/
+docker-compose.yml
+.dockerignore
+**/Dockerfile
+
+# Eval artefacts and dbt outputs that get regenerated on demand.
+eval_artifacts/
+**/eval_artifacts/
+packages/dbt-models/target/
+packages/dbt-models/dbt_packages/
+packages/dbt-models/logs/
+
+# Frontend lives in a separate hosting target (Firebase Hosting).
+packages/frontend/
+node_modules/
+
+# Local secrets and logs.
+.env
+.env.*
+*.log
+
+# VCS / editor noise
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store

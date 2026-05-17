@@ -27,6 +27,10 @@ dev = [
     { name = "semgrep" },
     { name = "types-pyyaml" },
 ]
+runtime-extras = [
+    { name = "dbt-metricflow", specifier = ">=0.7.0" },
+    { name = "dbt-postgres", specifier = ">=1.8.0" },
+]
 
 [[package]]
 name = "agate"

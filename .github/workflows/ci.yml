@@ -349,3 +349,55 @@ jobs:
           name: frontend-dist
           path: packages/frontend/dist
           retention-days: 7
+
+  # HUG-251: builds the API container that ships to Cloud Run.
+  # Independent of `build` (frontend dist) — runs in parallel.
+  docker-build:
+    name: Docker Build (API)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/api/Dockerfile
+          push: false
+          load: true
+          tags: hughes-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Assert image size <= 800 MB
+        # 800 MB ceiling matches the HUG-251 decision (run log
+        # 2026-05-17). Reducing further requires dropping dbt-* or
+        # dspy-ai (litellm) — out of scope for this issue.
+        run: |
+          SIZE_BYTES=$(docker image inspect hughes-api:ci --format='{{.Size}}')
+          SIZE_MB=$((SIZE_BYTES / 1048576))
+          echo "Image size: ${SIZE_MB} MB"
+          if [ "${SIZE_MB}" -gt 800 ]; then
+            echo "::error::Image is ${SIZE_MB} MB, over the 800 MB ceiling."
+            exit 1
+          fi
+      - name: Smoke test (/health responds, container is non-root)
+        run: |
+          set -e
+          docker run --rm hughes-api:ci id | grep -q 'uid=1000(hughes)'
+          docker run -d --name smoke -p 8080:8080 \
+            -e DATABASE_URL='postgresql://x:y@localhost:9999/x' \
+            -e OLLAMA_API_KEY='ci-dummy' \
+            -e API_WARM_CATALOG=0 \
+            hughes-api:ci
+          STATUS=000
+          for i in $(seq 1 30); do
+            STATUS=$(curl -fsS -o /dev/null -w '%{http_code}' http://localhost:8080/health || echo 000)
+            [ "${STATUS}" = "200" ] && { echo "Health 200 after ${i}s"; break; }
+            sleep 1
+          done
+          if [ "${STATUS}" != "200" ]; then
+            echo "::error::Health check failed; container logs follow."
+            docker logs smoke
+            exit 1
+          fi
+          docker stop smoke
