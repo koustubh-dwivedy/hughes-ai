@@ -134,11 +134,17 @@ export default function IntelligencePage() {
 	// answer flickers back into view after clicking "+ New thread".
 	const messages = threadId ? (thread?.messages ?? []) : [];
 	const clarifyMsg = lastClarifyMessage(messages);
-	// Hide the empty state once we know a question is pending — avoids the
-	// brief flash where the page navigates to /intelligence/<id> but the
-	// thread fetch hasn't returned yet (so messages.length is 0).
+	// Hide the empty state when WE are in the middle of creating a thread
+	// from the starter-question flow — `pendingQuestion.threadId === null`
+	// means the user just clicked a starter from `/intelligence` and we're
+	// about to navigate to the new thread URL. Don't hide for a stale
+	// pending from a different thread (e.g. user clicked "+ New thread"
+	// while another thread is streaming): in that case we want the empty
+	// state to show on `/intelligence` so the user has somewhere to land.
+	const pendingForThisView =
+		pendingQuestion !== null && pendingQuestion.threadId === null;
 	const showEmptyState =
-		!threadId && messages.length === 0 && pendingQuestion === null;
+		!threadId && messages.length === 0 && !pendingForThisView;
 
 	// Pending bubble: only show on the thread that submitted it and
 	// only while the persisted history doesn't yet include the user's

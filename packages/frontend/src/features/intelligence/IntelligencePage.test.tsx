@@ -21,7 +21,11 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStore } from "../../shared/api/store";
 import IntelligencePage from "./IntelligencePage";
-import { setCurrentThread, streamStarted } from "./threadSlice";
+import {
+	pendingQuestionSubmitted,
+	setCurrentThread,
+	streamStarted,
+} from "./threadSlice";
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -114,6 +118,24 @@ function renderAt(threadId: string) {
 	return { store, ...utils };
 }
 
+function renderAtRoot() {
+	const store = createStore();
+	const utils = render(
+		<ReduxProvider store={store}>
+			<MemoryRouter initialEntries={["/intelligence"]}>
+				<Routes>
+					<Route path="/intelligence" element={<IntelligencePage />} />
+					<Route
+						path="/intelligence/:threadId"
+						element={<IntelligencePage />}
+					/>
+				</Routes>
+			</MemoryRouter>
+		</ReduxProvider>,
+	);
+	return { store, ...utils };
+}
+
 describe("IntelligencePage — cross-thread streaming visibility", () => {
 	it("shows the thinking bubble on the streaming thread but NOT on a different one", async () => {
 		// Issue 3 root case: A's stream is alive; user is viewing A.
@@ -162,6 +184,50 @@ describe("IntelligencePage — cross-thread streaming visibility", () => {
 			store.dispatch(setCurrentThread("t1"));
 		});
 		expect(screen.getByLabelText("Assistant is thinking")).toBeInTheDocument();
+	});
+});
+
+describe("IntelligencePage — '+ New thread' lands on starter questions", () => {
+	it("shows starter questions on /intelligence even when a stream is alive on a different thread", async () => {
+		// Reproduces: user is on thread A which is streaming, clicks
+		// "+ New thread", lands on /intelligence — must see starter
+		// questions, not a blank panel. Pre-fix the showEmptyState gate
+		// suppressed the empty state whenever ANY pendingQuestion was
+		// set, leaving the new view empty.
+		mockThreadFetch();
+		const { store } = renderAtRoot();
+		// Simulate: an old thread (t1) is mid-stream + has a pending bubble.
+		act(() => {
+			store.dispatch(streamStarted({ threadId: "t1" }));
+			store.dispatch(
+				pendingQuestionSubmitted({ content: "old Q", threadId: "t1" }),
+			);
+		});
+		// On /intelligence (no thread), starter questions must render.
+		await waitFor(() =>
+			expect(screen.getByText(/Ask Hughes/)).toBeInTheDocument(),
+		);
+		// Sanity: at least one starter button visible.
+		expect(
+			screen.getAllByRole("button", {
+				name: /Decompose|Compare|Summarise|How has/,
+			}).length,
+		).toBeGreaterThan(0);
+	});
+
+	it("still hides the empty state while we're actively creating a thread from /intelligence", () => {
+		// pendingQuestion.threadId === null means the user JUST clicked a
+		// starter and we're mid-createThread. Empty state must NOT show in
+		// that window — avoids a flash before the navigate lands.
+		mockThreadFetch();
+		const { store } = renderAtRoot();
+		act(() => {
+			store.dispatch(
+				pendingQuestionSubmitted({ content: "fresh Q", threadId: null }),
+			);
+		});
+		// Starter heading should NOT be visible — we're already submitting.
+		expect(screen.queryByText(/Open-ended questions about loans/)).toBeNull();
 	});
 });
 
