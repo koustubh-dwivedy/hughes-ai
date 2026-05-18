@@ -1,11 +1,6 @@
-/**
- * Redux slice for the active conversation surface at /intelligence.
- * Streaming state is keyed by threadId so multiple threads can stream
- * concurrently without clobbering each other. Each thread gets a
- * `PerThreadStream` slot in `streams[threadId]`; the set of threads
- * with an active SSE stream lives in `streamingThreadIds`. Selectors
- * live in `./threadSelectors`.
- */
+/** Redux slice for /intelligence. Streaming state keyed by threadId
+ * (concurrent threads supported); active streams in `streamingThreadIds`.
+ * Selectors live in ./threadSelectors. */
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
 
 // Wire types — mirror api.types.threads_api / api.types.openui.
@@ -105,9 +100,7 @@ const slice = createSlice({
 	initialState: initialThreadState,
 	reducers: {
 		setCurrentThread(state, action: PayloadAction<string | null>) {
-			// Streaming slots persist across view switches; the UI reads
-			// the slot for `currentThreadId` so each thread shows its own
-			// progress when the user navigates to it.
+			// Streaming slots persist across view switches.
 			state.currentThreadId = action.payload;
 		},
 		pendingQuestionSubmitted(
@@ -243,8 +236,7 @@ const slice = createSlice({
 			slot.livePlan = null;
 			slot.liveSubagents = [];
 			slot.liveCurrentTool = null;
-			// streamingSummary is intentionally kept so the bubble doesn't
-			// flash empty between the final event and the refetch.
+			// streamingSummary kept so bubble doesn't flash empty pre-refetch.
 			state.streamingThreadIds = state.streamingThreadIds.filter(
 				(id) => id !== threadId,
 			);
@@ -274,7 +266,6 @@ const slice = createSlice({
 	},
 });
 
-// Selectors live in `./threadSelectors`.
 export const threadSlice = slice;
 export const {
 	setCurrentThread,

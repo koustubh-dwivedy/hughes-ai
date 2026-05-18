@@ -32,6 +32,14 @@ from api.types.threads_api import StreamFinal
 _slog = get_logger().bind(component="agent.runner")
 
 
+def _final_event(persisted: Any, openui: Any) -> dict[str, Any]:
+    """Build the `event: final` SSE payload for one persisted message."""
+    return {
+        "event": "final",
+        "data": StreamFinal(message=persisted, openui=openui).model_dump_json(),
+    }
+
+
 def chat_process_message(
     msg: Any,
     step_idx: int,
@@ -63,7 +71,13 @@ def chat_process_message(
     if step_event is not None:
         out.append(step_event)
     if isinstance(msg, AIMessage):
-        persist_assistant(thread_id, msg, db_url)
+        # HUG-265: when the turn ends with prose + no tool_calls (graph
+        # routes to END without ever producing a final_answer
+        # ToolMessage), synthesize an event:final so the SSE consumer
+        # closes cleanly. Also covers _step_cap_node's plaintext exit.
+        persisted_ai = persist_assistant(thread_id, msg, db_url)
+        if not msg.tool_calls:
+            out.append(_final_event(persisted_ai, openui=None))
     elif isinstance(msg, ToolMessage):
         terminal = terminal_payload(msg)
         persisted = persist_tool(
@@ -81,14 +95,7 @@ def chat_process_message(
                 else None
             )
             _slog.info("agent.trace_persisted", entries=len(trace))
-            out.append(
-                {
-                    "event": "final",
-                    "data": StreamFinal(
-                        message=persisted, openui=openui
-                    ).model_dump_json(),
-                }
-            )
+            out.append(_final_event(persisted, openui=openui))
     return out
 
 
