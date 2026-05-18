@@ -59,7 +59,7 @@ describe("emit — batching", () => {
 		await vi.runAllTimersAsync();
 		expect(fetchMock).toHaveBeenCalledOnce();
 		const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
-		expect(url).toBe("/api/log");
+		expect(url).toMatch(/\/api\/log$/);
 		const body = JSON.parse(opts.body as string) as {
 			level: string;
 			message: string;
@@ -91,7 +91,10 @@ describe("emit — sendBeacon on unload", () => {
 		const cleanup = initTelemetry();
 		emit({ type: "nav.page_view", route: "/test" });
 		document.dispatchEvent(new Event("visibilitychange"));
-		expect(beaconMock).toHaveBeenCalledWith("/api/log", expect.any(String));
+		expect(beaconMock).toHaveBeenCalledWith(
+			expect.stringMatching(/\/api\/log$/),
+			expect.any(String),
+		);
 		cleanup();
 	});
 });

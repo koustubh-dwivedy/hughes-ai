@@ -8,6 +8,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.logging import get_logger
 from api.middleware.request_id import RequestIDMiddleware
@@ -81,7 +82,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
 
+# HUG-260: SPA at app.tryhughes.com calls the API at api.tryhughes.com
+# (Cloud Run domain mapping), so the browser needs CORS to allow
+# cross-origin fetches. Allowlist is env-var driven; defaults to prod
+# + local-dev.
+_CORS_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        "API_CORS_ORIGINS",
+        "https://app.tryhughes.com,http://localhost:5173",
+    ).split(",")
+    if o.strip()
+]
+
 app = FastAPI(lifespan=lifespan, root_path=os.environ.get("API_ROOT_PATH", ""))
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Hughes-User", "X-Hughes-Session"],
+)
 app.add_middleware(RequestIDMiddleware)
 app.include_router(dashboards.router)
 app.include_router(data_model.router)

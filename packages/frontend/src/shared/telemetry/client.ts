@@ -1,6 +1,11 @@
+import { baseUrl as API_BASE } from "../api/client";
 import log from "../lib/logger";
 import type { TelemetryEvent } from "./events";
 import { getSessionId } from "./session";
+
+// HUG-260: same base as RTK Query / logger so prod build points at
+// api.tryhughes.com instead of relying on Firebase's /api/** rewrite.
+const LOG_URL = `${API_BASE}/log`;
 
 const SESSION_ID = getSessionId();
 const BATCH_MAX = 20;
@@ -42,7 +47,7 @@ function _payload(events: EnrichedEvent[]): string {
 
 async function flushHttp(events: EnrichedEvent[]): Promise<void> {
 	try {
-		await fetch("/api/log", {
+		await fetch(LOG_URL, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: _payload(events),
@@ -56,7 +61,7 @@ async function flushHttp(events: EnrichedEvent[]): Promise<void> {
 }
 
 function flushBeacon(events: EnrichedEvent[]): void {
-	navigator.sendBeacon("/api/log", _payload(events));
+	navigator.sendBeacon(LOG_URL, _payload(events));
 }
 
 function scheduleFlush(): void {

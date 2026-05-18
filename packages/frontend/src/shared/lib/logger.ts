@@ -1,4 +1,5 @@
 import pino from "pino";
+import { baseUrl as API_BASE } from "../api/client";
 
 const LEVEL_MAP: Record<number, "info" | "warn" | "error"> = {
 	30: "info",
@@ -6,6 +7,10 @@ const LEVEL_MAP: Record<number, "info" | "warn" | "error"> = {
 	50: "error",
 	60: "error",
 };
+
+// HUG-260: use the same API base as RTK Query; the prod build resolves to
+// api.tryhughes.com (cross-origin from app.tryhughes.com).
+const LOG_URL = `${API_BASE}/log`;
 
 function shipLog(o: object): void {
 	const obj = o as Record<string, unknown>;
@@ -19,11 +24,11 @@ function shipLog(o: object): void {
 	// sendBeacon survives page-unload; fetch with keepalive as fallback
 	if (typeof navigator !== "undefined" && navigator.sendBeacon) {
 		navigator.sendBeacon(
-			"/api/log",
+			LOG_URL,
 			new Blob([payload], { type: "application/json" }),
 		);
 	} else {
-		fetch("/api/log", {
+		fetch(LOG_URL, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: payload,

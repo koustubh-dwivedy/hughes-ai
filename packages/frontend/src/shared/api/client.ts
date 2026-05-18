@@ -19,8 +19,26 @@ export const createApi = buildCreateApi(coreModule(), reactHooksModule());
 // Resolve the API base URL absolutely so the WHATWG Request constructor
 // (used by fetchBaseQuery internally) works under jsdom — relative paths
 // throw "Failed to parse URL" in node-side test environments.
-const baseUrl =
-	typeof window !== "undefined" ? `${window.location.origin}/api` : "/api";
+//
+// HUG-260: production split — SPA at app.tryhughes.com calls the API at
+// api.tryhughes.com directly (Cloud Run domain mapping), bypassing
+// Firebase Hosting's `rewrites.run` 60s ceiling. Local dev (and tests in
+// jsdom, which set window.location.hostname=localhost) stay same-origin
+// so Vite's `/api` proxy keeps working without CORS.
+function _resolveBaseUrl(): string {
+	if (typeof window === "undefined") return "/api";
+	const host = window.location.hostname;
+	if (host === "localhost" || host === "127.0.0.1") {
+		return `${window.location.origin}/api`;
+	}
+	// app.tryhughes.com → api.tryhughes.com (any future `app.*` → `api.*`).
+	const apiHost = host.startsWith("app.")
+		? `api.${host.slice(4)}`
+		: `api.${host}`;
+	return `https://${apiHost}/api`;
+}
+
+export const baseUrl = _resolveBaseUrl();
 
 export const baseApi = createApi({
 	reducerPath: "api",
