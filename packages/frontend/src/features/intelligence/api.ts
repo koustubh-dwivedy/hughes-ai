@@ -6,7 +6,7 @@
  * each event into the slice. The SSE queryFn bypasses fetchBaseQuery
  * so session/user headers are added manually here.
  */
-import { baseApi } from "../../shared/api/client";
+import { baseApi, baseUrl } from "../../shared/api/client";
 import { SESSION_HEADER, getSessionId } from "../../shared/telemetry/session";
 import { USER_HEADER, getUserId } from "../../shared/telemetry/user";
 import {
@@ -167,10 +167,9 @@ const slice = baseApi.injectEndpoints({
 			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSE custom queryFn — every branch is a soft-skip path that needs explicit handling.
 			queryFn: async ({ threadId, content, parentMessageId }, api) => {
 				api.dispatch(streamStarted({ threadId }));
-				const baseUrl =
-					typeof window !== "undefined"
-						? `${window.location.origin}/api`
-						: "/api";
+				// HUG-260 fix: use the shared baseUrl (resolves to
+				// api.tryhughes.com in prod) instead of the page's origin,
+				// which routed chat back through Firebase's 60s ceiling.
 				let response: Response;
 				try {
 					response = await fetch(`${baseUrl}/threads/${threadId}/messages`, {
