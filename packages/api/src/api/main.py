@@ -29,9 +29,40 @@ from api.routes import (
 load_dotenv(Path(__file__).resolve().parents[4] / ".env")
 
 
+def _populate_dbt_env_from_database_url(url: str) -> None:
+    """Mirror DATABASE_URL into DBT_HOST/PORT/USER/PASSWORD/DBNAME.
+
+    The agent's `mf query` subprocess (nl_engine.repo.metricflow) uses
+    dbt-postgres, which reads its connection params from DBT_* env vars per
+    packages/dbt-models/profiles.yml. Without these the subprocess tries
+    localhost:5432 — fine locally, fatal on Cloud Run.
+
+    setdefault'd so anyone who set DBT_HOST etc. explicitly (local dev,
+    docker-compose) keeps their override.
+    """
+    from urllib.parse import parse_qs, urlparse  # noqa: PLC0415
+    parsed = urlparse(url)
+    if parsed.username:
+        os.environ.setdefault("DBT_USER", parsed.username)
+    if parsed.password:
+        os.environ.setdefault("DBT_PASSWORD", parsed.password)
+    dbname = parsed.path.lstrip("/") if parsed.path else ""
+    if dbname:
+        os.environ.setdefault("DBT_DBNAME", dbname)
+    qs = parse_qs(parsed.query)
+    if "host" in qs:
+        # Cloud SQL Unix socket: postgresql://u:p@/db?host=/cloudsql/...
+        os.environ.setdefault("DBT_HOST", qs["host"][0])
+    elif parsed.hostname:
+        os.environ.setdefault("DBT_HOST", parsed.hostname)
+    if parsed.port:
+        os.environ.setdefault("DBT_PORT", str(parsed.port))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.db_url = os.environ["DATABASE_URL"]
+    _populate_dbt_env_from_database_url(app.state.db_url)
     if os.environ.get("API_WARM_CATALOG", "1") == "1":
         # Warm the MetricFlow catalog so the first user query doesn't
         # pay the ~4-min, 65-subprocess startup tax. The lru_cache on
