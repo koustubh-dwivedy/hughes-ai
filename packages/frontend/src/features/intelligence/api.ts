@@ -10,6 +10,7 @@ import {
 	dispatchResearchPlanInvalidation,
 	dispatchSubagentEvent,
 } from "./researchSseDispatch";
+import { consumeSseStream } from "./sseConsumer";
 import {
 	type ThreadStreamFinal,
 	type ThreadStreamStep,
@@ -21,17 +22,6 @@ import {
 	streamToken,
 	streamTool,
 } from "./threadSlice";
-
-// HUG-265: synthetic ThreadStreamFinal for close-without-final fallback.
-const _SYN_FINAL = (threadId: string): ThreadStreamFinal => ({
-	message: {
-		message_id: "",
-		thread_id: threadId,
-		role: "assistant",
-		content: null,
-	},
-	openui: null,
-});
 
 // ── Wire types (mirror api.types.threads / api.types.threads_api) ─────────
 
@@ -190,60 +180,62 @@ const slice = baseApi.injectEndpoints({
 						error: { status: response.status, data: message },
 					};
 				}
-				const reader = response.body.getReader();
-				const decoder = new TextDecoder();
-				let buffer = "";
-				// HUG-265: fallback when stream closes without final/error.
-				let sawTerminalEvent = false;
-				const dispatchAndTrack = (ev: ParsedSseEvent): void => {
-					if (ev.event === "final" || ev.event === "error") {
-						sawTerminalEvent = true;
-					}
-					dispatchSseEvent(api.dispatch, threadId, ev);
-				};
-				try {
-					while (true) {
-						const { done, value } = await reader.read();
-						if (done) break;
-						buffer += decoder.decode(value, { stream: true });
-						const { events, remainder } = parseSseBuffer(buffer);
-						buffer = remainder;
-						for (const ev of events) {
-							dispatchAndTrack(ev);
-						}
-					}
-					// Flush any final block that didn't end with \n\n.
-					buffer += decoder.decode();
-					if (buffer.length > 0) {
-						const { events } = parseSseBuffer(`${buffer}\n\n`);
-						for (const ev of events) {
-							dispatchAndTrack(ev);
-						}
-					}
-					if (!sawTerminalEvent) {
-						// HUG-265: synthesize streamFinal so UI unlocks.
-						api.dispatch(
-							streamFinal({ threadId, final: _SYN_FINAL(threadId) }),
-						);
-					}
-				} catch (err) {
-					const message =
-						err instanceof Error ? err.message : "stream read error";
-					api.dispatch(streamError({ threadId, error: message }));
+				const result = await consumeSseStream(
+					response,
+					threadId,
+					api.dispatch,
+					dispatchSseEvent,
+				);
+				if (!result.ok) {
 					return {
-						error: { status: "CUSTOM_ERROR" as const, error: message },
+						error: { status: "CUSTOM_ERROR" as const, error: result.error },
 					};
 				}
-				api.dispatch(
-					baseApi.util.invalidateTags([
-						{ type: "Thread", id: threadId },
-						"ThreadList",
-					]),
-				);
-				// Real-time title arrives via the SSE `title` event
-				// handled in dispatchSseEvent; no setTimeout fallback.
 				return { data: undefined };
 			},
+		}),
+
+		/** HUG-266: reconnect to in-flight turn after reload. */
+		tailTurn: build.mutation<void, { threadId: string; fromSeq: number }>({
+			queryFn: async ({ threadId, fromSeq }, api) => {
+				api.dispatch(streamStarted({ threadId }));
+				const url = `${baseUrl}/threads/${threadId}/tail?from_seq=${fromSeq}`;
+				const headers = {
+					[SESSION_HEADER]: getSessionId(),
+					[USER_HEADER]: getUserId(),
+					Accept: "text/event-stream",
+				};
+				let response: Response;
+				try {
+					response = await fetch(url, { headers });
+				} catch (err) {
+					const m = err instanceof Error ? err.message : "network error";
+					api.dispatch(streamError({ threadId, error: m }));
+					return { error: { status: "FETCH_ERROR" as const, error: m } };
+				}
+				if (!response.ok) {
+					const m = `HTTP ${response.status}`;
+					api.dispatch(streamError({ threadId, error: m }));
+					return { error: { status: response.status, data: m } };
+				}
+				const r = await consumeSseStream(
+					response,
+					threadId,
+					api.dispatch,
+					dispatchSseEvent,
+				);
+				if (!r.ok)
+					return { error: { status: "CUSTOM_ERROR" as const, error: r.error } };
+				return { data: undefined };
+			},
+		}),
+
+		/** HUG-266: SPA mount probe — running → tail. */
+		getTurnStatus: build.query<
+			{ status: string; turn_id?: string; last_seq_no?: number | null },
+			string
+		>({
+			query: (threadId) => ({ url: `/threads/${threadId}/turn-status` }),
 		}),
 	}),
 	overrideExisting: false,
@@ -295,6 +287,8 @@ function dispatchSseEvent(
 export const {
 	useCreateThreadMutation,
 	useGetThreadQuery,
+	useGetTurnStatusQuery,
 	useListThreadsQuery,
 	usePostMessageMutation,
+	useTailTurnMutation,
 } = slice;

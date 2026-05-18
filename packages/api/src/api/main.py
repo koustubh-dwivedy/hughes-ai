@@ -22,6 +22,7 @@ from api.routes import (
     research,
     threads,
     trust,
+    turns,
 )
 
 # Source the repo-root .env so a plain `uvicorn api.main:app` finds
@@ -60,45 +61,54 @@ def _populate_dbt_env_from_database_url(url: str) -> None:
         os.environ.setdefault("DBT_PORT", str(parsed.port))
 
 
+def _warm_metric_catalog() -> None:
+    """HUG-263: amortise the ~51s mf manifest parse into container
+    startup so the first user query doesn't eat it."""
+    from nl_engine.repo import metricflow as mf  # noqa: PLC0415
+    slog = get_logger().bind(component="api.lifespan")
+    slog.info("catalog_warmup.start")
+    t0 = time.perf_counter()
+    metrics = mf.list_metrics()
+    slog.info(
+        "catalog_warmup.done",
+        elapsed_sec=round(time.perf_counter() - t0, 2),
+        metric_count=len(metrics),
+    )
+    if not metrics:
+        return
+    t1 = time.perf_counter()
+    try:
+        mf.query(metric=metrics[0].name, limit=1)
+        slog.info(
+            "query_warmup.done",
+            elapsed_sec=round(time.perf_counter() - t1, 2),
+            metric=metrics[0].name,
+        )
+    except Exception as exc:  # noqa: BLE001 — non-fatal
+        slog.warning(
+            "query_warmup.failed", error=str(exc), metric=metrics[0].name,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.db_url = os.environ["DATABASE_URL"]
     _populate_dbt_env_from_database_url(app.state.db_url)
     if os.environ.get("API_WARM_CATALOG", "1") == "1":
-        # Warm the MetricFlow catalog so the first user query doesn't
-        # pay the ~4-min, 65-subprocess startup tax. The lru_cache on
-        # `nl_engine.repo.metricflow.list_metrics()` persists for the
-        # worker's lifetime. Tests set `API_WARM_CATALOG=0` to skip.
-        from nl_engine.repo import metricflow as mf  # noqa: PLC0415
-        slog = get_logger().bind(component="api.lifespan")
-        slog.info("catalog_warmup.start")
-        t0 = time.perf_counter()
-        metrics = mf.list_metrics()
-        slog.info(
-            "catalog_warmup.done",
-            elapsed_sec=round(time.perf_counter() - t0, 2),
-            metric_count=len(metrics),
-        )
-        # HUG-263: pre-warm the `mf query` subprocess path. list_metrics
-        # warms `mf list dimensions` but NOT `mf query` — that path's
-        # semantic_manifest parse cost was 51 s on cold-start on
-        # 2026-05-18, eating 15 % of a worker's 10-step budget. One
-        # trivial query amortises that cost into container startup.
-        if metrics:
-            t1 = time.perf_counter()
-            try:
-                mf.query(metric=metrics[0].name, limit=1)
-                slog.info(
-                    "query_warmup.done",
-                    elapsed_sec=round(time.perf_counter() - t1, 2),
-                    metric=metrics[0].name,
-                )
-            except Exception as exc:  # noqa: BLE001 — non-fatal
-                slog.warning(
-                    "query_warmup.failed",
-                    error=str(exc),
-                    metric=metrics[0].name,
-                )
+        _warm_metric_catalog()
+        # HUG-266: orphan cleanup — running turn_state rows from a
+        # prior API process whose asyncio task died at restart. Mark
+        # failed so the SPA's resume probe doesn't tail dead turns.
+        # Gated by API_WARM_CATALOG so test TestClient setups (which
+        # skip lifespan side effects) don't try to reach the DB.
+        from datetime import timedelta  # noqa: PLC0415
+
+        from api.repo import turn_state as ts  # noqa: PLC0415
+        cleaned = ts.cleanup_stale(app.state.db_url, timedelta(minutes=10))
+        if cleaned:
+            get_logger().bind(component="api.lifespan").info(
+                "turn_state.orphans_cleaned", count=cleaned,
+            )
     yield
 
 
@@ -133,3 +143,4 @@ app.include_router(metrics_route.router)
 app.include_router(research.router)
 app.include_router(threads.router)
 app.include_router(trust.router)
+app.include_router(turns.router)

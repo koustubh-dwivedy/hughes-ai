@@ -43,6 +43,9 @@ def test_lifespan_invokes_mf_query_after_list_metrics(
     with (
         patch("nl_engine.repo.metricflow.list_metrics", return_value=fake_metrics),
         patch("nl_engine.repo.metricflow.query", side_effect=_fake_query),
+        # HUG-266: lifespan also calls turn_state.cleanup_stale when
+        # API_WARM_CATALOG=1 (the same flag that gates the mf warmup).
+        patch("api.repo.turn_state.cleanup_stale", return_value=0),
     ):
         from api.main import app
 
@@ -70,6 +73,7 @@ def test_lifespan_warmup_failure_is_non_fatal(
     with (
         patch("nl_engine.repo.metricflow.list_metrics", return_value=fake_metrics),
         patch("nl_engine.repo.metricflow.query", side_effect=_explode),
+        patch("api.repo.turn_state.cleanup_stale", return_value=0),
     ):
         from api.main import app
 
@@ -89,6 +93,7 @@ def test_lifespan_skips_warmup_when_no_metrics(_force_warmup_env: None) -> None:
     with (
         patch("nl_engine.repo.metricflow.list_metrics", return_value=[]),
         patch("nl_engine.repo.metricflow.query", side_effect=_fake_query),
+        patch("api.repo.turn_state.cleanup_stale", return_value=0),
     ):
         from api.main import app
 

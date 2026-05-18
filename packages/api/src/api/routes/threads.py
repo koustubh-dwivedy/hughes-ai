@@ -13,8 +13,9 @@ from sse_starlette.sse import EventSourceResponse
 
 from api.logging import get_logger
 from api.repo import threads as threads_repo
-from api.services.lead_agent import stream_lead_turn
+from api.services.lead_agent import start_lead_turn
 from api.services.llm import make_agent_llm
+from api.services.tail_turn import tail_turn
 from api.services.title_generator import generate_title
 from api.types.threads_api import (
     CreateThreadRequest,
@@ -249,10 +250,12 @@ async def post_message(
     history = threads_repo.latest_n_messages(thread_id, n=20, db_url=db_url)
     llm = _get_llm(request)
     request_id = getattr(request.state, "request_id", "")
-    # HUG-247 Phase B: the autonomous lead-agent path is the only path.
-    # The legacy coordinator.route_turn dispatch has been removed; the
-    # RESEARCH_LEAD_AGENT_ENABLED flag is no longer consulted.
-    stream = stream_lead_turn(
+    # HUG-266: fire-and-forget. start_lead_turn persists the user msg,
+    # creates a turn_state row, and schedules the agent as a background
+    # asyncio task. The SSE response tails thread_messages by turn_id;
+    # if the client reloads, the agent keeps running and the next mount
+    # reconnects via GET /threads/{tid}/tail.
+    turn_id = start_lead_turn(
         thread_id=thread_id,
         user_content=body.content,
         db_url=db_url,
@@ -260,6 +263,7 @@ async def post_message(
         history=history,
         request_id=request_id,
     )
+    stream = tail_turn(thread_id=thread_id, turn_id=turn_id, from_seq=0, db_url=db_url)
     # Schedule a fire-and-forget LLM-generated sidebar title on the
     # first user/assistant exchange. `update_thread_title` is
     # conditional on `title IS NULL`, so re-fires are no-ops.
@@ -268,6 +272,10 @@ async def post_message(
             stream, thread_id, body.content, llm, db_url
         )
     return EventSourceResponse(stream)
+
+
+# HUG-266 turn-resume endpoints live in routes/turns.py to keep this
+# file under the 300-line structural cap.
 
 
 def _get_llm(request: Request) -> Any:

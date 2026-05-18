@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from nl_engine.agent.persistence import to_canonical
 
 from api.repo import threads as threads_repo
+from api.services.turn_context import current_turn_id
 from api.types.threads import ThreadMessage
 
 
@@ -23,6 +24,7 @@ def persist_assistant(
         db_url=db_url,
         content=canonical.get("content") or "",
         tool_calls=canonical.get("tool_calls"),
+        turn_id=current_turn_id(),
     )
 
 
@@ -57,5 +59,6 @@ def persist_tool(
         db_url=db_url,
         content=canonical.get("content") or "",
         tool_results=canonical.get("tool_results"),
+        turn_id=current_turn_id(),
         **extra,
     )

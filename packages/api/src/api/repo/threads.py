@@ -128,14 +128,15 @@ def append_message(
     mf_query: dict[str, Any] | None = None,
     rows: list[dict[str, Any]] | None = None,
     thinking_trace: list[dict[str, Any]] | None = None,
+    turn_id: UUID | None = None,
 ) -> ThreadMessage:
     with psycopg.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
             "INSERT INTO thread_messages"
             " (thread_id, parent_message_id, role, content,"
             "  tool_calls, tool_results, openui_dsl, mf_query, rows,"
-            "  thinking_trace)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            "  thinking_trace, turn_id)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             " RETURNING message_id, thread_id, parent_message_id, role,"
             " content, tool_calls, tool_results, openui_dsl, mf_query,"
             " rows, thinking_trace, created_at",
@@ -150,6 +151,7 @@ def append_message(
                 Jsonb(mf_query) if mf_query is not None else None,
                 Jsonb(rows) if rows is not None else None,
                 Jsonb(thinking_trace) if thinking_trace is not None else None,
+                str(turn_id) if turn_id else None,
             ),
         )
         row = cur.fetchone()

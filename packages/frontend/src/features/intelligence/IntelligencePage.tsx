@@ -20,7 +20,9 @@ import {
 	type ThreadMessageWire,
 	useCreateThreadMutation,
 	useGetThreadQuery,
+	useGetTurnStatusQuery,
 	usePostMessageMutation,
+	useTailTurnMutation,
 } from "./api";
 import ClarificationControl from "./components/ClarificationControl";
 import ComposerInput from "./components/ComposerInput";
@@ -99,11 +101,29 @@ export default function IntelligencePage() {
 	const { data: thread } = useGetThreadQuery(threadId ?? skipToken);
 	const [createThread] = useCreateThreadMutation();
 	const [postMessage] = usePostMessageMutation();
+	const [tailTurn] = useTailTurnMutation();
+	// HUG-266: on thread mount, ask whether the most-recent turn is still
+	// running. If yes, reconnect to its SSE tail from the last seq_no
+	// we've seen so the spinner reappears and the answer populates.
+	const { data: turnStatus } = useGetTurnStatusQuery(threadId ?? skipToken);
 
 	// Sync URL → slice so child components (composer, indicator) see it.
 	useEffect(() => {
 		dispatch(setCurrentThread(threadId));
 	}, [threadId, dispatch]);
+
+	// HUG-266: kick off the tail reconnect once we know the turn status.
+	const tailedTurnIdRef = useRef<string | null>(null);
+	useEffect(() => {
+		if (!threadId || !turnStatus || turnStatus.status !== "running") return;
+		const turnId = turnStatus.turn_id;
+		if (!turnId || tailedTurnIdRef.current === turnId) return;
+		tailedTurnIdRef.current = turnId;
+		void tailTurn({
+			threadId,
+			fromSeq: turnStatus.last_seq_no ?? 0,
+		});
+	}, [threadId, turnStatus, tailTurn]);
 
 	async function handleSubmit(content: string): Promise<void> {
 		let activeThreadId = threadId;
