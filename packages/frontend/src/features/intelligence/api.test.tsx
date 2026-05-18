@@ -190,4 +190,60 @@ describe("usePostMessageMutation — SSE wiring", () => {
 			store.getState().thread.streams.t1?.lastFinal?.message.message_id,
 		).toBe("m9");
 	});
+
+	// HUG-265 — regression test for the "Hello" lock-up bug.
+	it("synthesizes streamFinal when SSE closes without event:final", async () => {
+		// Pre-fix server behaviour: lead LLM replies with prose + no
+		// tool_calls; graph._route returns END; chat_process_message
+		// emits thinking+step but no event:final. Without the fallback,
+		// streamingThreadIds keeps "t1" and the composer stays locked.
+		vi.spyOn(global, "fetch").mockResolvedValue(
+			sseResponse([
+				"event: stream.start\ndata: {}\n\n",
+				'event: thinking\ndata: {"step":1,"line":"Reasoning…"}\n\n',
+				'event: step\ndata: {"step":1,"kind":"thinking","name":null,"args":null,"result":null}\n\n',
+			]),
+		);
+		const store = createStore();
+		const wrapper = withStore(store);
+		const { result } = renderHook(() => usePostMessageMutation(), { wrapper });
+		await act(async () => {
+			await result.current[0]({ threadId: "t1", content: "Hello" }).unwrap();
+		});
+
+		const state = store.getState().thread;
+		// The load-bearing assertion: composer must unlock.
+		expect(state.streamingThreadIds).not.toContain("t1");
+		// Synthetic streamFinal also clears live-activity slots.
+		expect(state.streams.t1.narrationLine).toBeNull();
+		expect(state.streams.t1.livePlan).toBeNull();
+		// The synthetic payload sets a placeholder lastFinal with the
+		// expected thread_id and a sentinel empty message_id so callers
+		// can distinguish it from a real final if they need to.
+		expect(state.streams.t1.lastFinal?.message.message_id).toBe("");
+		expect(state.streams.t1.lastFinal?.message.thread_id).toBe("t1");
+		// error must NOT be set — the stream closed normally, just incomplete.
+		expect(state.streams.t1.error).toBeNull();
+	});
+
+	it("does NOT synthesize when event:final arrives — real payload preserved", async () => {
+		vi.spyOn(global, "fetch").mockResolvedValue(
+			sseResponse([
+				'event: final\ndata: {"message":{"message_id":"m1","thread_id":"t1","role":"tool","content":"{}"},"openui":null}\n\n',
+			]),
+		);
+		const store = createStore();
+		const wrapper = withStore(store);
+		const { result } = renderHook(() => usePostMessageMutation(), { wrapper });
+		await act(async () => {
+			await result.current[0]({
+				threadId: "t1",
+				content: "real query",
+			}).unwrap();
+		});
+		const state = store.getState().thread;
+		expect(state.streamingThreadIds).not.toContain("t1");
+		// Real final's message_id, not the synthetic placeholder.
+		expect(state.streams.t1.lastFinal?.message.message_id).toBe("m1");
+	});
 });

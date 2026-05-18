@@ -1,11 +1,5 @@
-/**
- * RTK Query slice for the conversational `/intelligence` surface
- * (HUG-179). Pairs with `threadSlice` — RTK Query owns the persisted
- * server state and this file defines `usePostMessageMutation` whose
- * custom `queryFn` parses the streaming SSE response and dispatches
- * each event into the slice. The SSE queryFn bypasses fetchBaseQuery
- * so session/user headers are added manually here.
- */
+/** RTK Query slice for /intelligence (HUG-179). Pairs with threadSlice
+ * — postMessage's queryFn parses SSE and dispatches per event. */
 import { baseApi, baseUrl } from "../../shared/api/client";
 import { SESSION_HEADER, getSessionId } from "../../shared/telemetry/session";
 import { USER_HEADER, getUserId } from "../../shared/telemetry/user";
@@ -28,6 +22,17 @@ import {
 	streamTool,
 } from "./threadSlice";
 
+// HUG-265: synthetic ThreadStreamFinal for close-without-final fallback.
+const _SYN_FINAL = (threadId: string): ThreadStreamFinal => ({
+	message: {
+		message_id: "",
+		thread_id: threadId,
+		role: "assistant",
+		content: null,
+	},
+	openui: null,
+});
+
 // ── Wire types (mirror api.types.threads / api.types.threads_api) ─────────
 
 export interface ThreadTraceEntry {
@@ -49,9 +54,7 @@ export interface ThreadMessageWire {
 	openui_dsl: string | null;
 	mf_query: Record<string, unknown> | null;
 	rows: Record<string, unknown>[] | null;
-	// HUG-202 Phase 3 — chronological agent narration trace, persisted on
-	// the final-answer ToolMessage. Optional so older threads (created
-	// before the column existed) don't break the wire type.
+	// HUG-202: narration trace on final-answer; optional for legacy threads.
 	thinking_trace?: ThreadTraceEntry[] | null;
 	created_at: string;
 }
@@ -103,10 +106,7 @@ interface ParseResult {
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSE parser state machine — splitting it further obscures the per-line dispatch.
 export function parseSseBuffer(buffer: string): ParseResult {
 	const events: ParsedSseEvent[] = [];
-	// sse_starlette / starlette emit CRLF line endings (\r\n\r\n between
-	// events). The earlier LF-only split silently produced zero events on
-	// the live wire, so the entire stream landed in the trailing flush as
-	// a single corrupted "final" block — see HUG-201 follow-up.
+	// sse_starlette emits CRLF; LF-only split previously corrupted the wire.
 	const blocks = buffer.split(/\r?\n\r?\n/);
 	const remainder = blocks.pop() ?? "";
 	for (const block of blocks) {
@@ -156,20 +156,13 @@ const slice = baseApi.injectEndpoints({
 			providesTags: ["ThreadList"],
 		}),
 
-		/**
-		 * Stream a user turn through the agent. The SSE response yields
-		 * `step` events as the agent thinks, then a single `final` event
-		 * carrying the persisted assistant message + OpenUIDslPayload.
-		 * Each event is dispatched into `threadSlice`; on close the
-		 * thread cache is invalidated so the persisted history refetches.
-		 */
+		/** Stream a user turn via SSE — dispatches per-event into
+		 * `threadSlice`; on close, invalidate thread cache to refetch. */
 		postMessage: build.mutation<void, PostMessageArg>({
 			// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: SSE custom queryFn — every branch is a soft-skip path that needs explicit handling.
 			queryFn: async ({ threadId, content, parentMessageId }, api) => {
 				api.dispatch(streamStarted({ threadId }));
-				// HUG-260 fix: use the shared baseUrl (resolves to
-				// api.tryhughes.com in prod) instead of the page's origin,
-				// which routed chat back through Firebase's 60s ceiling.
+				// HUG-260: shared baseUrl → api.tryhughes.com in prod.
 				let response: Response;
 				try {
 					response = await fetch(`${baseUrl}/threads/${threadId}/messages`, {
@@ -200,6 +193,14 @@ const slice = baseApi.injectEndpoints({
 				const reader = response.body.getReader();
 				const decoder = new TextDecoder();
 				let buffer = "";
+				// HUG-265: fallback when stream closes without final/error.
+				let sawTerminalEvent = false;
+				const dispatchAndTrack = (ev: ParsedSseEvent): void => {
+					if (ev.event === "final" || ev.event === "error") {
+						sawTerminalEvent = true;
+					}
+					dispatchSseEvent(api.dispatch, threadId, ev);
+				};
 				try {
 					while (true) {
 						const { done, value } = await reader.read();
@@ -208,7 +209,7 @@ const slice = baseApi.injectEndpoints({
 						const { events, remainder } = parseSseBuffer(buffer);
 						buffer = remainder;
 						for (const ev of events) {
-							dispatchSseEvent(api.dispatch, threadId, ev);
+							dispatchAndTrack(ev);
 						}
 					}
 					// Flush any final block that didn't end with \n\n.
@@ -216,8 +217,14 @@ const slice = baseApi.injectEndpoints({
 					if (buffer.length > 0) {
 						const { events } = parseSseBuffer(`${buffer}\n\n`);
 						for (const ev of events) {
-							dispatchSseEvent(api.dispatch, threadId, ev);
+							dispatchAndTrack(ev);
 						}
+					}
+					if (!sawTerminalEvent) {
+						// HUG-265: synthesize streamFinal so UI unlocks.
+						api.dispatch(
+							streamFinal({ threadId, final: _SYN_FINAL(threadId) }),
+						);
 					}
 				} catch (err) {
 					const message =
