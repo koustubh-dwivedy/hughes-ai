@@ -1,16 +1,10 @@
-"""Lead-agent `run_subagent` tool — batch dispatch (Issue 1, 2026-05-17).
+"""Lead-agent `run_subagent` tool — batch parallel fan-out (HUG-244, Issue 1).
 
-The lead emits ONE `run_subagent` call with a LIST of sub-questions.
-Each entry spawns a worker that runs its own ReAct loop with
-`max_steps=10` and a restricted tool registry (data tools only — no
-recursive subagent dispatch, no plan, no memory). Workers fan out in
-parallel via a thread pool so wall-clock is max(worker_durations), not
-sum, and the lead spends ONE step on dispatching the whole batch.
-
-The previous one-sub-question-per-call shape forced the LLM to
-serialise delegation across LLM turns — a typical deep question burned
-8-12 lead LLM calls just for fan-out, often exhausting the 20-step
-budget before final_answer. Batching collapses that to a single call.
+The lead emits ONE call with a LIST of sub-questions; each entry spawns a
+worker (10-step ReAct loop, data tools only, no recursion) on a thread
+pool so wall-clock is max(worker_durations) and the lead spends one LLM
+turn dispatching the whole batch. Per-worker failures carry `error_kind`
+(HUG-261) so the lead can pick reformulate-vs-retry on the right axis.
 """
 
 from __future__ import annotations
@@ -19,7 +13,12 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from uuid import uuid4
 
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langchain_core.tools import tool
 
 from nl_engine.agent.memory_context import (
@@ -29,6 +28,10 @@ from nl_engine.agent.memory_context import (
 )
 from nl_engine.agent.run_context import emit_run_event
 from nl_engine.agent.state import AgentState
+from nl_engine.agent.subagent_failure import (
+    ERROR_KIND_TRANSIENT_WORKER_EXCEPTION,
+    classify_no_final_answer,
+)
 from nl_engine.agent.worker_agent_prompt import WORKER_AGENT_SYSTEM_PROMPT
 from nl_engine.logging import get_logger
 from nl_engine.repo import subagent_calls
@@ -77,7 +80,12 @@ def _extract_final_answer(messages: list[Any]) -> dict[str, Any] | None:
     return None
 
 
-def _invoke_worker(prompt: str, request_id: str) -> dict[str, Any] | None:
+def _invoke_worker(
+    prompt: str, request_id: str
+) -> tuple[dict[str, Any] | None, list[BaseMessage]]:
+    """Returns (final_answer_payload, full_message_history). The history
+    is needed by HUG-261's classifier to distinguish step-cap exhaustion
+    from other no-final-answer cases."""
     # HUG-260: prepend the worker-specific system prompt so workers don't
     # inherit the chat agent's OPENUI-flavored prompt via
     # ensure_system_prompt. Mirrors stream_lead_turn's lead-prompt pattern.
@@ -93,16 +101,22 @@ def _invoke_worker(prompt: str, request_id: str) -> dict[str, Any] | None:
     graph = _build_worker_graph()
     result = graph.invoke(state)
     messages = result.get("messages", []) if isinstance(result, dict) else []
-    return _extract_final_answer(messages)
+    return _extract_final_answer(messages), messages
 
 
-def _record_failure(call_id: Any, db_url: str, err: str) -> dict[str, Any]:
+def _record_failure(
+    call_id: Any, db_url: str, err: str, error_kind: str
+) -> dict[str, Any]:
     subagent_calls.mark_failed(call_id, err, db_url)
     emit_run_event(
         "research.subagent.failed",
-        {"call_id": str(call_id), "error": err},
+        {"call_id": str(call_id), "error": err, "error_kind": error_kind},
     )
-    return {"error": err, "call_id": str(call_id)}
+    return {
+        "error": err,
+        "error_kind": error_kind,
+        "call_id": str(call_id),
+    }
 
 
 def _record_success(
@@ -164,15 +178,14 @@ def _spawn_pending(
 
 
 def _run_one(entry: tuple[Any, str, int | None]) -> dict[str, Any]:
-    """Worker-thread body: invoke the worker graph, return raw outcome.
-    Emission + DB completion happens on the caller thread so contextvars
-    (event emitter) don't need to be propagated across threads."""
+    """Worker-thread body. Emission + DB completion happens on the caller
+    thread so contextvars don't need to cross thread boundaries."""
     call_id, prompt, _ordinal = entry
     try:
-        final = _invoke_worker(prompt, request_id=str(call_id))
-        return {"call_id": call_id, "final": final, "exc": None}
+        final, messages = _invoke_worker(prompt, request_id=str(call_id))
+        return {"call_id": call_id, "final": final, "messages": messages, "exc": None}
     except Exception as worker_exc:  # noqa: BLE001 — boundary
-        return {"call_id": call_id, "final": None, "exc": worker_exc}
+        return {"call_id": call_id, "final": None, "messages": [], "exc": worker_exc}
 
 
 def _finalize_batch(
@@ -194,16 +207,25 @@ def _finalize_batch(
             )
             out.append(
                 _record_failure(
-                    call_id, db_url, f"{type(raw_exc).__name__}: {raw_exc}"
+                    call_id,
+                    db_url,
+                    f"{type(raw_exc).__name__}: {raw_exc}",
+                    ERROR_KIND_TRANSIENT_WORKER_EXCEPTION,
                 )
             )
         elif raw["final"] is None:
+            error_kind = classify_no_final_answer(raw["messages"])
             slog.warning(
-                "agent.run_subagent.no_final_answer", call_id=str(call_id)
+                "agent.run_subagent.no_final_answer",
+                call_id=str(call_id),
+                error_kind=error_kind,
             )
             out.append(
                 _record_failure(
-                    call_id, db_url, "worker did not produce final_answer"
+                    call_id,
+                    db_url,
+                    "worker did not produce final_answer",
+                    error_kind,
                 )
             )
         else:
@@ -215,24 +237,21 @@ def _finalize_batch(
 
 @tool
 def run_subagent(subagents: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Dispatch MULTIPLE worker subagents in PARALLEL — one call covers
-    the whole fan-out for the current research step.
+    """Dispatch MULTIPLE worker subagents in PARALLEL.
 
     Args:
         subagents: list of `{"prompt": str, "plan_step_ordinal": int?}`.
-            Each entry spawns one worker. Max 8 per batch. Each worker
-            runs its own ReAct loop (10 steps max) with only the data
-            tools (list_metrics, lookup_metric_definition, mf_query,
-            clarify, final_answer). Workers cannot recurse.
+            Each entry spawns one worker (10-step ReAct loop, data tools
+            only). Max 8 per batch. Workers cannot recurse.
 
     Returns:
-        list of `{"summary", "rows", "mf_query", "call_id"}` (or
-        `{"error", "call_id"}` on failure), one entry per input,
-        preserving input order.
+        list of `{"summary", "rows", "mf_query", "call_id"}` on success,
+        `{"error", "error_kind", "call_id"}` on failure (`error_kind` in
+        {`structural_step_cap`, `transient_worker_exception`, `unknown`}).
+        Order preserved.
 
-    Always dispatch the COMPLETE batch of sub-questions for the current
-    step in ONE call. Don't call run_subagent serially across turns —
-    you only get 20 LLM calls per turn.
+    Always dispatch the COMPLETE batch in ONE call — calling
+    `run_subagent` serially across turns wastes the lead's 20-step budget.
     """
     if not isinstance(subagents, list):
         return [{"error": "subagents must be a list"}]

@@ -291,3 +291,7 @@ def test_invoke_worker_prepends_worker_system_message(
     assert msgs[0].content == WORKER_AGENT_SYSTEM_PROMPT
     assert isinstance(msgs[1], HumanMessage)
     assert msgs[1].content == "test prompt"
+
+
+# HUG-261 tests live in test_subagent_failure.py to keep this file
+# under the 300-line structural cap.
