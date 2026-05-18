@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from uuid import uuid4
 
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 
 from nl_engine.agent.memory_context import (
@@ -29,6 +29,7 @@ from nl_engine.agent.memory_context import (
 )
 from nl_engine.agent.run_context import emit_run_event
 from nl_engine.agent.state import AgentState
+from nl_engine.agent.worker_agent_prompt import WORKER_AGENT_SYSTEM_PROMPT
 from nl_engine.logging import get_logger
 from nl_engine.repo import subagent_calls
 from nl_engine.repo.plans import get_latest_plan_id
@@ -77,8 +78,14 @@ def _extract_final_answer(messages: list[Any]) -> dict[str, Any] | None:
 
 
 def _invoke_worker(prompt: str, request_id: str) -> dict[str, Any] | None:
+    # HUG-260: prepend the worker-specific system prompt so workers don't
+    # inherit the chat agent's OPENUI-flavored prompt via
+    # ensure_system_prompt. Mirrors stream_lead_turn's lead-prompt pattern.
     state = AgentState(
-        messages=[HumanMessage(content=prompt)],
+        messages=[
+            SystemMessage(content=WORKER_AGENT_SYSTEM_PROMPT),
+            HumanMessage(content=prompt),
+        ],
         thread_id=f"worker-{uuid4()}",
         max_steps=WORKER_MAX_STEPS,
         request_id=request_id,
