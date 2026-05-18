@@ -12,7 +12,7 @@ dev = [
     "pytest-cov",
     "types-PyYAML",
     "dbt-postgres>=1.8.0",
-    "dbt-metricflow>=0.7.0",
+    "dbt-metricflow==0.12.0",
 ]
 # HUG-251: deps the API needs at runtime but linters/tests don't.
 # The MetricFlow warmup in api.main:lifespan invokes the `mf` CLI via
@@ -20,7 +20,7 @@ dev = [
 # Pulled in by the Dockerfile via `uv sync --no-dev --group runtime-extras`.
 runtime-extras = [
     "dbt-postgres>=1.8.0",
-    "dbt-metricflow>=0.7.0",
+    "dbt-metricflow==0.12.0",
 ]
 
 [tool.ruff]

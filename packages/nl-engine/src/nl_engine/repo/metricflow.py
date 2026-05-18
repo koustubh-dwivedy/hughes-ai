@@ -56,6 +56,31 @@ def _mf_command() -> str:
     )
 
 
+# HUG-262 — the mf CLI prints a "new version available" banner to stdout
+# on every invocation (dbt_metricflow/cli/main.py:67-79). Strip it before
+# any downstream parser or error-log consumes proc.stdout — keeps our
+# error messages clean and protects future parsers from the noise.
+_UPDATE_WARNING_PREFIXES = ("‼️ Warning:", "💡 Please update")
+
+
+def _strip_update_warning(text: str) -> str:
+    out: list[str] = []
+    skipping = False
+    for line in text.splitlines(keepends=True):
+        stripped = line.lstrip()
+        if any(stripped.startswith(p) for p in _UPDATE_WARNING_PREFIXES):
+            skipping = True
+            continue
+        if skipping:
+            # Continuation of the warning block: indented `$ pip install`,
+            # then a blank separator. Exit skip on the next real line.
+            if stripped == "" or stripped.startswith("$"):
+                continue
+            skipping = False
+        out.append(line)
+    return "".join(out)
+
+
 def _run(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     """Run `mf` with the given args. Raises MetricFlowError on non-zero exit."""
     cmd = [_mf_command(), *args]
@@ -67,6 +92,7 @@ def _run(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProces
         timeout=60,
         check=False,
     )
+    proc.stdout = _strip_update_warning(proc.stdout)
     if proc.returncode != 0:
         raise MetricFlowError(
             f"`mf {' '.join(args)}` failed (exit {proc.returncode}):\n"
