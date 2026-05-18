@@ -85,7 +85,7 @@ gcloud run deploy "$SERVICE" \
   --image="${IMAGE_URI}:${TAG}" \
   --region="$REGION" --project="$PROJECT" \
   --min-instances=1 --max-instances=3 \
-  --memory=2Gi --cpu=1 --timeout=300 --concurrency=40 \
+  --memory=2Gi --cpu=1 --timeout=3600 --concurrency=40 \
   --add-cloudsql-instances="$INSTANCE_CONN" \
   --service-account="$SA_EMAIL" \
   --set-secrets=DATABASE_URL=database-url:latest,OLLAMA_API_KEY=ollama-api-key:latest \
