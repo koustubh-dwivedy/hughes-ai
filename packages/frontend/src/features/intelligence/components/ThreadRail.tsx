@@ -7,6 +7,13 @@
  * highlighted via the `currentThreadId` prop (passed in from the page
  * because the rail is rendered next to the messages and the page
  * already reads `currentThreadId`).
+ *
+ * Layout (HUG-268): the aside is a flex column with two sections.
+ *   - `headerStyle` (button + "Recent" label) is flex-shrink:0 and
+ *     does NOT scroll. Always visible at the top of the rail.
+ *   - `listStyle` (the thread links) is flex:1, minHeight:0,
+ *     overflow:auto. Scrolls independently when the link list exceeds
+ *     the rail's height.
  */
 
 import { Link } from "react-router-dom";
@@ -25,13 +32,27 @@ const wrapperStyle: React.CSSProperties = {
 	flexShrink: 0,
 	background: colors.slate[50],
 	borderRight: `1px solid ${colors.slate[200]}`,
-	padding: spacing[2],
-	gap: spacing[1],
-	overflowY: "auto",
 	// HUG-267: flex children default to min-content height; without
-	// this the rail grows past the viewport and overflowY never
-	// engages. Mirrors mainStyle/conversationStyle in IntelligencePage.
+	// this the rail grows past the viewport and the inner scroll
+	// surface never engages.
 	minHeight: 0,
+};
+
+const headerStyle: React.CSSProperties = {
+	display: "flex",
+	flexDirection: "column",
+	padding: `${spacing[2]} ${spacing[2]} 0 ${spacing[2]}`,
+	flexShrink: 0,
+};
+
+const listStyle: React.CSSProperties = {
+	display: "flex",
+	flexDirection: "column",
+	gap: spacing[1],
+	padding: `${spacing[1]} ${spacing[2]} ${spacing[2]} ${spacing[2]}`,
+	flex: 1,
+	minHeight: 0,
+	overflowY: "auto",
 };
 
 const newButtonStyle: React.CSSProperties = {
@@ -44,7 +65,6 @@ const newButtonStyle: React.CSSProperties = {
 	fontSize: typography.size.sm,
 	fontWeight: typography.weight.medium,
 	fontFamily: typography.fontFamily,
-	marginBottom: spacing[2],
 };
 
 function rowStyle(active: boolean): React.CSSProperties {
@@ -61,6 +81,9 @@ function rowStyle(active: boolean): React.CSSProperties {
 		overflow: "hidden",
 		textOverflow: "ellipsis",
 		fontWeight: active ? typography.weight.medium : typography.weight.normal,
+		// Prevent flex column from compressing rows below their natural
+		// height (which would suppress overflow + scroll).
+		flexShrink: 0,
 	};
 }
 
@@ -92,33 +115,39 @@ export default function ThreadRail({ currentThreadId, onNewThread }: Props) {
 
 	return (
 		<aside aria-label="Recent threads" style={wrapperStyle}>
-			<button
-				type="button"
-				style={newButtonStyle}
-				onClick={onNewThread}
-				data-testid="new-thread-button"
-			>
-				+ New thread
-			</button>
-			<div style={headingStyle}>Recent</div>
-			{isLoading ? (
-				<div style={emptyStyle}>Loading…</div>
-			) : isError ? (
-				<div style={emptyStyle}>Couldn’t load threads.</div>
-			) : data && data.threads.length > 0 ? (
-				data.threads.map((t) => (
-					<Link
-						key={t.thread_id}
-						to={`/intelligence/${t.thread_id}`}
-						style={rowStyle(t.thread_id === currentThreadId)}
-						aria-current={t.thread_id === currentThreadId ? "page" : undefined}
-					>
-						{formatTitle(t.thread_id, t.title)}
-					</Link>
-				))
-			) : (
-				<div style={emptyStyle}>No threads yet.</div>
-			)}
+			<div style={headerStyle}>
+				<button
+					type="button"
+					style={newButtonStyle}
+					onClick={onNewThread}
+					data-testid="new-thread-button"
+				>
+					+ New thread
+				</button>
+				<div style={headingStyle}>Recent</div>
+			</div>
+			<div style={listStyle} data-testid="thread-list-scroll">
+				{isLoading ? (
+					<div style={emptyStyle}>Loading…</div>
+				) : isError ? (
+					<div style={emptyStyle}>Couldn’t load threads.</div>
+				) : data && data.threads.length > 0 ? (
+					data.threads.map((t) => (
+						<Link
+							key={t.thread_id}
+							to={`/intelligence/${t.thread_id}`}
+							style={rowStyle(t.thread_id === currentThreadId)}
+							aria-current={
+								t.thread_id === currentThreadId ? "page" : undefined
+							}
+						>
+							{formatTitle(t.thread_id, t.title)}
+						</Link>
+					))
+				) : (
+					<div style={emptyStyle}>No threads yet.</div>
+				)}
+			</div>
 		</aside>
 	);
 }
