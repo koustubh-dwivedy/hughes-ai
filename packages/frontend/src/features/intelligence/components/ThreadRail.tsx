@@ -28,6 +28,10 @@ const wrapperStyle: React.CSSProperties = {
 	padding: spacing[2],
 	gap: spacing[1],
 	overflowY: "auto",
+	// HUG-267: flex children default to min-content height; without
+	// this the rail grows past the viewport and overflowY never
+	// engages. Mirrors mainStyle/conversationStyle in IntelligencePage.
+	minHeight: 0,
 };
 
 const newButtonStyle: React.CSSProperties = {
