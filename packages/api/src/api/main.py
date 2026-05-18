@@ -79,6 +79,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             elapsed_sec=round(time.perf_counter() - t0, 2),
             metric_count=len(metrics),
         )
+        # HUG-263: pre-warm the `mf query` subprocess path. list_metrics
+        # warms `mf list dimensions` but NOT `mf query` — that path's
+        # semantic_manifest parse cost was 51 s on cold-start on
+        # 2026-05-18, eating 15 % of a worker's 10-step budget. One
+        # trivial query amortises that cost into container startup.
+        if metrics:
+            t1 = time.perf_counter()
+            try:
+                mf.query(metric=metrics[0].name, limit=1)
+                slog.info(
+                    "query_warmup.done",
+                    elapsed_sec=round(time.perf_counter() - t1, 2),
+                    metric=metrics[0].name,
+                )
+            except Exception as exc:  # noqa: BLE001 — non-fatal
+                slog.warning(
+                    "query_warmup.failed",
+                    error=str(exc),
+                    metric=metrics[0].name,
+                )
     yield
 
 
