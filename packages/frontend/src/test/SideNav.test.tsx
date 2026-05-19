@@ -13,9 +13,10 @@ function renderAt(path: string) {
 }
 
 describe("SideNav", () => {
-	it("renders 7 nav links (1 intelligence + 4 dashboards + 2 data)", () => {
+	it("renders 7 nav links (1 intelligence + 4 dashboards + 2 data) + Hughes logo home link", () => {
 		renderAt("/dashboards/executive");
-		expect(screen.getAllByRole("link")).toHaveLength(7);
+		// 7 in-app nav items + 1 Hughes-logo-as-home anchor (HUG-270) = 8 total.
+		expect(screen.getAllByRole("link")).toHaveLength(8);
 	});
 
 	it("marks Data Models active at /data/models", () => {

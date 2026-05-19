@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { colors, spacing } from "../../theme/tokens";
-import Logo from "../AppHeader/Logo";
+import LogoHomeLink from "./LogoHomeLink";
 import NavItem from "./NavItem";
 import { DASHBOARDS, DATA, INTELLIGENCE, SECTION_LABEL } from "./constants";
 import type { CollapseState, SideNavProps } from "./types";
@@ -184,7 +184,7 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 								borderBottom: `1px solid ${colors.slate[700]}`,
 							}}
 						>
-							<Logo variant="wordmark" onDark height={18} />
+							<LogoHomeLink variant="wordmark" height={18} />
 							<button
 								type="button"
 								aria-label="Close navigation"
@@ -224,7 +224,7 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 							borderBottom: `1px solid ${colors.slate[700]}`,
 						}}
 					>
-						<Logo variant="icon" onDark height={28} />
+						<LogoHomeLink variant="icon" height={28} />
 						<button
 							type="button"
 							aria-label="Expand sidebar"
@@ -254,7 +254,7 @@ export default function SideNav({ defaultCollapsed = false }: SideNavProps) {
 							borderBottom: `1px solid ${colors.slate[700]}`,
 						}}
 					>
-						<Logo variant="wordmark" onDark height={18} />
+						<LogoHomeLink variant="wordmark" height={18} />
 						<button
 							type="button"
 							aria-label="Collapse sidebar"

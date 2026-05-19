@@ -154,6 +154,11 @@ const SAMPLES: Record<TelemetryEvent["type"], TelemetryEvent> = {
 		dashboard_id: "deposit-portfolio",
 		cache_hit: true,
 	},
+	"nav.external_clicked": {
+		type: "nav.external_clicked",
+		destination: "book_demo",
+		href: "https://tryhughes.com/contact.html",
+	},
 };
 
 describe("Telemetry taxonomy coverage", () => {

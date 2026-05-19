@@ -103,4 +103,25 @@ describe("SideNav drawer", () => {
 			screen.queryByRole("dialog", { name: "Navigation drawer" }),
 		).toBeNull();
 	});
+
+	// HUG-270 — Hughes logo links to tryhughes.com (new tab)
+	it("wraps the Hughes logo in an external link to tryhughes.com", () => {
+		renderAt();
+		// Expanded-state wordmark is rendered by default.
+		const link = screen.getAllByTestId("logo-home-link")[0];
+		expect(link).toHaveAttribute("href", "https://tryhughes.com");
+		expect(link).toHaveAttribute("target", "_blank");
+		expect(link).toHaveAttribute("rel", "noopener noreferrer");
+		expect(link).toHaveAccessibleName(/visit tryhughes\.com/i);
+	});
+
+	it("keeps the logo as a link even when the sidebar is collapsed", () => {
+		renderWithProviders(
+			<MemoryRouter initialEntries={["/dashboards/executive"]}>
+				<SideNav defaultCollapsed />
+			</MemoryRouter>,
+		);
+		const link = screen.getAllByTestId("logo-home-link")[0];
+		expect(link).toHaveAttribute("href", "https://tryhughes.com");
+	});
 });

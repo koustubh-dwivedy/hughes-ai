@@ -161,6 +161,15 @@ export interface DashboardCacheObserved {
 	cache_hit: boolean;
 }
 
+// HUG-270: clicks on the two marketing-site CTAs in the chrome.
+// `destination` is the semantic slot; `href` is the actual URL so we
+// can swap it without re-typing the event.
+export interface NavExternalClicked {
+	type: "nav.external_clicked";
+	destination: "book_demo" | "home";
+	href: string;
+}
+
 export type TelemetryEvent =
 	| NavPageView
 	| KpiTileClicked
@@ -187,7 +196,8 @@ export type TelemetryEvent =
 	| WebVitalsCls
 	| WebVitalsTtfb
 	| AppError
-	| DashboardCacheObserved;
+	| DashboardCacheObserved
+	| NavExternalClicked;
 
 export const ALL_EVENT_TYPES: Array<TelemetryEvent["type"]> = [
 	"nav.page_view",
@@ -216,4 +226,5 @@ export const ALL_EVENT_TYPES: Array<TelemetryEvent["type"]> = [
 	"web_vitals.ttfb",
 	"app.error",
 	"dashboard.cache.observed",
+	"nav.external_clicked",
 ];

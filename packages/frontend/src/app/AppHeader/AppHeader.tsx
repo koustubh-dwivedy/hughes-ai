@@ -2,6 +2,7 @@ import { useKBar } from "kbar";
 import { Search } from "lucide-react";
 import { TENANT } from "../../shared/branding";
 import { colors, radii, spacing, typography } from "../../theme/tokens";
+import BookDemoButton from "./BookDemoButton";
 
 const stripStyle: React.CSSProperties = {
 	height: 64,
@@ -27,6 +28,9 @@ const tenantStyle: React.CSSProperties = {
 const searchSlotStyle: React.CSSProperties = {
 	gridColumn: "3",
 	justifySelf: "end",
+	display: "flex",
+	alignItems: "center",
+	gap: spacing[3],
 };
 
 const searchBtnStyle: React.CSSProperties = {
@@ -80,6 +84,7 @@ export default function AppHeader() {
 				</span>
 			</div>
 			<div style={searchSlotStyle}>
+				<BookDemoButton />
 				<button
 					type="button"
 					aria-label="Open search"
