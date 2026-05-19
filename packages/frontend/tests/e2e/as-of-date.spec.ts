@@ -54,6 +54,17 @@ test.describe("as_of_date URL param", () => {
 				body: JSON.stringify(FIXTURE),
 			});
 		});
+		// HUG-271: MonthSelector auto-pushes ?as_of_date= into the URL when
+		// available-months returns a non-empty list. Mock it to empty so the
+		// early-return path (months.length === 0) keeps the URL clean and
+		// this test stays deterministic. Same pattern as url-state.spec.ts.
+		await page.route("**/api/dashboards/available-months**", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ months: [] }),
+			}),
+		);
 
 		await page.goto("/dashboards/deposits");
 		await expect(
