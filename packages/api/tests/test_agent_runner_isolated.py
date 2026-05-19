@@ -21,6 +21,7 @@ Live Postgres; mirrors the fixture / fake-LLM pattern of
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from collections.abc import Sequence
 from typing import Any
@@ -242,7 +243,14 @@ def test_worker_shaped_invocation_writes_no_thread_messages(
 def test_max_steps_caps_the_graph(thread_id: UUID) -> None:
     """`max_steps` plumbs through AgentState into `_route`'s cap
     comparison. Driving a non-terminal LLM with `max_steps=2`
-    terminates via the step-cap node, not by running indefinitely."""
+    terminates via the step-cap node, not by running indefinitely.
+
+    HUG-265 + HUG-269: when step-cap fires, `chat_process_message`
+    synthesizes an `event: final` from the plaintext apology AIMessage
+    so the SPA unlocks (instead of stranding the user on a stuck
+    ThinkingBubble). The synthesized final's `message.content` carries
+    the step-cap apology, NOT a real final_answer payload.
+    """
     db_url = _db_url()
     events = asyncio.run(
         _drain(
@@ -258,10 +266,13 @@ def test_max_steps_caps_the_graph(thread_id: UUID) -> None:
             )
         )
     )
-    # No `final` event because the step-cap node short-circuits before
-    # `final_answer` ever fires; the loop simply terminates with the
-    # graceful apology AIMessage.
-    assert "final" not in {e["event"] for e in events}
+    event_names = {e["event"] for e in events}
+    assert "final" in event_names
+    finals = [e for e in events if e["event"] == "final"]
+    assert len(finals) == 1
+    data = json.loads(finals[0]["data"])
+    content = (data.get("message") or {}).get("content") or ""
+    assert "couldn't reach an answer" in content
 
 
 def test_initial_state_extras_lands_in_slots(thread_id: UUID) -> None:
