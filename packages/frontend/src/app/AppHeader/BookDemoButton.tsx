@@ -1,8 +1,8 @@
 import { emit } from "../../shared/telemetry/client";
 /**
- * HUG-270 — "Book a Demo" CTA. Lives in the AppHeader's right zone,
- * before the search trigger. Links externally to the marketing site;
- * opens in a new tab to preserve in-app chat/dashboard state.
+ * "Contact Us" CTA (originally HUG-270 as "Book a Demo"). Lives in the
+ * AppHeader's right zone, before the search trigger. Links externally to
+ * the marketing site; opens in a new tab to preserve in-app chat/dashboard state.
  *
  * Visual treatment: filled indigo, matches the "+ New thread" button's
  * energy without being garish. The trailing ↗ glyph telegraphs that
@@ -48,12 +48,12 @@ export default function BookDemoButton() {
 			href={HREF}
 			target="_blank"
 			rel="noopener noreferrer"
-			aria-label="Book a Demo on tryhughes.com"
+			aria-label="Contact Us on tryhughes.com"
 			data-testid="book-demo-button"
 			style={buttonStyle}
 			onClick={onClick}
 		>
-			Book a Demo
+			Contact Us
 			<span aria-hidden="true" style={arrowStyle}>
 				↗
 			</span>

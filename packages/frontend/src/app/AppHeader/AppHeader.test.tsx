@@ -47,14 +47,14 @@ describe("AppHeader", () => {
 		).toBeInTheDocument();
 	});
 
-	// HUG-270 — Book a Demo CTA
-	it("renders the Book a Demo link with external href + new-tab target", () => {
+	// Contact Us CTA (originally HUG-270 as "Book a Demo")
+	it("renders the Contact Us link with external href + new-tab target", () => {
 		renderHeader();
 		const link = screen.getByTestId("book-demo-button");
 		expect(link).toBeInTheDocument();
 		expect(link).toHaveAttribute("href", "https://tryhughes.com/contact.html");
 		expect(link).toHaveAttribute("target", "_blank");
 		expect(link).toHaveAttribute("rel", "noopener noreferrer");
-		expect(link).toHaveAccessibleName(/book a demo/i);
+		expect(link).toHaveAccessibleName(/contact us/i);
 	});
 });
