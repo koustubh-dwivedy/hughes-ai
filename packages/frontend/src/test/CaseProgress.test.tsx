@@ -55,7 +55,9 @@ describe("case step-through to completion", () => {
 			screen.getByRole("button", { name: /Complete step & continue/ }),
 		).toBeDisabled();
 		// Record a decision on Triangulate, then return to the active Decide step.
-		await userEvent.click(screen.getByRole("button", { name: /Triangulate ID/ }));
+		await userEvent.click(
+			screen.getByRole("button", { name: /Triangulate ID/ }),
+		);
 		await userEvent.click(screen.getByRole("button", { name: "Approve" }));
 		await userEvent.click(screen.getByRole("button", { name: /Decide/ }));
 		expect(
@@ -65,7 +67,9 @@ describe("case step-through to completion", () => {
 
 	it("advances and resolves the case, showing a completion banner", async () => {
 		renderCase("CBD-4822");
-		await userEvent.click(screen.getByRole("button", { name: /Triangulate ID/ }));
+		await userEvent.click(
+			screen.getByRole("button", { name: /Triangulate ID/ }),
+		);
 		await userEvent.click(screen.getByRole("button", { name: "Approve" }));
 		await userEvent.click(screen.getByRole("button", { name: /Decide/ }));
 		await advanceToResolve();

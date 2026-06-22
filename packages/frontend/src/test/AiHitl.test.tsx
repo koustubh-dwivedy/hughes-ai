@@ -106,9 +106,7 @@ describe("AI human-in-the-loop layer", () => {
 		expect(
 			screen.getByText(/received vs system of record/i),
 		).toBeInTheDocument();
-		expect(
-			screen.getByText("Matched to member of record"),
-		).toBeInTheDocument();
+		expect(screen.getByText("Matched to member of record")).toBeInTheDocument();
 		// A comparison row (System of record column header).
 		expect(screen.getByText("System of record")).toBeInTheDocument();
 	});
