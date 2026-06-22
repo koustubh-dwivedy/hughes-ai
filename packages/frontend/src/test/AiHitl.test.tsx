@@ -117,6 +117,22 @@ describe("AI human-in-the-loop layer", () => {
 		).toBeInTheDocument();
 	});
 
+	it("marks the viewed step with aria-current in the journey rail", async () => {
+		renderCase("CBD-4822");
+		// The rail step you're viewing is the accessible current step.
+		const triangulate = screen.getByRole("button", {
+			name: /Triangulate & decide/,
+		});
+		await userEvent.click(triangulate);
+		expect(triangulate).toHaveAttribute("aria-current", "step");
+		// Clicking a different rail step moves the indicator (and the panel).
+		const intake = screen.getByRole("button", { name: /Intake/ });
+		await userEvent.click(intake);
+		expect(intake).toHaveAttribute("aria-current", "step");
+		expect(triangulate).not.toHaveAttribute("aria-current");
+		expect(screen.getByText("✨ AI-extracted")).toBeInTheDocument();
+	});
+
 	it("shows the AI-extracted intake panel on the fraud Intake stage", async () => {
 		renderCase("CBD-4822");
 		await userEvent.click(screen.getByRole("button", { name: /Intake/ }));

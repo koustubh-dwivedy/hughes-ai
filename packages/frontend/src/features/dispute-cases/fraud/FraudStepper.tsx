@@ -2,12 +2,12 @@ import { useState } from "react";
 import { colors, spacing, typography } from "../../../theme/tokens";
 import Tag from "../../../ui/primitives/Tag";
 import StageFooter from "../StageFooter";
-import Stepper from "../Stepper";
+import StageLayout from "../StageLayout";
 import ApprovalGate from "../ai/ApprovalGate";
 import IntakeExtractionPanel from "../ai/IntakeExtractionPanel";
 import ProvenanceBadge from "../ai/ProvenanceBadge";
 import { FRAUD_PROVENANCE } from "../ai/aiTypes";
-import { Field, FieldGrid, Flag, SectionCard } from "../caseUi";
+import { Field, FieldGrid, Flag, SubSection } from "../caseUi";
 import { getCaseAi } from "../data/aiInvestigations";
 import {
 	type Signoff,
@@ -110,7 +110,7 @@ function SuppressBlockStage({ c }: StageProps) {
 			? "danger"
 			: "warning";
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: spacing[4] }}>
+		<div style={{ display: "flex", flexDirection: "column", gap: spacing[5] }}>
 			<p
 				style={{
 					fontSize: typography.size.sm,
@@ -123,25 +123,28 @@ function SuppressBlockStage({ c }: StageProps) {
 				parallel with the investigation — suppress first, finalize disposition
 				after.
 			</p>
-			<Tag label={`§605B clock: ${blockLabel}`} variant={blockVariant} />
-			<div style={{ display: "flex", gap: spacing[6], flexWrap: "wrap" }}>
-				<Flag label="Furnishing suppressed" on={f.blockApplied} />
-				<Flag label="Prevent re-furnishing" on={f.preventRefurnish} />
-				<Flag label="Collection prohibited" on={f.collectionProhibition} />
-			</div>
-			<div
-				style={{
-					display: "flex",
-					gap: spacing[3],
-					alignItems: "center",
-					flexWrap: "wrap",
-				}}
-			>
-				<span>Metro 2 / e-OSCAR:</span>
-				<Tag label="Tradeline suppressed" variant="info" />
-				<Tag label="AUD submitted" variant="info" />
-				{c.ccc && <Tag label={`CCC ${c.ccc}`} variant="default" />}
-			</div>
+			<SubSection title="§605B suppression">
+				<Tag label={`§605B clock: ${blockLabel}`} variant={blockVariant} />
+				<div style={{ display: "flex", gap: spacing[6], flexWrap: "wrap" }}>
+					<Flag label="Furnishing suppressed" on={f.blockApplied} />
+					<Flag label="Prevent re-furnishing" on={f.preventRefurnish} />
+					<Flag label="Collection prohibited" on={f.collectionProhibition} />
+				</div>
+			</SubSection>
+			<SubSection title="Metro 2 / e-OSCAR">
+				<div
+					style={{
+						display: "flex",
+						gap: spacing[3],
+						alignItems: "center",
+						flexWrap: "wrap",
+					}}
+				>
+					<Tag label="Tradeline suppressed" variant="info" />
+					<Tag label="AUD submitted" variant="info" />
+					{c.ccc && <Tag label={`CCC ${c.ccc}`} variant="default" />}
+				</div>
+			</SubSection>
 		</div>
 	);
 }
@@ -204,39 +207,35 @@ export default function FraudStepper({ c }: { c: FraudCase }) {
 
 	const StageComponent = STAGE_COMPONENTS[selected] ?? CloseStage;
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: spacing[5] }}>
-			<Stepper
-				stages={FRAUD_STAGES}
-				currentStage={progress.stage}
-				selected={selected}
-				onSelect={setSelected}
+		<StageLayout
+			stages={FRAUD_STAGES}
+			currentStage={progress.stage}
+			selected={selected}
+			onSelect={setSelected}
+			title={FRAUD_STAGES[selected]}
+			accessory={<ProvenanceBadge provenance={FRAUD_PROVENANCE[selected]} />}
+		>
+			<StageComponent
+				c={c}
+				signoffs={progress.signoffs}
+				onSignoff={onSignoff}
 			/>
-			<SectionCard
-				title={FRAUD_STAGES[selected]}
-				accessory={<ProvenanceBadge provenance={FRAUD_PROVENANCE[selected]} />}
-			>
-				<StageComponent
-					c={c}
-					signoffs={progress.signoffs}
-					onSignoff={onSignoff}
-				/>
-				<StageFooter
-					stage={selected}
-					lastIndex={lastIndex}
-					isActive={isActive}
-					resolved={progress.resolved}
-					canAdvance={canAdvance}
-					blockedHint="Select an option and add notes to continue"
-					onBack={() => setSelected(Math.max(selected - 1, 0))}
-					onAdvance={advance}
-					onResolve={() =>
-						resolveCase(
-							c.id,
-							fraudOutcome(progress.signoffs[DECIDE_INDEX]?.option),
-						)
-					}
-				/>
-			</SectionCard>
-		</div>
+			<StageFooter
+				stage={selected}
+				lastIndex={lastIndex}
+				isActive={isActive}
+				resolved={progress.resolved}
+				canAdvance={canAdvance}
+				blockedHint="Select an option and add notes to continue"
+				onBack={() => setSelected(Math.max(selected - 1, 0))}
+				onAdvance={advance}
+				onResolve={() =>
+					resolveCase(
+						c.id,
+						fraudOutcome(progress.signoffs[DECIDE_INDEX]?.option),
+					)
+				}
+			/>
+		</StageLayout>
 	);
 }

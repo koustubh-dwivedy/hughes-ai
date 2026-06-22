@@ -48,6 +48,40 @@ export function SectionCard({
 	);
 }
 
+/** A labeled group within a stage, separated by a hairline + micro-heading. */
+export function SubSection({
+	title,
+	children,
+}: {
+	title: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<div
+			style={{
+				display: "flex",
+				flexDirection: "column",
+				gap: spacing[3],
+				paddingTop: spacing[4],
+				borderTop: `1px solid ${colors.slate[200]}`,
+			}}
+		>
+			<span
+				style={{
+					fontSize: typography.size.xs,
+					fontWeight: typography.weight.semibold,
+					textTransform: "uppercase",
+					letterSpacing: "0.04em",
+					color: colors.slate[500],
+				}}
+			>
+				{title}
+			</span>
+			{children}
+		</div>
+	);
+}
+
 const sourceVariant: Record<FieldSource, "info" | "success" | "default"> = {
 	LOS: "info",
 	core: "success",

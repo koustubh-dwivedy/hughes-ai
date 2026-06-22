@@ -3,12 +3,12 @@ import { colors, spacing, typography } from "../../../theme/tokens";
 import Button from "../../../ui/primitives/Button";
 import Tag from "../../../ui/primitives/Tag";
 import StageFooter from "../StageFooter";
-import Stepper from "../Stepper";
+import StageLayout from "../StageLayout";
 import ApprovalGate from "../ai/ApprovalGate";
 import IntakeExtractionPanel from "../ai/IntakeExtractionPanel";
 import ProvenanceBadge from "../ai/ProvenanceBadge";
 import { VOD_PROVENANCE } from "../ai/aiTypes";
-import { Field, FieldGrid, Flag, SectionCard } from "../caseUi";
+import { Field, FieldGrid, Flag } from "../caseUi";
 import { getCaseAi } from "../data/aiInvestigations";
 import {
 	type Signoff,
@@ -244,39 +244,32 @@ export default function VodStepper({ c }: { c: VodCase }) {
 		: "Confirm a written, timely dispute to continue";
 
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: spacing[5] }}>
-			<Stepper
-				stages={VOD_STAGES}
-				currentStage={progress.stage}
-				selected={selected}
-				onSelect={setSelected}
+		<StageLayout
+			stages={VOD_STAGES}
+			currentStage={progress.stage}
+			selected={selected}
+			onSelect={setSelected}
+			title={VOD_STAGES[selected]}
+			accessory={<ProvenanceBadge provenance={VOD_PROVENANCE[selected]} />}
+		>
+			<StageComponent
+				c={c}
+				signoffs={progress.signoffs}
+				onSignoff={onSignoff}
 			/>
-			<SectionCard
-				title={VOD_STAGES[selected]}
-				accessory={<ProvenanceBadge provenance={VOD_PROVENANCE[selected]} />}
-			>
-				<StageComponent
-					c={c}
-					signoffs={progress.signoffs}
-					onSignoff={onSignoff}
-				/>
-				<StageFooter
-					stage={selected}
-					lastIndex={lastIndex}
-					isActive={isActive}
-					resolved={progress.resolved}
-					canAdvance={canAdvance}
-					blockedHint={blockedHint}
-					onBack={() => setSelected(Math.max(selected - 1, 0))}
-					onAdvance={advance}
-					onResolve={() =>
-						resolveCase(
-							c.id,
-							vodOutcome(progress.signoffs[CLOSE_INDEX]?.option),
-						)
-					}
-				/>
-			</SectionCard>
-		</div>
+			<StageFooter
+				stage={selected}
+				lastIndex={lastIndex}
+				isActive={isActive}
+				resolved={progress.resolved}
+				canAdvance={canAdvance}
+				blockedHint={blockedHint}
+				onBack={() => setSelected(Math.max(selected - 1, 0))}
+				onAdvance={advance}
+				onResolve={() =>
+					resolveCase(c.id, vodOutcome(progress.signoffs[CLOSE_INDEX]?.option))
+				}
+			/>
+		</StageLayout>
 	);
 }
