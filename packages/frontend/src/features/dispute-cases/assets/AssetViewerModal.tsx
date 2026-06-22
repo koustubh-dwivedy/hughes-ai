@@ -1,25 +1,14 @@
 import { X } from "lucide-react";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
-import ScannedDocument, { type ScannedDoc } from "./ScannedDocument";
-import type { AssetContent } from "./assetContent";
+import ScannedDocument from "./ScannedDocument";
+import type { AssetContent, TranscriptContent } from "./assetContent";
 
 interface Props {
 	content: AssetContent;
 	onClose: () => void;
 }
 
-function toScannedDoc(content: AssetContent): ScannedDoc {
-	return {
-		letterhead: content.letterhead,
-		subhead: content.subhead,
-		meta: content.meta,
-		paragraphs: content.paragraphs,
-		signature: content.signature,
-		stamps: content.stamps,
-	};
-}
-
-function TranscriptCard({ content }: { content: AssetContent }) {
+function TranscriptCard({ content }: { content: TranscriptContent }) {
 	return (
 		<div
 			style={{
@@ -41,7 +30,7 @@ function TranscriptCard({ content }: { content: AssetContent }) {
 					margin: 0,
 				}}
 			>
-				{content.letterhead}
+				{content.header}
 			</p>
 			<h2
 				style={{
@@ -56,7 +45,7 @@ function TranscriptCard({ content }: { content: AssetContent }) {
 			<div
 				style={{ display: "flex", flexDirection: "column", gap: spacing[2] }}
 			>
-				{(content.transcript ?? []).map((l, i) => (
+				{content.lines.map((l, i) => (
 					<div
 						key={`${i}-${l.speaker}`}
 						style={{ fontSize: typography.size.sm }}
@@ -78,9 +67,8 @@ function TranscriptCard({ content }: { content: AssetContent }) {
 }
 
 /**
- * Opens a mocked file asset over a blurred, dimmed backdrop. Printed documents
- * render as a heavy/aged scanned page; call recordings render as a transcript.
- * Demo only — content is illustrative.
+ * Opens a mocked file asset over a blurred backdrop. Letters/forms render as a
+ * clean scanned printed page; call recordings render as a transcript. Demo only.
  */
 export default function AssetViewerModal({ content, onClose }: Props) {
 	return (
@@ -133,7 +121,7 @@ export default function AssetViewerModal({ content, onClose }: Props) {
 			{content.format === "transcript" ? (
 				<TranscriptCard content={content} />
 			) : (
-				<ScannedDocument doc={toScannedDoc(content)} />
+				<ScannedDocument content={content} />
 			)}
 		</dialog>
 	);

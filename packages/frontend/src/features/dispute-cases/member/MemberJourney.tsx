@@ -60,7 +60,8 @@ const TIER_VARIANT: Record<ComplaintTier, "info" | "warning" | "danger"> = {
 function TouchpointRow({
 	t,
 	memberName,
-}: { t: Touchpoint; memberName?: string }) {
+	memberAddress,
+}: { t: Touchpoint; memberName?: string; memberAddress?: string }) {
 	return (
 		<li style={{ display: "flex", gap: spacing[4] }}>
 			<div
@@ -124,7 +125,7 @@ function TouchpointRow({
 				{t.reference && (
 					<EvidenceReferenceChip
 						reference={t.reference}
-						context={{ memberName, date: t.date }}
+						context={{ memberName, memberAddress, date: t.date }}
 					/>
 				)}
 			</div>
@@ -179,6 +180,7 @@ export default function MemberJourney() {
 						key={`${t.date}-${t.type}-${t.summary}`}
 						t={t}
 						memberName={member?.name}
+						memberAddress={member?.address}
 					/>
 				))}
 				{filtered.length === 0 && (

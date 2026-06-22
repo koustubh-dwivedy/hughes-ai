@@ -1,6 +1,8 @@
 import { X } from "lucide-react";
 import { colors, spacing } from "../../../theme/tokens";
-import ScannedDocument, { type ScannedDoc } from "../assets/ScannedDocument";
+import ScannedDocument from "../assets/ScannedDocument";
+import type { LetterContent } from "../assets/assetContent";
+import { formatDate } from "../format";
 import type { VodCase } from "../types";
 
 interface Props {
@@ -8,29 +10,44 @@ interface Props {
 	onClose: () => void;
 }
 
-function coverLetter(c: VodCase): ScannedDoc {
+function coverLetter(c: VodCase): LetterContent {
 	const v = c.vod;
+	const acct = c.subjectAccount.accountNumberMasked;
 	return {
-		letterhead: "Cascade Federal Credit Union",
-		subhead: "Debt verification — cover letter (DRAFT)",
-		meta: [
-			{ label: "To", value: `${c.member.name}, ${c.member.address}` },
-			{ label: "Creditor", value: v.originalCreditor },
-			{ label: "Account", value: c.subjectAccount.accountNumberMasked },
-		],
-		paragraphs: [
-			"This is a communication from a debt collector. This letter provides verification of the debt referenced in your dispute.",
-			`As of ${v.itemizationDate}, the amount of the debt was $${v.amountAtItemization.toLocaleString()}. Between then and today: interest $${v.interest.toLocaleString()}, fees $${v.fees.toLocaleString()}, payments −$${v.payments.toLocaleString()}, credits −$${v.credits.toLocaleString()}. The current amount of the debt is $${v.currentAmount.toLocaleString()}.`,
+		format: "letter",
+		kind: "letter",
+		title: "Debt verification — cover letter",
+		draft: true,
+		sender: {
+			name: "Cascade Federal Credit Union",
+			lines: [
+				"Member Resolution Department",
+				"1200 Riverside Avenue",
+				"Spokane, WA 99201",
+			],
+		},
+		date: formatDate(v.itemizationDate),
+		recipient: { name: c.member.name, lines: [c.member.address] },
+		re: `Verification of debt — account ${acct}`,
+		salutation: `Dear ${c.member.name},`,
+		body: [
+			"This communication is from a debt collector. This letter provides verification of the debt referenced in your dispute.",
+			`The creditor of record is ${v.originalCreditor} and the account number is ${acct}. As of ${v.itemizationDate}, the amount of the debt was $${v.amountAtItemization.toLocaleString()}. Since then: interest $${v.interest.toLocaleString()}, fees $${v.fees.toLocaleString()}, payments −$${v.payments.toLocaleString()}, credits −$${v.credits.toLocaleString()}. The current amount of the debt is $${v.currentAmount.toLocaleString()}.`,
 			`You may dispute this debt in writing on or before ${v.disputeWindowEnds}. If you do, collection will pause until we mail you verification.`,
 		],
-		signature: { name: "J. Mercer", title: "Member Resolution Specialist" },
-		stamps: [{ text: "DRAFT", tone: "red" }],
+		closing: "Sincerely,",
+		signatory: { name: "J. Mercer", title: "Member Resolution Specialist" },
+		enclosures: [
+			"Signed account agreement",
+			"Account statements",
+			"Payment history",
+		],
 	};
 }
 
 /**
  * Preview of the auto-assembled debt-verification cover letter, rendered as a
- * heavy/aged scanned page over a blurred backdrop. Mockup only.
+ * clean scanned letter over a blurred backdrop. Mockup only.
  */
 export default function RegFLetterPreview({ c, onClose }: Props) {
 	return (
@@ -80,7 +97,7 @@ export default function RegFLetterPreview({ c, onClose }: Props) {
 			>
 				<X size={18} />
 			</button>
-			<ScannedDocument doc={coverLetter(c)} />
+			<ScannedDocument content={coverLetter(c)} />
 		</dialog>
 	);
 }

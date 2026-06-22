@@ -8,8 +8,8 @@ export const AI_FRAUD: Record<string, CaseAi> = {
 			sourceDoc: {
 				type: "document",
 				label: "FTC Identity Theft Report (affidavit.pdf)",
-				url: "https://www.identitytheft.gov/",
 				preview: "Sworn FTC affidavit + Seattle PD report attached at intake.",
+				asset: { kind: "ftc_id_theft_report", title: "FTC-2026-558201" },
 			},
 			fields: [
 				{ label: "Report type", value: "FTC Identity Theft Report" },
@@ -92,6 +92,7 @@ export const AI_FRAUD: Record<string, CaseAi> = {
 				label: "ACDV narrative (e-OSCAR)",
 				preview:
 					"Indirect dispute via ACDV; no Identity Theft Report attached.",
+				asset: { kind: "acdv", title: "ACDV 240617-90551" },
 			},
 			fields: [
 				{ label: "Report type", value: "None on file" },

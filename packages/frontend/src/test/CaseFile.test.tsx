@@ -29,12 +29,10 @@ describe("CaseFile", () => {
 		expect(
 			screen.getByRole("dialog", { name: "Validation letter preview" }),
 		).toBeInTheDocument();
-		expect(
-			screen.getByText(/communication from a debt collector/i),
-		).toBeInTheDocument();
-		// Rendered as a scanned printed cover letter with a DRAFT stamp.
+		expect(screen.getByText(/debt collector/i)).toBeInTheDocument();
+		// Rendered as a clean scanned cover letter marked DRAFT.
 		expect(screen.getByTestId("scanned-document")).toBeInTheDocument();
-		expect(screen.getByText("DRAFT")).toBeInTheDocument();
+		expect(screen.getByText("Draft")).toBeInTheDocument();
 	});
 
 	it("renders the Fraud stepper with the triangulation matrix", async () => {

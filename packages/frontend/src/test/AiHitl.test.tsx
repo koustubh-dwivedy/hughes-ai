@@ -93,6 +93,30 @@ describe("AI human-in-the-loop layer", () => {
 		expect(notes.value).toMatch(/police report cross-checked/);
 	});
 
+	it("opens the FTC report as a scanned document, not an external link (CBD-4822)", async () => {
+		renderCase("CBD-4822");
+		await userEvent.click(screen.getByRole("button", { name: /Intake/ }));
+		// The FTC source doc is now an in-app asset (a button), not a link.
+		const chip = screen.getByRole("button", {
+			name: /FTC Identity Theft Report/,
+		});
+		await userEvent.click(chip);
+		expect(screen.getByTestId("scanned-document")).toBeInTheDocument();
+		expect(screen.getByText(/Federal Trade Commission/)).toBeInTheDocument();
+	});
+
+	it("opens the ACDV narrative as a scanned document (CBD-4835)", async () => {
+		renderCase("CBD-4835");
+		await userEvent.click(screen.getByRole("button", { name: /Intake/ }));
+		await userEvent.click(
+			screen.getByRole("button", { name: /ACDV narrative/ }),
+		);
+		expect(screen.getByTestId("scanned-document")).toBeInTheDocument();
+		expect(
+			screen.getByText(/Automated Consumer Dispute Verification/),
+		).toBeInTheDocument();
+	});
+
 	it("shows the AI-extracted intake panel on the fraud Intake stage", async () => {
 		renderCase("CBD-4822");
 		await userEvent.click(screen.getByRole("button", { name: /Intake/ }));

@@ -93,9 +93,9 @@ describe("MemberJourney", () => {
 		expect(
 			within(dialog).getByText(/Consumer Financial Protection Bureau/),
 		).toBeInTheDocument();
-		// Rendered as a scanned printed page with a RECEIVED stamp.
+		// Rendered as a clean scanned page with a received annotation.
 		expect(within(dialog).getByTestId("scanned-document")).toBeInTheDocument();
-		expect(within(dialog).getByText(/RECEIVED/)).toBeInTheDocument();
+		expect(within(dialog).getByText(/Received/)).toBeInTheDocument();
 		await userEvent.click(
 			within(dialog).getByRole("button", { name: "Close" }),
 		);

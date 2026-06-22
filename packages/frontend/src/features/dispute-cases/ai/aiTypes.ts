@@ -19,7 +19,8 @@ export type AssetKind =
 	| "cfpb_complaint"
 	| "call_transcript"
 	| "dispute_letter"
-	| "ftc_id_theft_report";
+	| "ftc_id_theft_report"
+	| "acdv";
 
 export interface EvidenceReference {
 	type: EvidenceRefType;
