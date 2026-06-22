@@ -32,6 +32,9 @@ describe("CaseFile", () => {
 		expect(
 			screen.getByText(/communication from a debt collector/i),
 		).toBeInTheDocument();
+		// Rendered as a scanned printed cover letter with a DRAFT stamp.
+		expect(screen.getByTestId("scanned-document")).toBeInTheDocument();
+		expect(screen.getByText("DRAFT")).toBeInTheDocument();
 	});
 
 	it("renders the Fraud stepper with the triangulation matrix", async () => {

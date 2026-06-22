@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import ScannedDocument, { type ScannedDoc } from "./ScannedDocument";
 import type { AssetContent } from "./assetContent";
 
 interface Props {
@@ -7,31 +8,79 @@ interface Props {
 	onClose: () => void;
 }
 
-function Transcript({
-	lines,
-}: { lines: NonNullable<AssetContent["transcript"]> }) {
+function toScannedDoc(content: AssetContent): ScannedDoc {
+	return {
+		letterhead: content.letterhead,
+		subhead: content.subhead,
+		meta: content.meta,
+		paragraphs: content.paragraphs,
+		signature: content.signature,
+		stamps: content.stamps,
+	};
+}
+
+function TranscriptCard({ content }: { content: AssetContent }) {
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: spacing[2] }}>
-			{lines.map((l, i) => (
-				<div key={`${i}-${l.speaker}`} style={{ fontSize: typography.size.sm }}>
-					<span
-						style={{
-							fontWeight: typography.weight.semibold,
-							color: colors.slate[700],
-						}}
+		<div
+			style={{
+				backgroundColor: colors.white,
+				borderRadius: radii.xl,
+				width: "min(560px, 92vw)",
+				maxHeight: "85vh",
+				overflowY: "auto",
+				padding: spacing[8],
+				boxShadow: "0 20px 60px rgba(15,23,42,0.35)",
+			}}
+		>
+			<p
+				style={{
+					fontSize: typography.size.xs,
+					textTransform: "uppercase",
+					letterSpacing: "0.06em",
+					color: colors.slate[500],
+					margin: 0,
+				}}
+			>
+				{content.letterhead}
+			</p>
+			<h2
+				style={{
+					fontSize: typography.size.lg,
+					fontWeight: typography.weight.semibold,
+					color: colors.slate[900],
+					margin: `${spacing[2]} 0 ${spacing[4]}`,
+				}}
+			>
+				{content.title}
+			</h2>
+			<div
+				style={{ display: "flex", flexDirection: "column", gap: spacing[2] }}
+			>
+				{(content.transcript ?? []).map((l, i) => (
+					<div
+						key={`${i}-${l.speaker}`}
+						style={{ fontSize: typography.size.sm }}
 					>
-						{l.speaker}:
-					</span>{" "}
-					<span style={{ color: colors.slate[800] }}>{l.text}</span>
-				</div>
-			))}
+						<span
+							style={{
+								fontWeight: typography.weight.semibold,
+								color: colors.slate[700],
+							}}
+						>
+							{l.speaker}:
+						</span>{" "}
+						<span style={{ color: colors.slate[800] }}>{l.text}</span>
+					</div>
+				))}
+			</div>
 		</div>
 	);
 }
 
 /**
- * Opens a mocked file asset in a centered "document" frame over a blurred,
- * dimmed backdrop. Demo only — content is illustrative.
+ * Opens a mocked file asset over a blurred, dimmed backdrop. Printed documents
+ * render as a heavy/aged scanned page; call recordings render as a transcript.
+ * Demo only — content is illustrative.
  */
 export default function AssetViewerModal({ content, onClose }: Props) {
 	return (
@@ -49,7 +98,7 @@ export default function AssetViewerModal({ content, onClose }: Props) {
 				alignItems: "center",
 				justifyContent: "center",
 				border: "none",
-				background: "rgba(15,23,42,0.45)",
+				background: "rgba(15,23,42,0.5)",
 				backdropFilter: "blur(4px)",
 				WebkitBackdropFilter: "blur(4px)",
 				width: "100%",
@@ -58,128 +107,34 @@ export default function AssetViewerModal({ content, onClose }: Props) {
 				maxHeight: "none",
 			}}
 		>
-			<div
+			<button
+				type="button"
+				aria-label="Close"
+				onClick={onClose}
 				style={{
+					position: "fixed",
+					top: spacing[4],
+					right: spacing[4],
+					display: "inline-flex",
+					alignItems: "center",
+					justifyContent: "center",
+					width: 36,
+					height: 36,
+					borderRadius: "9999px",
+					border: "none",
 					backgroundColor: colors.white,
-					borderRadius: radii.xl,
-					width: "min(620px, 92vw)",
-					maxHeight: "86vh",
-					overflowY: "auto",
-					position: "relative",
-					boxShadow: "0 20px 60px rgba(15,23,42,0.35)",
+					color: colors.slate[700],
+					cursor: "pointer",
+					boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
 				}}
 			>
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "space-between",
-						padding: `${spacing[3]} ${spacing[5]}`,
-						borderBottom: `1px solid ${colors.slate[200]}`,
-						backgroundColor: colors.slate[50],
-						borderTopLeftRadius: radii.xl,
-						borderTopRightRadius: radii.xl,
-					}}
-				>
-					<span
-						style={{
-							fontSize: typography.size.xs,
-							textTransform: "uppercase",
-							letterSpacing: "0.06em",
-							color: colors.slate[500],
-						}}
-					>
-						{content.letterhead}
-					</span>
-					<button
-						type="button"
-						aria-label="Close"
-						onClick={onClose}
-						style={{
-							background: "none",
-							border: "none",
-							cursor: "pointer",
-							color: colors.slate[500],
-						}}
-					>
-						<X size={18} />
-					</button>
-				</div>
-				<div
-					style={{
-						padding: spacing[8],
-						display: "flex",
-						flexDirection: "column",
-						gap: spacing[4],
-					}}
-				>
-					<h2
-						style={{
-							margin: 0,
-							fontSize: typography.size.lg,
-							fontWeight: typography.weight.semibold,
-							color: colors.slate[900],
-						}}
-					>
-						{content.title}
-					</h2>
-					<div
-						style={{
-							display: "grid",
-							gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-							gap: spacing[3],
-						}}
-					>
-						{content.meta.map((m) => (
-							<div key={m.label}>
-								<div
-									style={{
-										fontSize: typography.size.xs,
-										color: colors.slate[500],
-									}}
-								>
-									{m.label}
-								</div>
-								<div
-									style={{
-										fontSize: typography.size.sm,
-										color: colors.slate[900],
-									}}
-								>
-									{m.value}
-								</div>
-							</div>
-						))}
-					</div>
-					{content.transcript ? (
-						<Transcript lines={content.transcript} />
-					) : (
-						content.paragraphs.map((p, i) => (
-							<p
-								key={`${i}-${p.slice(0, 12)}`}
-								style={{
-									margin: 0,
-									fontSize: typography.size.sm,
-									lineHeight: 1.6,
-									color: colors.slate[700],
-								}}
-							>
-								{p}
-							</p>
-						))
-					)}
-					<p
-						style={{
-							margin: 0,
-							marginTop: spacing[2],
-							fontSize: typography.size.xs,
-							color: colors.slate[400],
-						}}
-					>
-						Illustrative mock document — not a real file.
-					</p>
-				</div>
-			</div>
+				<X size={18} />
+			</button>
+			{content.format === "transcript" ? (
+				<TranscriptCard content={content} />
+			) : (
+				<ScannedDocument doc={toScannedDoc(content)} />
+			)}
 		</dialog>
 	);
 }
