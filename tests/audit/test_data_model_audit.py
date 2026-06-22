@@ -194,8 +194,7 @@ def _ratio(db: psycopg.Connection, num_sql: str, den_sql: str) -> float:
 def test_loan_to_share_ratio_in_band(db: psycopg.Connection) -> None:
     ratio = _ratio(
         db,
-        "SELECT COALESCE(SUM(balance), 0) FROM booked_loans"
-        " WHERE status != 'paid_off'",
+        "SELECT COALESCE(SUM(balance), 0) FROM booked_loans WHERE status != 'paid_off'",
         "SELECT COALESCE(SUM(current_balance), 0) FROM deposit_accounts"
         " WHERE closed_at IS NULL",
     )
@@ -211,8 +210,7 @@ def test_auto_share_of_loans_in_band(db: psycopg.Connection) -> None:
         " INNER JOIN booked_loans ON booked_loans.loan_id::TEXT = dim_loan.loan_id"
         " WHERE dim_loan.product_type IN ('auto_direct', 'auto_indirect')"
         " AND booked_loans.status != 'paid_off'",
-        "SELECT COALESCE(SUM(balance), 0) FROM booked_loans"
-        " WHERE status != 'paid_off'",
+        "SELECT COALESCE(SUM(balance), 0) FROM booked_loans WHERE status != 'paid_off'",
     )
     assert 0.10 <= auto_share <= 0.70, (
         f"auto loan share {auto_share:.3f} outside band [0.10, 0.70]"
@@ -285,24 +283,29 @@ def test_cecl_rollforward_closes_per_row(db: psycopg.Connection) -> None:
         " WHERE ABS(ending_balance - (beginning_balance - net_charge_offs"
         " + provision_expense)) > 0.01",
     )
-    assert bad == 0, (
-        f"{bad} CECL roll-forward rows do not close arithmetically"
-    )
+    assert bad == 0, f"{bad} CECL roll-forward rows do not close arithmetically"
 
 
 def test_ncua_total_loans_reconciles_to_dim_loan(
     db: psycopg.Connection,
 ) -> None:
-    """For the latest quarter, line 386 must equal the sum of
-    fct_loan_performance.balance at the same snapshot the mart uses.
+    """For the latest quarter that reports loans, line 386 must equal the
+    sum of fct_loan_performance.balance at the same snapshot the mart uses.
 
     The mart (fct_call_report.sql) sums fct_loan_performance.balance from
     the snapshot dated `the first day of the last month of that quarter`
     (e.g., Mar 1 for Q1 end Mar 31). We reconstruct the same snapshot
     here and reconcile within $1.
+
+    We scope the latest quarter to those that actually carry line 386:
+    dim_calendar can extend past the synthetic-data anchor, so non-loan
+    lines (deposits/CECL) may surface a later bare quarter that has no
+    loan snapshot. Reconciling that quarter would be meaningless.
     """
     latest_quarter = _scalar(
-        db, "SELECT MAX(period_end_quarter) FROM fct_call_report"
+        db,
+        "SELECT MAX(period_end_quarter) FROM fct_call_report"
+        " WHERE ncua_5300_line_code = '386'",
     )
     line_386 = _scalar(
         db,
