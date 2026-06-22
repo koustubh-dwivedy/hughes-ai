@@ -18,6 +18,7 @@ import {
 	signoffComplete,
 	useCaseProgress,
 } from "../data/caseProgressStore";
+import { getInitialSignoffs } from "../data/caseSignoffs";
 import { formatDate } from "../format";
 import { VOD_STAGES, type VodCase } from "../types";
 import RegFLetterPreview from "./RegFLetterPreview";
@@ -214,7 +215,12 @@ function requiresSignoff(c: VodCase, stage: number): boolean {
 
 export default function VodStepper({ c }: { c: VodCase }) {
 	const lastIndex = VOD_STAGES.length - 1;
-	const progress = useCaseProgress(c.id, c.currentStage, c.status);
+	const progress = useCaseProgress(
+		c.id,
+		c.currentStage,
+		c.status,
+		getInitialSignoffs(c.id),
+	);
 	const [selected, setSelected] = useState(progress.stage);
 	const onSignoff = (i: number, s: Signoff) => setSignoff(c.id, i, s);
 

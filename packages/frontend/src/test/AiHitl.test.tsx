@@ -23,7 +23,7 @@ describe("AI human-in-the-loop layer", () => {
 	it("shows the verdict + stance-summary evidence on the fraud Triangulate stage", async () => {
 		renderCase("CBD-4822");
 		await userEvent.click(
-			screen.getByRole("button", { name: /Triangulate ID/ }),
+			screen.getByRole("button", { name: /Triangulate & decide/ }),
 		);
 		expect(screen.getByText("✨ Agentic AI")).toBeInTheDocument();
 		expect(screen.getByText("AI recommendation")).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe("AI human-in-the-loop layer", () => {
 	it("expands a signal to reveal the agent's resolution + raw datapoints", async () => {
 		renderCase("CBD-4822");
 		await userEvent.click(
-			screen.getByRole("button", { name: /Triangulate ID/ }),
+			screen.getByRole("button", { name: /Triangulate & decide/ }),
 		);
 		await userEvent.click(screen.getByRole("button", { name: /Prove/ }));
 		expect(screen.getByText("How AI resolved this")).toBeInTheDocument();
@@ -57,7 +57,7 @@ describe("AI human-in-the-loop layer", () => {
 	it("offers an info-hover explaining what a validation checks", async () => {
 		renderCase("CBD-4822");
 		await userEvent.click(
-			screen.getByRole("button", { name: /Triangulate ID/ }),
+			screen.getByRole("button", { name: /Triangulate & decide/ }),
 		);
 		expect(
 			screen.getByLabelText(/flags recent SIM-swap or porting/),
@@ -67,7 +67,7 @@ describe("AI human-in-the-loop layer", () => {
 	it("expands the agent's reasoning trace (synthesis)", async () => {
 		renderCase("CBD-4822");
 		await userEvent.click(
-			screen.getByRole("button", { name: /Triangulate ID/ }),
+			screen.getByRole("button", { name: /Triangulate & decide/ }),
 		);
 		await userEvent.click(
 			screen.getByRole("button", { name: /How AI reasoned/ }),
@@ -75,11 +75,22 @@ describe("AI human-in-the-loop layer", () => {
 		expect(screen.getByText(/Synthesize/)).toBeInTheDocument();
 	});
 
-	it("presents the human sign-off gate on the fraud Decide stage", async () => {
-		renderCase("CBD-4822"); // lands on Decide (active stage)
+	it("shows evidence and the sign-off gate together on the merged Triangulate & decide step", async () => {
+		renderCase("CBD-4822"); // lands on the merged stage (active)
+		// Evidence (from InvestigationReview) and the gate are on the same step.
+		expect(screen.getByText("Supports fraud 5")).toBeInTheDocument();
 		expect(screen.getByText(/Human sign-off required/)).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
 		expect(screen.getByLabelText("Sign-off notes")).toBeInTheDocument();
+	});
+
+	it("shows a recorded human sign-off on a gate the case already cleared", async () => {
+		renderCase("CBD-4822"); // intake gate already cleared (case is past it)
+		await userEvent.click(screen.getByRole("button", { name: /Intake/ }));
+		const notes = screen.getByLabelText(
+			"Sign-off notes",
+		) as HTMLTextAreaElement;
+		expect(notes.value).toMatch(/police report cross-checked/);
 	});
 
 	it("shows the AI-extracted intake panel on the fraud Intake stage", async () => {

@@ -64,8 +64,8 @@ async function advanceToResolve() {
 }
 
 describe("case step-through to completion", () => {
-	it("blocks advancing past Decide until an option AND notes are provided", async () => {
-		renderCase("CBD-4822"); // lands on the Decide sign-off gate
+	it("blocks advancing past the merged investigate step until an option AND notes are provided", async () => {
+		renderCase("CBD-4822"); // lands on the Triangulate & decide sign-off gate
 		const cont = () =>
 			screen.getByRole("button", { name: /Complete step & continue/ });
 		expect(cont()).toBeDisabled();

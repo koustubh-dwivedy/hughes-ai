@@ -132,8 +132,7 @@ export const VOD_PROVENANCE: AiProvenance[] = [
 
 export const FRAUD_PROVENANCE: AiProvenance[] = [
 	"ai_assisted", // Intake — extract Identity-Theft-Report fields
-	"agentic", // Triangulate ID — orchestrate evidence + reason
-	"deterministic", // Decide — rule scaffold + human
+	"agentic", // Triangulate & decide — orchestrate evidence + human sign-off
 	"deterministic", // Suppress & block (§605B)
 	"deterministic", // Close
 ];

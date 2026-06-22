@@ -7,6 +7,7 @@ import Tag from "../../ui/primitives/Tag";
 import BackToQueue from "./BackToQueue";
 import { Field, FieldGrid, SectionCard } from "./caseUi";
 import { useCaseProgress } from "./data/caseProgressStore";
+import { getInitialSignoffs } from "./data/caseSignoffs";
 import { formatCurrency, formatDate, slaLabel, slaVariant } from "./format";
 import FraudStepper from "./fraud/FraudStepper";
 import { getCaseById } from "./mockData";
@@ -106,8 +107,17 @@ function SummaryPanels({ c }: { c: DisputeCase }) {
 	);
 }
 
+function caseOutcome(c: DisputeCase): string | null {
+	return c.type === "VOD" ? c.vod.outcome : c.fraud.outcome;
+}
+
 function CaseFileContent({ c }: { c: DisputeCase }) {
-	const progress = useCaseProgress(c.id, c.currentStage, c.status);
+	const progress = useCaseProgress(
+		c.id,
+		c.currentStage,
+		c.status,
+		getInitialSignoffs(c.id),
+	);
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: spacing[6] }}>
 			<div style={{ display: "flex", flexDirection: "column" }}>
@@ -118,7 +128,9 @@ function CaseFileContent({ c }: { c: DisputeCase }) {
 				/>
 			</div>
 			{progress.resolved && (
-				<Banner message={`Case resolved — ${progress.outcome ?? "closed"}`} />
+				<Banner
+					message={`Case resolved — ${progress.outcome ?? caseOutcome(c) ?? "closed"}`}
+				/>
 			)}
 			<CaseHeaderMeta c={c} />
 			<SummaryPanels c={c} />

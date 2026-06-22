@@ -45,14 +45,19 @@ export function getOverride(id: string): CaseProgress | undefined {
 }
 
 /** Seed a case's progress from its mock values (no emit — render-safe). */
-function seed(id: string, stage: number, status: string): CaseProgress {
+function seed(
+	id: string,
+	stage: number,
+	status: string,
+	initialSignoffs: Record<number, Signoff> = {},
+): CaseProgress {
 	const existing = store.get(id);
 	if (existing) return existing;
 	const fresh: CaseProgress = {
 		stage,
 		status,
-		signoffs: {},
-		resolved: false,
+		signoffs: { ...initialSignoffs },
+		resolved: status === "Resolved",
 	};
 	store.set(id, fresh);
 	return fresh;
@@ -95,10 +100,11 @@ export function useCaseProgress(
 	id: string,
 	initialStage: number,
 	initialStatus: string,
+	initialSignoffs: Record<number, Signoff> = {},
 ): CaseProgress {
-	seed(id, initialStage, initialStatus);
+	seed(id, initialStage, initialStatus, initialSignoffs);
 	return useSyncExternalStore(subscribe, () =>
-		seed(id, initialStage, initialStatus),
+		seed(id, initialStage, initialStatus, initialSignoffs),
 	);
 }
 

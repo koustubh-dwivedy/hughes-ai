@@ -200,8 +200,7 @@ export const VOD_STAGES = [
 
 export const FRAUD_STAGES = [
 	"Intake",
-	"Triangulate ID",
-	"Decide",
+	"Triangulate & decide",
 	"Suppress & block (§605B)",
 	"Close",
 ] as const;

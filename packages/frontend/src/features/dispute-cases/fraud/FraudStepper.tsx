@@ -17,12 +17,13 @@ import {
 	signoffComplete,
 	useCaseProgress,
 } from "../data/caseProgressStore";
+import { getInitialSignoffs } from "../data/caseSignoffs";
 import { formatDate } from "../format";
 import { FRAUD_STAGES, type FraudCase } from "../types";
 import InvestigationReview from "./InvestigationReview";
 
 const INTAKE_INDEX = 0;
-const DECIDE_INDEX = 2;
+const DECIDE_INDEX = 1; // merged "Triangulate & decide" stage
 const EMPTY: Signoff = { option: "", comments: "" };
 
 const INTAKE_OPTIONS = [
@@ -77,29 +78,24 @@ function IntakeStage({ c, signoffs, onSignoff }: StageProps) {
 	);
 }
 
-function TriangulateStage({ c }: StageProps) {
+function InvestigateStage({ c, signoffs, onSignoff }: StageProps) {
 	const ai = getCaseAi(c.id);
 	if (!ai?.investigation) return null;
 	return (
-		<InvestigationReview
-			investigation={ai.investigation}
-			rows={c.fraud.triangulation}
-			memberName={c.member.name}
-		/>
-	);
-}
-
-function DecideStage({ c, signoffs, onSignoff }: StageProps) {
-	const ai = getCaseAi(c.id);
-	if (!ai?.investigation) return null;
-	return (
-		<ApprovalGate
-			title="Record your disposition"
-			recommendationLabel={ai.investigation.recommendationLabel}
-			options={DECIDE_OPTIONS}
-			value={signoffs[DECIDE_INDEX] ?? EMPTY}
-			onChange={(v) => onSignoff(DECIDE_INDEX, v)}
-		/>
+		<div style={{ display: "flex", flexDirection: "column", gap: spacing[5] }}>
+			<InvestigationReview
+				investigation={ai.investigation}
+				rows={c.fraud.triangulation}
+				memberName={c.member.name}
+			/>
+			<ApprovalGate
+				title="Record your disposition"
+				recommendationLabel={ai.investigation.recommendationLabel}
+				options={DECIDE_OPTIONS}
+				value={signoffs[DECIDE_INDEX] ?? EMPTY}
+				onChange={(v) => onSignoff(DECIDE_INDEX, v)}
+			/>
+		</div>
 	);
 }
 
@@ -171,8 +167,7 @@ function CloseStage({ c }: StageProps) {
 
 const STAGE_COMPONENTS = [
 	IntakeStage,
-	TriangulateStage,
-	DecideStage,
+	InvestigateStage,
 	SuppressBlockStage,
 	CloseStage,
 ];
@@ -187,7 +182,12 @@ function requiresSignoff(c: FraudCase, stage: number): boolean {
 
 export default function FraudStepper({ c }: { c: FraudCase }) {
 	const lastIndex = FRAUD_STAGES.length - 1;
-	const progress = useCaseProgress(c.id, c.currentStage, c.status);
+	const progress = useCaseProgress(
+		c.id,
+		c.currentStage,
+		c.status,
+		getInitialSignoffs(c.id),
+	);
 	const [selected, setSelected] = useState(progress.stage);
 	const onSignoff = (i: number, s: Signoff) => setSignoff(c.id, i, s);
 

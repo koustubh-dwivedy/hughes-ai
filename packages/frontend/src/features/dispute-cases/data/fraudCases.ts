@@ -14,9 +14,9 @@ export const FRAUD_CASES: FraudCase[] = [
 		channel: "Direct",
 		receivedDate: "2026-06-12",
 		slaDueDate: "2026-06-18",
-		status: "Decide",
+		status: "Triangulate & decide",
 		assignee: "P. Okafor",
-		currentStage: 2,
+		currentStage: 1,
 		member: {
 			name: "Aisha Bello",
 			memberNumber: "100558",
@@ -68,7 +68,7 @@ export const FRAUD_CASES: FraudCase[] = [
 		channel: "ACDV",
 		receivedDate: "2026-06-17",
 		slaDueDate: "2026-06-23",
-		status: "Triangulate ID",
+		status: "Triangulate & decide",
 		assignee: "P. Okafor",
 		currentStage: 1,
 		member: {
@@ -124,7 +124,7 @@ export const FRAUD_CASES: FraudCase[] = [
 		slaDueDate: "2026-06-11",
 		status: "Resolved",
 		assignee: "P. Okafor",
-		currentStage: 4,
+		currentStage: 3,
 		member: {
 			name: "Grace Kim",
 			memberNumber: "100410",

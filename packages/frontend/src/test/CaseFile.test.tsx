@@ -36,9 +36,9 @@ describe("CaseFile", () => {
 
 	it("renders the Fraud stepper with the triangulation matrix", async () => {
 		renderCase("CBD-4822");
-		// Open the Triangulate ID stage, then assert real vendor names appear.
+		// Open the merged Triangulate & decide stage; assert real vendor names.
 		await userEvent.click(
-			screen.getByRole("button", { name: /Triangulate ID/ }),
+			screen.getByRole("button", { name: /Triangulate & decide/ }),
 		);
 		expect(screen.getByText("LexisNexis InstantID")).toBeInTheDocument();
 		expect(screen.getByText("Prove")).toBeInTheDocument();
