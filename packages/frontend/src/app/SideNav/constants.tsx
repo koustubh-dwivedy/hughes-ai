@@ -3,12 +3,14 @@ import {
 	BarChart2,
 	Database,
 	GitBranch,
+	Inbox,
 	Landmark,
+	LayoutGrid,
 	Sparkles,
 	Users,
 } from "lucide-react";
 import { colors, spacing, typography } from "../../theme/tokens";
-import type { NavEntry } from "./types";
+import type { NavEntry, NavSection, Product } from "./types";
 
 export const INTELLIGENCE: NavEntry[] = [
 	{
@@ -53,6 +55,45 @@ export const DATA: NavEntry[] = [
 		icon: <GitBranch size={16} />,
 	},
 ];
+
+export const DISPUTES: NavEntry[] = [
+	{
+		label: "Case Queue",
+		href: "/disputes",
+		icon: <Inbox size={16} />,
+	},
+];
+
+/**
+ * The sidebar is scoped to one product at a time (HUG CBD mockup). Each
+ * product exposes its own labeled sections; `productForPath` picks the active
+ * product from the current pathname so `NavBody` renders only that product's nav.
+ */
+export const LENDING_SECTIONS: NavSection[] = [
+	{ label: "Intelligence", entries: INTELLIGENCE },
+	{ label: "Dashboards", entries: DASHBOARDS },
+	{ label: "Data", entries: DATA },
+];
+
+export const DISPUTE_SECTIONS: NavSection[] = [
+	{ label: "Dispute Center", entries: DISPUTES },
+];
+
+export const PRODUCT_SECTIONS: Record<Product, NavSection[]> = {
+	lending: LENDING_SECTIONS,
+	disputes: DISPUTE_SECTIONS,
+};
+
+/** The launchpad route — the in-app "home" reached via "Switch product". */
+export const SWITCH_PRODUCT: NavEntry = {
+	label: "Switch product",
+	href: "/",
+	icon: <LayoutGrid size={16} />,
+};
+
+export function productForPath(pathname: string): Product {
+	return pathname.startsWith("/disputes") ? "disputes" : "lending";
+}
 
 export const SECTION_LABEL: React.CSSProperties = {
 	padding: `${spacing[2]} ${spacing[3]} ${spacing[1]}`,

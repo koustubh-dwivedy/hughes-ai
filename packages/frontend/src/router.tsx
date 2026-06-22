@@ -5,10 +5,14 @@ import {
 	createBrowserRouter,
 } from "react-router-dom";
 import AppLayout from "./app/AppLayout";
+import CaseFilePage from "./pages/CaseFilePage";
 import DataSourcesPage from "./pages/DataSourcesPage";
 import DepositsPage from "./pages/DepositsPage";
+import DisputeQueuePage from "./pages/DisputeQueuePage";
 import ExecutiveSummaryPage from "./pages/ExecutiveSummaryPage";
 import IntelligencePage from "./pages/IntelligencePage";
+import LaunchpadPage from "./pages/LaunchpadPage";
+import MemberJourneyPage from "./pages/MemberJourneyPage";
 import OfficersPage from "./pages/OfficersPage";
 import PastDuePage from "./pages/PastDuePage";
 import { DashboardContextProvider } from "./shared/context/DashboardContext";
@@ -17,6 +21,9 @@ import { DashboardContextProvider } from "./shared/context/DashboardContext";
 const DataModelsPage = lazy(() => import("./pages/DataModelsPage"));
 
 const router = createBrowserRouter([
+	// Platform launchpad — the default landing, rendered without the app chrome
+	// (no SideNav/AppHeader) so it reads as a product chooser, not a dashboard.
+	{ path: "/", element: <LaunchpadPage /> },
 	{
 		element: (
 			<DashboardContextProvider>
@@ -24,10 +31,6 @@ const router = createBrowserRouter([
 			</DashboardContextProvider>
 		),
 		children: [
-			{
-				path: "/",
-				element: <Navigate to="/dashboards/executive" replace />,
-			},
 			{ path: "/dashboards/executive", element: <ExecutiveSummaryPage /> },
 			{ path: "/dashboards/deposits", element: <DepositsPage /> },
 			{ path: "/dashboards/past-due", element: <PastDuePage /> },
@@ -44,6 +47,12 @@ const router = createBrowserRouter([
 					</Suspense>
 				),
 			},
+			{ path: "/disputes", element: <DisputeQueuePage /> },
+			{
+				path: "/disputes/member/:memberNumber",
+				element: <MemberJourneyPage />,
+			},
+			{ path: "/disputes/:caseId", element: <CaseFilePage /> },
 		],
 	},
 ]);

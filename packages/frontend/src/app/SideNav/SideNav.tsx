@@ -2,46 +2,8 @@ import { ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { colors, spacing } from "../../theme/tokens";
 import LogoHomeLink from "./LogoHomeLink";
-import NavItem from "./NavItem";
-import { DASHBOARDS, DATA, INTELLIGENCE, SECTION_LABEL } from "./constants";
+import NavBody from "./NavBody";
 import type { CollapseState, SideNavProps } from "./types";
-
-interface NavBodyProps {
-	collapsed: boolean;
-}
-
-function NavBody({ collapsed }: NavBodyProps) {
-	return (
-		<div style={{ flex: 1, paddingTop: spacing[2], overflowY: "auto" }}>
-			{!collapsed && <p style={SECTION_LABEL}>Intelligence</p>}
-			{INTELLIGENCE.map((item) => (
-				<NavItem key={item.href} {...item} collapsed={collapsed} />
-			))}
-			<div
-				style={{
-					height: 1,
-					backgroundColor: colors.slate[700],
-					margin: `${spacing[2]} 0`,
-				}}
-			/>
-			{!collapsed && <p style={SECTION_LABEL}>Dashboards</p>}
-			{DASHBOARDS.map((item) => (
-				<NavItem key={item.href} {...item} collapsed={collapsed} />
-			))}
-			<div
-				style={{
-					height: 1,
-					backgroundColor: colors.slate[700],
-					margin: `${spacing[2]} 0`,
-				}}
-			/>
-			{!collapsed && <p style={SECTION_LABEL}>Data</p>}
-			{DATA.map((item) => (
-				<NavItem key={item.href} {...item} collapsed={collapsed} />
-			))}
-		</div>
-	);
-}
 
 type ViewportSize = "mobile" | "narrow" | "wide";
 

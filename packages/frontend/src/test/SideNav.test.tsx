@@ -13,10 +13,34 @@ function renderAt(path: string) {
 }
 
 describe("SideNav", () => {
-	it("renders 7 nav links (1 intelligence + 4 dashboards + 2 data) + Hughes logo home link", () => {
+	it("renders the lending product nav (1 intelligence + 4 dashboards + 2 data + switch) + Hughes logo home link", () => {
 		renderAt("/dashboards/executive");
-		// 7 in-app nav items + 1 Hughes-logo-as-home anchor (HUG-270) = 8 total.
-		expect(screen.getAllByRole("link")).toHaveLength(8);
+		// 7 lending nav items + "Switch product" + 1 Hughes-logo-as-home anchor = 9.
+		expect(screen.getAllByRole("link")).toHaveLength(9);
+	});
+
+	it("scopes the sidebar to the Dispute Center product at /disputes", () => {
+		renderAt("/disputes");
+		// Only the dispute nav + switch product + logo are shown; no lending nav.
+		expect(
+			screen.getByRole("link", { name: "Case Queue" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("link", { name: "Switch product" }),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("link", { name: "Executive Summary" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("shows the Switch product control in the lending product", () => {
+		renderAt("/dashboards/executive");
+		expect(
+			screen.getByRole("link", { name: "Switch product" }),
+		).toHaveAttribute("href", "/");
+		expect(
+			screen.queryByRole("link", { name: "Case Queue" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("marks Data Models active at /data/models", () => {
