@@ -3,43 +3,51 @@ import { colors, spacing, typography } from "../../../theme/tokens";
 import Tag from "../../../ui/primitives/Tag";
 import StageFooter from "../StageFooter";
 import Stepper from "../Stepper";
+import ApprovalGate from "../ai/ApprovalGate";
 import IntakeExtractionPanel from "../ai/IntakeExtractionPanel";
 import ProvenanceBadge from "../ai/ProvenanceBadge";
-import { FRAUD_PROVENANCE, type HumanAction } from "../ai/aiTypes";
+import { FRAUD_PROVENANCE } from "../ai/aiTypes";
 import { Field, FieldGrid, Flag, SectionCard } from "../caseUi";
 import { getCaseAi } from "../data/aiInvestigations";
 import {
+	type Signoff,
 	resolveCase,
-	setDecision as setDecisionStore,
+	setSignoff,
 	setStage,
+	signoffComplete,
 	useCaseProgress,
 } from "../data/caseProgressStore";
 import { formatDate } from "../format";
 import { FRAUD_STAGES, type FraudCase } from "../types";
 import InvestigationReview from "./InvestigationReview";
 
-const DECIDE_INDEX = 2; // gating point: a disposition is required to continue
+const INTAKE_INDEX = 0;
+const DECIDE_INDEX = 2;
+const EMPTY: Signoff = { option: "", comments: "" };
 
-function fraudOutcome(decision: HumanAction | null): string {
-	return decision === "overridden"
-		? "Denied — first-party (kept furnishing)"
-		: "Blocked & suppressed (§605B)";
+const INTAKE_OPTIONS = [
+	{ value: "confirm", label: "Confirm AI findings" },
+	{ value: "flag", label: "Flag for review" },
+];
+const DECIDE_OPTIONS = [
+	{ value: "approve", label: "Approve" },
+	{ value: "override", label: "Override" },
+	{ value: "more_info", label: "Request more info" },
+];
+
+function fraudOutcome(option: string | undefined): string {
+	if (option === "override") return "Denied — first-party (kept furnishing)";
+	if (option === "more_info") return "Pending — more information requested";
+	return "Blocked & suppressed (§605B)";
 }
 
 interface StageProps {
 	c: FraudCase;
-	decision: HumanAction | null;
-	onDecision: (action: HumanAction | null) => void;
+	signoffs: Record<number, Signoff>;
+	onSignoff: (index: number, s: Signoff) => void;
 }
 
-const DECISION_SUMMARY: Record<HumanAction, string> = {
-	approved: "Approved AI recommendation",
-	overridden: "Overrode AI recommendation",
-	more_info: "Requested more information",
-};
-
-function IntakeStage({ c }: StageProps) {
-	const f = c.fraud;
+function IntakeStage({ c, signoffs, onSignoff }: StageProps) {
 	const ai = getCaseAi(c.id);
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: spacing[5] }}>
@@ -47,29 +55,29 @@ function IntakeStage({ c }: StageProps) {
 			<FieldGrid>
 				<Field label="Channel" value={c.channel} />
 				<Field label="Received" value={formatDate(c.receivedDate)} />
-				<Field label="Fraud sub-type" value={f.subType} />
+				<Field label="Fraud sub-type" value={c.fraud.subType} />
 				<Field
 					label="Identity Theft Report"
 					value={
-						f.identityTheftReport.onFile
-							? (f.identityTheftReport.type ?? "On file")
+						c.fraud.identityTheftReport.onFile
+							? (c.fraud.identityTheftReport.type ?? "On file")
 							: "Not on file"
 					}
 				/>
-				<Field
-					label="Report reference"
-					value={f.identityTheftReport.referenceNumber ?? "—"}
-				/>
-				<Field
-					label="Jurisdiction"
-					value={f.identityTheftReport.jurisdiction ?? "—"}
-				/>
 			</FieldGrid>
+			{ai?.intake && (
+				<ApprovalGate
+					title="Sign off on the AI intake findings"
+					options={INTAKE_OPTIONS}
+					value={signoffs[INTAKE_INDEX] ?? EMPTY}
+					onChange={(v) => onSignoff(INTAKE_INDEX, v)}
+				/>
+			)}
 		</div>
 	);
 }
 
-function TriangulateStage({ c, decision, onDecision }: StageProps) {
+function TriangulateStage({ c }: StageProps) {
 	const ai = getCaseAi(c.id);
 	if (!ai?.investigation) return null;
 	return (
@@ -77,33 +85,21 @@ function TriangulateStage({ c, decision, onDecision }: StageProps) {
 			investigation={ai.investigation}
 			rows={c.fraud.triangulation}
 			memberName={c.member.name}
-			decision={decision}
-			onDecision={onDecision}
 		/>
 	);
 }
 
-function DecideStage({ decision }: StageProps) {
+function DecideStage({ c, signoffs, onSignoff }: StageProps) {
+	const ai = getCaseAi(c.id);
+	if (!ai?.investigation) return null;
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: spacing[4] }}>
-			<Field
-				label="Recorded decision"
-				value={
-					decision
-						? DECISION_SUMMARY[decision]
-						: "Pending — decide on the Triangulate ID step"
-				}
-			/>
-			<p
-				style={{
-					fontSize: typography.size.sm,
-					color: colors.slate[600],
-					margin: 0,
-				}}
-			>
-				Third-party → block under §605B. First-party → deny and keep furnishing.
-			</p>
-		</div>
+		<ApprovalGate
+			title="Record your disposition"
+			recommendationLabel={ai.investigation.recommendationLabel}
+			options={DECIDE_OPTIONS}
+			value={signoffs[DECIDE_INDEX] ?? EMPTY}
+			onChange={(v) => onSignoff(DECIDE_INDEX, v)}
+		/>
 	);
 }
 
@@ -181,17 +177,24 @@ const STAGE_COMPONENTS = [
 	CloseStage,
 ];
 
+/** Which fraud stages require a human sign-off (those rendering an AI panel). */
+function requiresSignoff(c: FraudCase, stage: number): boolean {
+	const ai = getCaseAi(c.id);
+	if (stage === INTAKE_INDEX) return Boolean(ai?.intake);
+	if (stage === DECIDE_INDEX) return Boolean(ai?.investigation);
+	return false;
+}
+
 export default function FraudStepper({ c }: { c: FraudCase }) {
 	const lastIndex = FRAUD_STAGES.length - 1;
 	const progress = useCaseProgress(c.id, c.currentStage, c.status);
 	const [selected, setSelected] = useState(progress.stage);
-
-	const decision = progress.decision;
-	const onDecision = (a: HumanAction | null) => setDecisionStore(c.id, a);
+	const onSignoff = (i: number, s: Signoff) => setSignoff(c.id, i, s);
 
 	const isActive = selected === progress.stage;
-	// Light gating: a disposition is required to advance past Decide.
-	const canAdvance = !(selected === DECIDE_INDEX && decision === null);
+	const canAdvance =
+		!requiresSignoff(c, selected) ||
+		signoffComplete(progress.signoffs[selected]);
 
 	const advance = () => {
 		const next = Math.min(selected + 1, lastIndex);
@@ -212,17 +215,26 @@ export default function FraudStepper({ c }: { c: FraudCase }) {
 				title={FRAUD_STAGES[selected]}
 				accessory={<ProvenanceBadge provenance={FRAUD_PROVENANCE[selected]} />}
 			>
-				<StageComponent c={c} decision={decision} onDecision={onDecision} />
+				<StageComponent
+					c={c}
+					signoffs={progress.signoffs}
+					onSignoff={onSignoff}
+				/>
 				<StageFooter
 					stage={selected}
 					lastIndex={lastIndex}
 					isActive={isActive}
 					resolved={progress.resolved}
 					canAdvance={canAdvance}
-					blockedHint="Record a disposition to continue"
+					blockedHint="Select an option and add notes to continue"
 					onBack={() => setSelected(Math.max(selected - 1, 0))}
 					onAdvance={advance}
-					onResolve={() => resolveCase(c.id, fraudOutcome(decision))}
+					onResolve={() =>
+						resolveCase(
+							c.id,
+							fraudOutcome(progress.signoffs[DECIDE_INDEX]?.option),
+						)
+					}
 				/>
 			</SectionCard>
 		</div>

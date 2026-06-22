@@ -4,23 +4,52 @@ import Button from "../../../ui/primitives/Button";
 import Tag from "../../../ui/primitives/Tag";
 import StageFooter from "../StageFooter";
 import Stepper from "../Stepper";
+import ApprovalGate from "../ai/ApprovalGate";
 import IntakeExtractionPanel from "../ai/IntakeExtractionPanel";
 import ProvenanceBadge from "../ai/ProvenanceBadge";
 import { VOD_PROVENANCE } from "../ai/aiTypes";
 import { Field, FieldGrid, Flag, SectionCard } from "../caseUi";
 import { getCaseAi } from "../data/aiInvestigations";
 import {
+	type Signoff,
 	resolveCase,
+	setSignoff,
 	setStage,
+	signoffComplete,
 	useCaseProgress,
 } from "../data/caseProgressStore";
 import { formatDate } from "../format";
 import { VOD_STAGES, type VodCase } from "../types";
 import RegFLetterPreview from "./RegFLetterPreview";
 
-const TRIAGE_INDEX = 1; // gating point: dispute must be written + timely
+const INTAKE_INDEX = 0;
+const TRIAGE_INDEX = 1;
+const CLOSE_INDEX = 5;
+const EMPTY: Signoff = { option: "", comments: "" };
 
-function IntakeStage({ c }: { c: VodCase }) {
+const INTAKE_OPTIONS = [
+	{ value: "confirm", label: "Confirm match" },
+	{ value: "flag", label: "Flag discrepancy" },
+];
+const CLOSE_OPTIONS = [
+	{ value: "approve", label: "Approve" },
+	{ value: "override", label: "Override" },
+	{ value: "more_info", label: "Request more info" },
+];
+
+function vodOutcome(option: string | undefined): string {
+	if (option === "override") return "Unable to validate — tradeline deleted";
+	if (option === "more_info") return "Pending — more information requested";
+	return "Validated";
+}
+
+interface StageProps {
+	c: VodCase;
+	signoffs: Record<number, Signoff>;
+	onSignoff: (index: number, s: Signoff) => void;
+}
+
+function IntakeStage({ c, signoffs, onSignoff }: StageProps) {
 	const ai = getCaseAi(c.id);
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: spacing[5] }}>
@@ -30,11 +59,19 @@ function IntakeStage({ c }: { c: VodCase }) {
 				<Field label="Received" value={formatDate(c.receivedDate)} />
 				<Field label="ACDV #" value={c.acdvNumber ?? "—"} />
 			</FieldGrid>
+			{ai?.intake && (
+				<ApprovalGate
+					title="Sign off on the AI identity match"
+					options={INTAKE_OPTIONS}
+					value={signoffs[INTAKE_INDEX] ?? EMPTY}
+					onChange={(v) => onSignoff(INTAKE_INDEX, v)}
+				/>
+			)}
 		</div>
 	);
 }
 
-function VerifyStage({ c }: { c: VodCase }) {
+function VerifyStage({ c }: StageProps) {
 	const v = c.vod;
 	return (
 		<div style={{ display: "flex", gap: spacing[6], flexWrap: "wrap" }}>
@@ -45,7 +82,7 @@ function VerifyStage({ c }: { c: VodCase }) {
 	);
 }
 
-function AssembleStage({ c }: { c: VodCase }) {
+function AssembleStage({ c }: StageProps) {
 	const v = c.vod;
 	const [showLetter, setShowLetter] = useState(false);
 	return (
@@ -88,7 +125,7 @@ function AssembleStage({ c }: { c: VodCase }) {
 	);
 }
 
-function MailStage({ c }: { c: VodCase }) {
+function MailStage({ c }: StageProps) {
 	const v = c.vod;
 	return (
 		<FieldGrid>
@@ -99,7 +136,7 @@ function MailStage({ c }: { c: VodCase }) {
 	);
 }
 
-function ReportStage({ c }: { c: VodCase }) {
+function ReportStage({ c }: StageProps) {
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: spacing[4] }}>
 			<div style={{ display: "flex", gap: spacing[3], alignItems: "center" }}>
@@ -116,8 +153,7 @@ function ReportStage({ c }: { c: VodCase }) {
 	);
 }
 
-function CloseStage({ c }: { c: VodCase }) {
-	const v = c.vod;
+function CloseStage({ c, signoffs, onSignoff }: StageProps) {
 	const qa = getCaseAi(c.id)?.validationQa;
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: spacing[5] }}>
@@ -146,15 +182,16 @@ function CloseStage({ c }: { c: VodCase }) {
 							))}
 						</ul>
 					)}
-					<span
-						style={{ fontSize: typography.size.sm, color: colors.slate[600] }}
-					>
-						AI recommends: <strong>{qa.recommendationLabel}</strong>. Resolve
-						the case below to finalize.
-					</span>
+					<ApprovalGate
+						title="Sign off to resolve the dispute"
+						recommendationLabel={qa.recommendationLabel}
+						options={CLOSE_OPTIONS}
+						value={signoffs[CLOSE_INDEX] ?? EMPTY}
+						onChange={(v) => onSignoff(CLOSE_INDEX, v)}
+					/>
 				</div>
 			)}
-			<Field label="Outcome" value={v.outcome ?? "Pending"} />
+			<Field label="Outcome" value={c.vod.outcome ?? "Pending"} />
 		</div>
 	);
 }
@@ -168,15 +205,26 @@ const STAGE_COMPONENTS = [
 	CloseStage,
 ];
 
+function requiresSignoff(c: VodCase, stage: number): boolean {
+	const ai = getCaseAi(c.id);
+	if (stage === INTAKE_INDEX) return Boolean(ai?.intake);
+	if (stage === CLOSE_INDEX) return Boolean(ai?.validationQa);
+	return false;
+}
+
 export default function VodStepper({ c }: { c: VodCase }) {
 	const lastIndex = VOD_STAGES.length - 1;
 	const progress = useCaseProgress(c.id, c.currentStage, c.status);
 	const [selected, setSelected] = useState(progress.stage);
+	const onSignoff = (i: number, s: Signoff) => setSignoff(c.id, i, s);
 
 	const isActive = selected === progress.stage;
-	// Light gating: a written, timely dispute is required to advance past Triage.
 	const timely = c.vod.writtenRequest && c.vod.withinThirtyDays;
-	const canAdvance = !(selected === TRIAGE_INDEX && !timely);
+	const triageOk = !(selected === TRIAGE_INDEX && !timely);
+	const signoffOk =
+		!requiresSignoff(c, selected) ||
+		signoffComplete(progress.signoffs[selected]);
+	const canAdvance = triageOk && signoffOk;
 
 	const advance = () => {
 		const next = Math.min(selected + 1, lastIndex);
@@ -185,6 +233,10 @@ export default function VodStepper({ c }: { c: VodCase }) {
 	};
 
 	const StageComponent = STAGE_COMPONENTS[selected] ?? CloseStage;
+	const blockedHint = requiresSignoff(c, selected)
+		? "Select an option and add notes to continue"
+		: "Confirm a written, timely dispute to continue";
+
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: spacing[5] }}>
 			<Stepper
@@ -197,17 +249,26 @@ export default function VodStepper({ c }: { c: VodCase }) {
 				title={VOD_STAGES[selected]}
 				accessory={<ProvenanceBadge provenance={VOD_PROVENANCE[selected]} />}
 			>
-				<StageComponent c={c} />
+				<StageComponent
+					c={c}
+					signoffs={progress.signoffs}
+					onSignoff={onSignoff}
+				/>
 				<StageFooter
 					stage={selected}
 					lastIndex={lastIndex}
 					isActive={isActive}
 					resolved={progress.resolved}
 					canAdvance={canAdvance}
-					blockedHint="Confirm a written, timely dispute to continue"
+					blockedHint={blockedHint}
 					onBack={() => setSelected(Math.max(selected - 1, 0))}
 					onAdvance={advance}
-					onResolve={() => resolveCase(c.id, c.vod.outcome ?? "Validated")}
+					onResolve={() =>
+						resolveCase(
+							c.id,
+							vodOutcome(progress.signoffs[CLOSE_INDEX]?.option),
+						)
+					}
 				/>
 			</SectionCard>
 		</div>

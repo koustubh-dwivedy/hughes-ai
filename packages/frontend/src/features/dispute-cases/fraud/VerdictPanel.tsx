@@ -3,14 +3,12 @@ import { useState } from "react";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import Tag from "../../../ui/primitives/Tag";
 import Tooltip from "../../../ui/primitives/Tooltip";
-import DecisionControl from "../ai/DecisionControl";
 import ReasoningTrace from "../ai/ReasoningTrace";
 import {
 	type AiConfidence,
 	type AiInvestigation,
 	CONFIDENCE_LABEL,
 	type DeterministicCheck,
-	type HumanAction,
 } from "../ai/aiTypes";
 import { explainGate } from "../data/signalLibrary";
 
@@ -70,20 +68,14 @@ function Gate({ check }: { check: DeterministicCheck }) {
 
 interface Props {
 	investigation: AiInvestigation;
-	decision: HumanAction | null;
-	onDecision: (action: HumanAction | null) => void;
 }
 
 /**
- * Left column of the investigation review: the agent's synthesis (b) — a
- * verdict referencing the exploration — the deterministic gates, the inline
- * human decision, and the collapsible global reasoning trace.
+ * Left column of the investigation review: AI's synthesis verdict referencing
+ * the exploration, the deterministic gates, and the collapsible reasoning
+ * trace. Read-only — the human signs off at the Decide step.
  */
-export default function VerdictPanel({
-	investigation,
-	decision,
-	onDecision,
-}: Props) {
+export default function VerdictPanel({ investigation }: Props) {
 	const [showTrace, setShowTrace] = useState(false);
 	return (
 		<div
@@ -163,12 +155,6 @@ export default function VerdictPanel({
 					<Gate key={c.check} check={c} />
 				))}
 			</div>
-
-			<DecisionControl
-				recommendationLabel={investigation.recommendationLabel}
-				value={decision}
-				onChange={onDecision}
-			/>
 
 			<div>
 				<button

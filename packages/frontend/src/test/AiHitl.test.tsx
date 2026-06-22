@@ -75,17 +75,11 @@ describe("AI human-in-the-loop layer", () => {
 		expect(screen.getByText(/Synthesize/)).toBeInTheDocument();
 	});
 
-	it("records the decision inline on Triangulate and reflects it on Decide", async () => {
-		renderCase("CBD-4822");
-		await userEvent.click(
-			screen.getByRole("button", { name: /Triangulate ID/ }),
-		);
-		await userEvent.click(screen.getByRole("button", { name: "Override" }));
-		// Inline confirmation on the Triangulate stage.
-		expect(screen.getByText("Overrode AI recommendation")).toBeInTheDocument();
-		// The recorded decision carries over to the Decide stage.
-		await userEvent.click(screen.getByRole("button", { name: /Decide/ }));
-		expect(screen.getByText("Overrode AI recommendation")).toBeInTheDocument();
+	it("presents the human sign-off gate on the fraud Decide stage", async () => {
+		renderCase("CBD-4822"); // lands on Decide (active stage)
+		expect(screen.getByText(/Human sign-off required/)).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
+		expect(screen.getByLabelText("Sign-off notes")).toBeInTheDocument();
 	});
 
 	it("shows the AI-extracted intake panel on the fraud Intake stage", async () => {
@@ -111,15 +105,22 @@ describe("AI human-in-the-loop layer", () => {
 		expect(screen.getByText("System of record")).toBeInTheDocument();
 	});
 
-	it("removes the redundant decision control on VOD Close", async () => {
+	it("requires a human sign-off on VOD Close before resolving", async () => {
 		renderCase("CBD-4821");
 		await userEvent.click(screen.getByRole("button", { name: /^.*Close/ }));
-		// The redundant Approve/Override control is gone; the AI recommendation
-		// is shown read-only and the case concludes via Resolve in the footer.
-		expect(
-			screen.queryByRole("button", { name: "Override" }),
-		).not.toBeInTheDocument();
+		// The AI validation-QA now gates resolution behind an explicit sign-off.
+		expect(screen.getByText(/Human sign-off required/)).toBeInTheDocument();
 		expect(screen.getByText(/AI recommends:/)).toBeInTheDocument();
+		expect(screen.getByLabelText("Sign-off notes")).toBeInTheDocument();
+	});
+
+	it("gates VOD intake behind a human sign-off on the AI identity match", async () => {
+		renderCase("CBD-4821");
+		await userEvent.click(screen.getByRole("button", { name: /Intake/ }));
+		expect(
+			screen.getByRole("button", { name: "Confirm match" }),
+		).toBeInTheDocument();
+		expect(screen.getByLabelText("Sign-off notes")).toBeInTheDocument();
 	});
 
 	it("renders the merged Suppress & block (§605B) fraud stage", async () => {

@@ -29,9 +29,24 @@ function renderQueue() {
 	);
 }
 
-/** Clicks Continue across stages until the case can be (and is) resolved. */
+/** If the current stage has a sign-off gate, pick the first option + add notes. */
+async function fillSignoffIfPresent() {
+	const notes = screen.queryByLabelText("Sign-off notes");
+	if (!notes) return;
+	for (const label of ["Approve", "Confirm match", "Confirm AI findings"]) {
+		const btn = screen.queryByRole("button", { name: label });
+		if (btn) {
+			await userEvent.click(btn);
+			break;
+		}
+	}
+	await userEvent.type(notes, "Reviewed; concur with AI.");
+}
+
+/** Sign off where required, advancing across stages, then resolve. */
 async function advanceToResolve() {
 	for (let guard = 0; guard < 12; guard++) {
+		await fillSignoffIfPresent();
 		const resolveBtn = screen.queryByRole("button", { name: /Resolve case/ });
 		if (resolveBtn && !(resolveBtn as HTMLButtonElement).disabled) {
 			await userEvent.click(resolveBtn);
@@ -49,29 +64,24 @@ async function advanceToResolve() {
 }
 
 describe("case step-through to completion", () => {
-	it("gates advancing past Decide until a disposition is recorded", async () => {
-		renderCase("CBD-4822"); // lands on the Decide stage (active)
-		expect(
-			screen.getByRole("button", { name: /Complete step & continue/ }),
-		).toBeDisabled();
-		// Record a decision on Triangulate, then return to the active Decide step.
-		await userEvent.click(
-			screen.getByRole("button", { name: /Triangulate ID/ }),
-		);
+	it("blocks advancing past Decide until an option AND notes are provided", async () => {
+		renderCase("CBD-4822"); // lands on the Decide sign-off gate
+		const cont = () =>
+			screen.getByRole("button", { name: /Complete step & continue/ });
+		expect(cont()).toBeDisabled();
+		// Option alone is not enough.
 		await userEvent.click(screen.getByRole("button", { name: "Approve" }));
-		await userEvent.click(screen.getByRole("button", { name: /Decide/ }));
-		expect(
-			screen.getByRole("button", { name: /Complete step & continue/ }),
-		).toBeEnabled();
+		expect(cont()).toBeDisabled();
+		// Notes complete the sign-off.
+		await userEvent.type(
+			screen.getByLabelText("Sign-off notes"),
+			"Concur with the block.",
+		);
+		expect(cont()).toBeEnabled();
 	});
 
-	it("advances and resolves the case, showing a completion banner", async () => {
+	it("advances and resolves a fraud case, showing a completion banner", async () => {
 		renderCase("CBD-4822");
-		await userEvent.click(
-			screen.getByRole("button", { name: /Triangulate ID/ }),
-		);
-		await userEvent.click(screen.getByRole("button", { name: "Approve" }));
-		await userEvent.click(screen.getByRole("button", { name: /Decide/ }));
 		await advanceToResolve();
 		expect(
 			screen.getByText(/Case resolved — Blocked & suppressed/),
@@ -79,7 +89,7 @@ describe("case step-through to completion", () => {
 	});
 
 	it("reflects a resolved case in the queue status (session store)", async () => {
-		const { unmount } = renderCase("CBD-4821"); // VOD, no decision gate
+		const { unmount } = renderCase("CBD-4821"); // VOD
 		await advanceToResolve();
 		expect(screen.getByText(/Case resolved — /)).toBeInTheDocument();
 		unmount();
