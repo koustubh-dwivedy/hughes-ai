@@ -12,8 +12,18 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("navigation", () => {
-	test("/ redirects to Executive Summary", async ({ page }) => {
+	test("/ shows the launchpad and enters Business Intelligence", async ({
+		page,
+	}) => {
 		await page.goto("/");
+		await expect(page).toHaveURL("/");
+		await expect(
+			page.getByRole("button", { name: "Business Intelligence" }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "Dispute Center" }),
+		).toBeVisible();
+		await page.getByRole("button", { name: "Business Intelligence" }).click();
 		await expect(page).toHaveURL("/dashboards/executive");
 		await expect(
 			page.getByRole("heading", { name: "Executive Summary" }),

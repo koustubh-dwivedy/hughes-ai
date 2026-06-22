@@ -44,11 +44,11 @@ async function bootSession(page: Page) {
 // ── Tier 1: every page loads without crashing ───────────────────────
 
 test.describe("Tier 1 — every page renders", () => {
-	test("root redirects to a dashboard or chat page", async ({ page }) => {
+	test("root renders the launchpad", async ({ page }) => {
 		await bootSession(page);
 		await page.goto("/");
 		await page.waitForLoadState("networkidle");
-		// We should see SOMETHING visible — any heading.
+		// The launchpad (product chooser) is the default landing.
 		const headings = await page.locator("h1, h2, h3").count();
 		expect(headings).toBeGreaterThan(0);
 	});
