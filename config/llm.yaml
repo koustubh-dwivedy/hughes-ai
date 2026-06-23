@@ -25,7 +25,7 @@
 #                        change.
 
 provider: ollama
-model: glm-5.1
+model: glm-5.2
 api_key_env: OLLAMA_API_KEY
 base_url_env: OLLAMA_BASE_URL
 
