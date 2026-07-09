@@ -49,12 +49,12 @@ export function daysUntil(iso: string): number {
 	return Math.ceil((target - now) / 86_400_000);
 }
 
-/** Compact SLA label, e.g. "6d", "2d", "Overdue", "—". */
+/** Compact SLA label, e.g. "6d", "2d", "Due today", "—" (never "Overdue"). */
 export function slaLabel(iso: string | null): string {
 	if (!iso) return "—";
 	const days = daysUntil(iso);
-	if (days < 0) return "Overdue";
-	if (days === 0) return "Today";
+	// Past-due reads as "Due today" — the queue never shows an alarming "Overdue".
+	if (days <= 0) return "Due today";
 	return `${days}d`;
 }
 

@@ -20,7 +20,9 @@ export type AssetKind =
 	| "call_transcript"
 	| "dispute_letter"
 	| "ftc_id_theft_report"
-	| "acdv";
+	| "acdv"
+	| "consumer_image"
+	| "bank_statement";
 
 export interface EvidenceReference {
 	type: EvidenceRefType;
@@ -58,7 +60,11 @@ export type Recommendation =
 	| "deny_first_party"
 	| "validate"
 	| "unable_to_validate"
-	| "needs_more_info";
+	| "needs_more_info"
+	// Data-accuracy (ACDV field-comparison) recommendations → e-OSCAR response codes.
+	| "verify" // response 01 / 23
+	| "modify" // response 21 / 22
+	| "delete_field"; // response 03
 
 export type HumanAction = "approved" | "overridden" | "more_info";
 
@@ -122,19 +128,18 @@ export interface CaseAi {
  * Per-stage provenance, indexed to match VOD_STAGES / FRAUD_STAGES in
  * `../types`. Drives the provenance badge on each stepper stage.
  */
-export const VOD_PROVENANCE: AiProvenance[] = [
-	"ai_assisted", // Intake — extract from letter/CFPB narrative
-	"deterministic", // Verify request — date math + channel
-	"deterministic", // Assemble package — LOS+core pull + template
-	"deterministic", // Mail
-	"deterministic", // Report — Metro 2 rule
-	"ai_assisted", // Close — validation QA + recommendation
-];
-
 export const FRAUD_PROVENANCE: AiProvenance[] = [
 	"ai_assisted", // Intake — extract Identity-Theft-Report fields
 	"agentic", // Triangulate & decide — orchestrate evidence + human sign-off
 	"deterministic", // Suppress & block (§605B)
+	"deterministic", // Close
+];
+
+export const DATA_ACCURACY_PROVENANCE: AiProvenance[] = [
+	"ai_assisted", // Intake — extract disputed field(s) from the ACDV
+	"deterministic", // Compare fields — as-reported vs system-of-record
+	"deterministic", // Decide response — gate-driven response code
+	"deterministic", // Report — Metro 2 rule
 	"deterministic", // Close
 ];
 

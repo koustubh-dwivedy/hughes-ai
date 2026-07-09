@@ -16,23 +16,17 @@ function renderCase(id: string) {
 }
 
 describe("CaseFile", () => {
-	it("renders a VOD stepper and assembles the debt-verification cover letter", async () => {
-		renderCase("CBD-4821");
-		// VOD stage rail is present (renamed: Assemble verification).
+	it("renders a data-accuracy stepper with the field-comparison journey", async () => {
+		renderCase("CBD-5101");
+		// The ACDV data-accuracy stage rail is present.
 		expect(
-			screen.getByRole("button", { name: /Assemble verification/ }),
+			screen.getByRole("button", { name: /Compare fields/ }),
 		).toBeInTheDocument();
-		// Generate the cover-letter preview.
-		await userEvent.click(
-			screen.getByRole("button", { name: "Generate cover letter" }),
-		);
 		expect(
-			screen.getByRole("dialog", { name: "Validation letter preview" }),
+			screen.getByRole("button", { name: /Decide response/ }),
 		).toBeInTheDocument();
-		expect(screen.getByText(/debt collector/i)).toBeInTheDocument();
-		// Rendered as a clean scanned cover letter marked DRAFT.
-		expect(screen.getByTestId("scanned-document")).toBeInTheDocument();
-		expect(screen.getByText("Draft")).toBeInTheDocument();
+		// The header carries the reason code and the eOSCAR channel context.
+		expect(screen.getByText(/Reason 118/)).toBeInTheDocument();
 	});
 
 	it("renders the Fraud stepper with the triangulation matrix", async () => {

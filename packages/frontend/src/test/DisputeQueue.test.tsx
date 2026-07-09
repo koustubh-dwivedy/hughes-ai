@@ -35,16 +35,16 @@ describe("DisputeQueue", () => {
 		renderQueue();
 		const table = screen.getByRole("table");
 		// Both types visible under "All".
-		expect(within(table).getByText("CBD-4821")).toBeInTheDocument();
+		expect(within(table).getByText("CBD-5101")).toBeInTheDocument();
 		expect(within(table).getByText("CBD-4822")).toBeInTheDocument();
 		await userEvent.click(screen.getByRole("button", { name: "Fraud" }));
-		expect(within(table).queryByText("CBD-4821")).not.toBeInTheDocument();
+		expect(within(table).queryByText("CBD-5101")).not.toBeInTheDocument();
 		expect(within(table).getByText("CBD-4822")).toBeInTheDocument();
 	});
 
 	it("navigates to a case file when a row is clicked", async () => {
 		renderQueue();
-		await userEvent.click(screen.getByText("CBD-4821"));
+		await userEvent.click(screen.getByText("CBD-5101"));
 		expect(screen.getByText("Case file")).toBeInTheDocument();
 	});
 });

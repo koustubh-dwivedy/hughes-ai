@@ -35,7 +35,7 @@ export const PRODUCTS: Product[] = [
 		id: "dispute-center",
 		name: "Dispute Center",
 		tagline:
-			"Work credit-bureau disputes end to end — validation-of-debt and identity-theft cases with FCRA / Metro 2 fidelity.",
+			"Resolve credit-bureau disputes end to end — automating the ACDV data-accuracy core, with human-gated identity-theft and validation-of-debt cases at FCRA / Metro 2 fidelity.",
 		icon: ShieldCheck,
 		href: "/disputes",
 		status: "live",

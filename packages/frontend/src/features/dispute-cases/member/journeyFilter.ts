@@ -24,6 +24,8 @@ function matchesQuery(t: Touchpoint, q: string): boolean {
 		TYPE_LABEL[t.type],
 		formatDate(t.date),
 		t.date,
+		// Amount is searchable both bare ("412") and formatted ("$412").
+		t.amount != null ? `${t.amount} $${t.amount.toLocaleString()}` : "",
 	]
 		.join(" ")
 		.toLowerCase();

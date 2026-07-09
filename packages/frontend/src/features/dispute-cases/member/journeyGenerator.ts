@@ -1,4 +1,5 @@
 import type { AssetKind } from "../ai/aiTypes";
+import { DATA_ACCURACY_SIGNATURES } from "./journeySignaturesDataAccuracy";
 import { FRAUD_SIGNATURES } from "./journeySignaturesFraud";
 import { VOD_SIGNATURES } from "./journeySignaturesVod";
 import type {
@@ -10,6 +11,7 @@ import type {
 const SIGNATURES: Record<string, MemberSignature> = {
 	...FRAUD_SIGNATURES,
 	...VOD_SIGNATURES,
+	...DATA_ACCURACY_SIGNATURES,
 };
 
 const FALLBACK: MemberSignature = {

@@ -57,6 +57,18 @@ describe("MemberJourney", () => {
 		expect(screen.getByText(/CFPB complaint filed/)).toBeInTheDocument();
 	});
 
+	it("surfaces the disputed payment when searching its amount (412)", async () => {
+		renderJourney("100827"); // Marcus Bell — CBD-5102 demo member
+		await userEvent.type(
+			screen.getByRole("textbox", { name: "Search touchpoints" }),
+			"412",
+		);
+		// The on-time $412 auto-loan payment touchpoint pops up.
+		expect(
+			screen.getByText(/Auto-loan payment of \$412 posted — cleared on time/),
+		).toBeInTheDocument();
+	});
+
 	it("filters by category chip", async () => {
 		renderJourney("100558");
 		await userEvent.click(screen.getByRole("button", { name: "Money" }));

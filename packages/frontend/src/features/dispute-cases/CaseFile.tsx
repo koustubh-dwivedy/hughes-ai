@@ -4,15 +4,28 @@ import { colors, radii, spacing, typography } from "../../theme/tokens";
 import Banner from "../../ui/primitives/Banner";
 import PageHeader from "../../ui/primitives/PageHeader";
 import Tag from "../../ui/primitives/Tag";
+import AcdvAttachmentsPanel from "./AcdvAttachmentsPanel";
 import BackToQueue from "./BackToQueue";
+import type { AssetContext } from "./assets/assetContent";
 import { Field, FieldGrid, SectionCard } from "./caseUi";
+import DataAccuracyStepper from "./data-accuracy/DataAccuracyStepper";
 import { useCaseProgress } from "./data/caseProgressStore";
 import { getInitialSignoffs } from "./data/caseSignoffs";
 import { formatCurrency, formatDate, slaLabel, slaVariant } from "./format";
 import FraudStepper from "./fraud/FraudStepper";
 import { getCaseById } from "./mockData";
-import type { DisputeCase } from "./types";
-import VodStepper from "./vod/VodStepper";
+import {
+	type DisputeCase,
+	REASON_CODE_LABEL,
+	categoryForReason,
+} from "./types";
+
+/** The ACDV reason code a case carries (data-accuracy detail or fraud detail). */
+function caseReasonCode(c: DisputeCase): string | null {
+	if (c.type === "DATA_ACCURACY") return c.dataAccuracy.reasonCode;
+	if (c.type === "FRAUD") return c.fraud.reasonCode;
+	return null;
+}
 
 function CaseHeaderMeta({ c }: { c: DisputeCase }) {
 	return (
@@ -24,10 +37,18 @@ function CaseHeaderMeta({ c }: { c: DisputeCase }) {
 				flexWrap: "wrap",
 			}}
 		>
-			<Tag
-				label={c.type === "FRAUD" ? "Fraud" : "VOD"}
-				variant={c.type === "FRAUD" ? "danger" : "default"}
-			/>
+			{caseReasonCode(c) && (
+				<>
+					<Tag
+						label={categoryForReason(caseReasonCode(c) as string)}
+						variant={c.type === "FRAUD" ? "danger" : "info"}
+					/>
+					<Tag
+						label={`Reason ${caseReasonCode(c)} — ${REASON_CODE_LABEL[caseReasonCode(c) as keyof typeof REASON_CODE_LABEL]}`}
+						variant="default"
+					/>
+				</>
+			)}
 			<Tag
 				label={`SLA ${slaLabel(c.slaDueDate)}`}
 				variant={slaVariant(c.slaDueDate)}
@@ -108,7 +129,15 @@ function SummaryPanels({ c }: { c: DisputeCase }) {
 }
 
 function caseOutcome(c: DisputeCase): string | null {
-	return c.type === "VOD" ? c.vod.outcome : c.fraud.outcome;
+	return c.type === "FRAUD" ? c.fraud.outcome : c.dataAccuracy.outcome;
+}
+
+function stepperFor(c: DisputeCase) {
+	return c.type === "FRAUD" ? (
+		<FraudStepper c={c} />
+	) : (
+		<DataAccuracyStepper c={c} />
+	);
 }
 
 function CaseFileContent({ c }: { c: DisputeCase }) {
@@ -134,9 +163,25 @@ function CaseFileContent({ c }: { c: DisputeCase }) {
 			)}
 			<CaseHeaderMeta c={c} />
 			<SummaryPanels c={c} />
-			{c.type === "VOD" ? <VodStepper c={c} /> : <FraudStepper c={c} />}
+			{c.attachments.length > 0 && (
+				<AcdvAttachmentsPanel
+					caseId={c.id}
+					attachments={c.attachments}
+					context={attachmentContext(c)}
+				/>
+			)}
+			{stepperFor(c)}
 		</div>
 	);
+}
+
+function attachmentContext(c: DisputeCase): AssetContext {
+	return {
+		memberName: c.member.name,
+		memberAddress: c.member.address,
+		date: c.receivedDate,
+		accountRef: c.subjectAccount.accountNumberMasked,
+	};
 }
 
 export default function CaseFile() {

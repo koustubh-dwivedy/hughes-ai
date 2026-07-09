@@ -6,9 +6,8 @@ import type { Signoff } from "./caseProgressStore";
  * past a gate (or resolved) shows the reviewer's recorded option + notes,
  * instead of a blank gate. Fabricated mockup data.
  *
- * Stage indices: Fraud (0 Intake, 1 Triangulate & decide); VOD (0 Intake,
- * 5 Close). Only already-cleared gates are seeded; the active gate is left
- * blank for the human to complete.
+ * Stage indices: Fraud (0 Intake, 1 Triangulate & decide). Only already-cleared
+ * gates are seeded; the active gate is left blank for the human to complete.
  */
 export const INITIAL_SIGNOFFS: Record<string, Record<number, Signoff>> = {
 	// ---- Fraud --------------------------------------------------------------
@@ -32,31 +31,6 @@ export const INITIAL_SIGNOFFS: Record<string, Record<number, Signoff>> = {
 			option: "approve",
 			comments:
 				"Confirmed third-party: FTC affidavit + Everett PD report verified; possession and phone-linkage both failed while CIP matched. Approving §605B block.",
-		},
-	},
-	// ---- VOD ----------------------------------------------------------------
-	"CBD-4821": {
-		0: {
-			option: "confirm",
-			comments:
-				"Identity matched to the member of record on all elements; proceeding with verification.",
-		},
-	},
-	"CBD-4823": {
-		0: {
-			option: "confirm",
-			comments: "Identity matched (address variance noted, within tolerance).",
-		},
-		5: {
-			option: "approve",
-			comments:
-				"Verification package complete — signed agreement, statements, and payment history substantiate the debt. Validated.",
-		},
-	},
-	"CBD-4830": {
-		0: {
-			option: "confirm",
-			comments: "SOR identity match confirmed on name, SSN, DOB, and account.",
 		},
 	},
 };

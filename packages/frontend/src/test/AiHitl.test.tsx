@@ -76,7 +76,10 @@ describe("AI human-in-the-loop layer", () => {
 	});
 
 	it("shows evidence and the sign-off gate together on the merged Triangulate & decide step", async () => {
-		renderCase("CBD-4822"); // lands on the merged stage (active)
+		renderCase("CBD-4822");
+		await userEvent.click(
+			screen.getByRole("button", { name: /Triangulate & decide/ }),
+		);
 		// Evidence (from InvestigationReview) and the gate are on the same step.
 		expect(screen.getByText("Supports fraud 5")).toBeInTheDocument();
 		expect(screen.getByText(/Human sign-off required/)).toBeInTheDocument();
@@ -139,39 +142,14 @@ describe("AI human-in-the-loop layer", () => {
 		expect(screen.getByText("✨ AI-extracted")).toBeInTheDocument();
 	});
 
-	it("shows deterministic provenance on the VOD Triage stage", async () => {
-		renderCase("CBD-4821");
-		await userEvent.click(screen.getByRole("button", { name: /Triage/ }));
-		expect(screen.getByText("Deterministic")).toBeInTheDocument();
-	});
-
-	it("shows the AI received-vs-system-of-record match on VOD intake", async () => {
-		renderCase("CBD-4821");
+	it("shows the AI received-vs-system-of-record match on data-accuracy intake", async () => {
+		renderCase("CBD-5102");
 		await userEvent.click(screen.getByRole("button", { name: /Intake/ }));
 		expect(
 			screen.getByText(/received vs system of record/i),
 		).toBeInTheDocument();
 		expect(screen.getByText("Matched to member of record")).toBeInTheDocument();
-		// A comparison row (System of record column header).
 		expect(screen.getByText("System of record")).toBeInTheDocument();
-	});
-
-	it("requires a human sign-off on VOD Close before resolving", async () => {
-		renderCase("CBD-4821");
-		await userEvent.click(screen.getByRole("button", { name: /^.*Close/ }));
-		// The AI validation-QA now gates resolution behind an explicit sign-off.
-		expect(screen.getByText(/Human sign-off required/)).toBeInTheDocument();
-		expect(screen.getByText(/AI recommends:/)).toBeInTheDocument();
-		expect(screen.getByLabelText("Sign-off notes")).toBeInTheDocument();
-	});
-
-	it("gates VOD intake behind a human sign-off on the AI identity match", async () => {
-		renderCase("CBD-4821");
-		await userEvent.click(screen.getByRole("button", { name: /Intake/ }));
-		expect(
-			screen.getByRole("button", { name: "Confirm match" }),
-		).toBeInTheDocument();
-		expect(screen.getByLabelText("Sign-off notes")).toBeInTheDocument();
 	});
 
 	it("renders the merged Suppress & block (§605B) fraud stage", async () => {

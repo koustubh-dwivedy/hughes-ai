@@ -7,10 +7,76 @@ import KpiStrip from "./KpiStrip";
 import { getOverride, useCaseProgressVersion } from "./data/caseProgressStore";
 import { formatDate, slaLabel, slaVariant } from "./format";
 import { DISPUTE_CASES } from "./mockData";
-import type { DisputeCase, DisputeType } from "./types";
+import {
+	type DisputeCase,
+	type DisputeCategory,
+	categoryForReason,
+} from "./types";
 
-type Filter = "All" | DisputeType;
-const FILTERS: Filter[] = ["All", "VOD", "FRAUD"];
+/** The ACDV reason code a case carries (data-accuracy or fraud detail). */
+function reasonCode(c: DisputeCase): string {
+	return c.type === "DATA_ACCURACY"
+		? c.dataAccuracy.reasonCode
+		: c.fraud.reasonCode;
+}
+
+/** The dispute category (master-table mapping) shown as the case "Type". */
+function caseCategory(c: DisputeCase): DisputeCategory {
+	return categoryForReason(reasonCode(c));
+}
+
+/** The e-OSCAR response code — recommended while open, furnished once resolved. */
+function responseFor(c: DisputeCase): string {
+	return c.type === "DATA_ACCURACY"
+		? c.dataAccuracy.recommendedResponse
+		: c.fraud.recommendedResponse;
+}
+
+/** Whether the agent may auto-furnish (data-accuracy, all gates pass) or a human decides. */
+function responseMode(c: DisputeCase): "Auto" | "Review" {
+	return c.type === "DATA_ACCURACY" &&
+		c.dataAccuracy.autonomyMode === "autonomous"
+		? "Auto"
+		: "Review";
+}
+
+type Filter = "All" | DisputeCategory;
+
+/** Canonical category order; filter tabs show only categories present in data. */
+const CATEGORY_ORDER: DisputeCategory[] = [
+	"Ownership",
+	"Closed Account",
+	"Account Specific",
+	"Account Comments",
+	"Account Dates",
+	"Account Derogatory Payments",
+	"Collection",
+	"Bankruptcy",
+	"Fraud",
+	"Account Not Specific",
+];
+
+const PRESENT_CATEGORIES = new Set(DISPUTE_CASES.map(caseCategory));
+const FILTERS: Filter[] = [
+	"All",
+	...CATEGORY_ORDER.filter((c) => PRESENT_CATEGORIES.has(c)),
+];
+
+const CATEGORY_VARIANT: Record<
+	DisputeCategory,
+	"default" | "danger" | "warning" | "info"
+> = {
+	Ownership: "warning",
+	"Closed Account": "info",
+	"Account Specific": "info",
+	"Account Comments": "info",
+	"Account Dates": "info",
+	"Account Derogatory Payments": "warning",
+	Collection: "warning",
+	Bankruptcy: "warning",
+	Fraud: "danger",
+	"Account Not Specific": "default",
+};
 
 const thStyle: React.CSSProperties = {
 	textAlign: "left",
@@ -44,7 +110,14 @@ function FilterTabs({
 	onChange,
 }: { value: Filter; onChange: (f: Filter) => void }) {
 	return (
-		<div style={{ display: "flex", gap: spacing[2] }}>
+		<div
+			style={{
+				display: "flex",
+				gap: spacing[2],
+				flexWrap: "wrap",
+				marginBottom: spacing[4],
+			}}
+		>
 			{FILTERS.map((f) => {
 				const active = f === value;
 				return (
@@ -63,7 +136,7 @@ function FilterTabs({
 							cursor: "pointer",
 						}}
 					>
-						{f === "FRAUD" ? "Fraud" : f}
+						{f}
 					</button>
 				);
 			})}
@@ -94,22 +167,43 @@ function CaseRow({ c }: { c: DisputeCase }) {
 			</td>
 			<td style={tdStyle}>
 				<Tag
-					label={c.type === "FRAUD" ? "Fraud" : "VOD"}
-					variant={c.type === "FRAUD" ? "danger" : "default"}
+					label={caseCategory(c)}
+					variant={CATEGORY_VARIANT[caseCategory(c)]}
 				/>
 			</td>
+			<td style={tdStyle}>{reasonCode(c)}</td>
 			<td style={tdStyle}>{c.ccc ?? "—"}</td>
 			<td style={tdStyle}>{c.acdvNumber ?? "—"}</td>
 			<td style={tdStyle}>{c.channel}</td>
 			<td style={tdStyle}>{formatDate(c.receivedDate)}</td>
 			<td style={tdStyle}>
-				<Tag
-					label={slaLabel(c.slaDueDate)}
-					variant={slaVariant(c.slaDueDate)}
-				/>
+				{effectiveStatus === "Resolved" ? (
+					<span style={{ color: colors.slate[400] }}>—</span>
+				) : (
+					<Tag
+						label={slaLabel(c.slaDueDate)}
+						variant={slaVariant(c.slaDueDate)}
+					/>
+				)}
 			</td>
 			<td style={tdStyle}>
 				<Tag label={effectiveStatus} variant={statusVariant(effectiveStatus)} />
+			</td>
+			<td style={tdStyle}>
+				<span
+					style={{
+						display: "inline-flex",
+						alignItems: "center",
+						gap: spacing[2],
+					}}
+				>
+					<Tag label={responseFor(c)} variant="info" />
+					<span
+						style={{ fontSize: typography.size.xs, color: colors.slate[500] }}
+					>
+						{effectiveStatus === "Resolved" ? "furnished" : responseMode(c)}
+					</span>
+				</span>
 			</td>
 			<td style={tdStyle}>{c.assignee}</td>
 		</tr>
@@ -121,7 +215,7 @@ export default function DisputeQueue() {
 	// Subscribe so resolving a case this session re-renders the queue.
 	useCaseProgressVersion();
 	const rows = DISPUTE_CASES.filter(
-		(c) => filter === "All" || c.type === filter,
+		(c) => filter === "All" || caseCategory(c) === filter,
 	);
 
 	return (
@@ -129,29 +223,37 @@ export default function DisputeQueue() {
 			<PageHeader
 				eyebrow="Dispute Center"
 				title="Case Queue"
-				subtitle="Credit-bureau disputes — validation-of-debt and identity-theft cases, sorted by SLA urgency."
-				actions={<FilterTabs value={filter} onChange={setFilter} />}
+				subtitle="Credit-bureau disputes — ACDV data-accuracy (the automation core) and identity-theft cases, sorted by SLA urgency."
 			/>
 			<KpiStrip cases={DISPUTE_CASES} />
+			<FilterTabs value={filter} onChange={setFilter} />
 			<div
 				style={{
 					border: `1px solid ${colors.slate[200]}`,
 					borderRadius: radii.xl,
-					overflow: "hidden",
+					overflowX: "auto",
 					backgroundColor: colors.white,
 				}}
 			>
-				<table style={{ width: "100%", borderCollapse: "collapse" }}>
+				<table
+					style={{
+						width: "100%",
+						minWidth: "max-content",
+						borderCollapse: "collapse",
+					}}
+				>
 					<thead>
 						<tr>
 							<th style={thStyle}>Case</th>
 							<th style={thStyle}>Type</th>
+							<th style={thStyle}>Reason</th>
 							<th style={thStyle}>CCC</th>
 							<th style={thStyle}>ACDV #</th>
 							<th style={thStyle}>Channel</th>
 							<th style={thStyle}>Received</th>
 							<th style={thStyle}>SLA</th>
 							<th style={thStyle}>Status</th>
+							<th style={thStyle}>Response</th>
 							<th style={thStyle}>Assignee</th>
 						</tr>
 					</thead>

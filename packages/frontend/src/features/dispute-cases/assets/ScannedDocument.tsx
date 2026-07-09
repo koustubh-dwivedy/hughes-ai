@@ -146,6 +146,7 @@ function FormLayout({ content }: { content: FormContent }) {
 					{p}
 				</p>
 			))}
+			{content.table && <StatementTable table={content.table} />}
 			{content.signatory && (
 				<SignatureBlock
 					name={content.signatory.name}
@@ -153,6 +154,72 @@ function FormLayout({ content }: { content: FormContent }) {
 				/>
 			)}
 		</>
+	);
+}
+
+function StatementTable({
+	table,
+}: { table: NonNullable<FormContent["table"]> }) {
+	return (
+		<div style={{ marginTop: 14 }}>
+			{table.caption && (
+				<div style={{ fontSize: 12, color: MUTED, marginBottom: 4 }}>
+					{table.caption}
+				</div>
+			)}
+			<table
+				style={{
+					width: "100%",
+					borderCollapse: "collapse",
+					fontSize: 12.5,
+					fontFamily: SERIF,
+				}}
+			>
+				<thead>
+					<tr>
+						{table.columns.map((col, i) => (
+							<th
+								key={col}
+								style={{
+									textAlign: i === 0 ? "left" : "right",
+									borderBottom: `1px solid ${INK}`,
+									padding: "4px 6px",
+									fontWeight: 700,
+								}}
+							>
+								{col}
+							</th>
+						))}
+					</tr>
+				</thead>
+				<tbody>
+					{table.rows.map((row, r) => (
+						<tr
+							key={row.join("|")}
+							style={{
+								backgroundColor:
+									r === table.highlightRow ? "#fef3c7" : "transparent",
+							}}
+						>
+							{row.map((cell, cIdx) => (
+								<td
+									key={`${r}-${cIdx}-${cell}`}
+									style={{
+										textAlign: cIdx === 0 ? "left" : "right",
+										padding: "4px 6px",
+										borderBottom: "1px solid #ece7da",
+										fontWeight:
+											r === table.highlightRow && cIdx === 1 ? 700 : 400,
+									}}
+								>
+									{cell}
+								</td>
+							))}
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
 	);
 }
 

@@ -9,21 +9,18 @@ function isOpen(c: DisputeCase): boolean {
 }
 
 /**
- * The Dispute Center compliance strip: open volume by type, SLA risk
- * (driven by the 30-day FCRA/FDCPA and 4-business-day §605B clocks), aging,
- * and outstanding bureau actions (uncleared XB flags + pending blocks).
+ * The Dispute Center compliance strip: open volume by type, SLA risk (30-day
+ * FCRA/FDCPA + 4-business-day §605B clocks), aging, and outstanding bureau
+ * actions (uncleared XB flags + pending blocks).
  */
 export default function KpiStrip({ cases }: { cases: DisputeCase[] }) {
 	// Subscribe so resolving a case this session updates the open counts.
 	useCaseProgressVersion();
 	const open = cases.filter(isOpen);
-	const openVod = open.filter((c) => c.type === "VOD").length;
+	const openDa = open.filter((c) => c.type === "DATA_ACCURACY").length;
 	const openFraud = open.filter((c) => c.type === "FRAUD").length;
 
-	const approaching = open.filter((c) => {
-		const d = daysUntil(c.slaDueDate);
-		return d <= 2;
-	}).length;
+	const approaching = open.filter((c) => daysUntil(c.slaDueDate) <= 2).length;
 
 	const unclearedXb = cases.filter((c) => isOpen(c) && c.ccc === "XB").length;
 	const pendingBlocks = cases.filter(
@@ -35,7 +32,7 @@ export default function KpiStrip({ cases }: { cases: DisputeCase[] }) {
 			<KpiTile
 				label="Open cases"
 				value={String(open.length)}
-				context={`${openVod} VOD · ${openFraud} Fraud`}
+				context={`${openDa} data-accuracy · ${openFraud} fraud`}
 			/>
 			<KpiTile
 				label="SLA risk"

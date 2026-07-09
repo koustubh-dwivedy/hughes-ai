@@ -1,5 +1,6 @@
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import Tag from "../../../ui/primitives/Tag";
+import type { AssetContext } from "../assets/assetContent";
 import { Field, FieldGrid } from "../caseUi";
 import EvidenceReferenceChip from "./EvidenceReferenceChip";
 import {
@@ -125,7 +126,8 @@ function SorMatchBlock({ sorMatch }: { sorMatch: SorMatch }) {
 /** AI handling of the intake document: SOR identity match + extracted fields. */
 export default function IntakeExtractionPanel({
 	extraction,
-}: { extraction: IntakeExtraction }) {
+	context,
+}: { extraction: IntakeExtraction; context?: AssetContext }) {
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: spacing[4] }}>
 			{extraction.sorMatch && <SorMatchBlock sorMatch={extraction.sorMatch} />}
@@ -147,7 +149,10 @@ export default function IntakeExtractionPanel({
 				>
 					from
 				</span>
-				<EvidenceReferenceChip reference={extraction.sourceDoc} />
+				<EvidenceReferenceChip
+					reference={extraction.sourceDoc}
+					context={context}
+				/>
 			</div>
 			<FieldGrid>
 				{extraction.fields.map((f) => (

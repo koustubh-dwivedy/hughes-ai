@@ -65,9 +65,10 @@ async function advanceToResolve() {
 
 describe("case step-through to completion", () => {
 	it("blocks advancing past the merged investigate step until an option AND notes are provided", async () => {
-		renderCase("CBD-4822"); // lands on the Triangulate & decide sign-off gate
+		renderCase("CBD-4822"); // opens on Intake (pre-cleared) — advance to the gate
 		const cont = () =>
 			screen.getByRole("button", { name: /Complete step & continue/ });
+		await userEvent.click(cont()); // Intake → Triangulate & decide
 		expect(cont()).toBeDisabled();
 		// Option alone is not enough.
 		await userEvent.click(screen.getByRole("button", { name: "Approve" }));
@@ -89,14 +90,14 @@ describe("case step-through to completion", () => {
 	});
 
 	it("reflects a resolved case in the queue status (session store)", async () => {
-		const { unmount } = renderCase("CBD-4821"); // VOD
+		const { unmount } = renderCase("CBD-5101"); // data-accuracy (autonomous)
 		await advanceToResolve();
 		expect(screen.getByText(/Case resolved — /)).toBeInTheDocument();
 		unmount();
 
 		renderQueue();
 		const row = within(screen.getByRole("table"))
-			.getByText("CBD-4821")
+			.getByText("CBD-5101")
 			.closest("tr");
 		expect(row).not.toBeNull();
 		if (row) {

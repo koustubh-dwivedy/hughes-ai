@@ -23,6 +23,8 @@ export interface CaseProgress {
 	signoffs: Record<number, Signoff>;
 	resolved: boolean;
 	outcome?: string;
+	/** File names of ACDV attachments the reviewer has viewed (View/Print/DL). */
+	acknowledged: string[];
 }
 
 const store = new Map<string, CaseProgress>();
@@ -58,6 +60,7 @@ function seed(
 		status,
 		signoffs: { ...initialSignoffs },
 		resolved: status === "Resolved",
+		acknowledged: [],
 	};
 	store.set(id, fresh);
 	return fresh;
@@ -83,6 +86,13 @@ export function setSignoff(id: string, stageIndex: number, signoff: Signoff) {
 
 export function resolveCase(id: string, outcome: string) {
 	update(id, { resolved: true, status: "Resolved", outcome });
+}
+
+/** Record that the reviewer opened an ACDV attachment (View/Print/Download). */
+export function acknowledgeAttachment(id: string, fileName: string) {
+	const current = store.get(id);
+	if (!current || current.acknowledged.includes(fileName)) return;
+	update(id, { acknowledged: [...current.acknowledged, fileName] });
 }
 
 /** Test-only: clear all session progress (no emit — callers are tearing down). */

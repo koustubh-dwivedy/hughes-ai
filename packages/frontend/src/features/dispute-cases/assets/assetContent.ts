@@ -26,7 +26,7 @@ export interface LetterContent {
 	draft?: boolean;
 }
 
-/** A form/affidavit (header + labelled fields + body). */
+/** A form/affidavit (header + labelled fields + body + optional table). */
 export interface FormContent {
 	format: "form";
 	kind: AssetKind;
@@ -35,6 +35,14 @@ export interface FormContent {
 	subheader?: string;
 	meta: { label: string; value: string }[];
 	body: string[];
+	/** Optional tabular data (e.g. a bank statement's transaction lines). */
+	table?: {
+		caption?: string;
+		columns: string[];
+		rows: string[][];
+		/** Row index to highlight (e.g. the disputed payment). */
+		highlightRow?: number;
+	};
 	signatory?: { name: string; title?: string };
 	receivedNote?: string;
 }
@@ -55,6 +63,10 @@ export interface AssetContext {
 	memberAddress?: string;
 	date?: string;
 	accountRef?: string;
+	/** ACDV dispute reason code + gloss, e.g. "106 — Account status/history". */
+	disputeCode?: string;
+	/** The consumer's statement rendered in the ACDV body. */
+	disputeStatement?: string;
 }
 
 const CU = "Cascade Federal Credit Union";
@@ -125,14 +137,78 @@ export function buildAssetContent(
 				subheader: "Automated Consumer Dispute Verification (ACDV)",
 				meta: [
 					{ label: "Control number", value: reference.label },
-					{ label: "Dispute code", value: "103 — Account opened fraudulently" },
+					{
+						label: "Dispute code",
+						value: ctx.disputeCode ?? "103 — Account opened fraudulently",
+					},
 					{ label: "Account", value: acct },
 					{ label: "Consumer", value: who },
 				],
 				body: [
 					"A consumer dispute was received by the credit reporting agency and routed to your institution for verification.",
-					`Consumer statement: "${who} states this account resulted from account takeover and disputes the recent transactions."`,
+					`Consumer statement: "${ctx.disputeStatement ?? `${who} states this account resulted from account takeover and disputes the recent transactions.`}"`,
 					"Furnisher must investigate and respond with a corrected AUD or verification within the FCRA timeframe.",
+				],
+				receivedNote: `Received ${on}`,
+			};
+		case "bank_statement":
+			return {
+				format: "form",
+				kind,
+				title,
+				header: "First Cascade Bank",
+				subheader: "Monthly Account Statement — submitted as proof of payment",
+				meta: [
+					{ label: "Account holder", value: who },
+					{ label: "Statement period", value: "03/01/2026 – 03/31/2026" },
+					{ label: "Checking account", value: "****6120" },
+				],
+				body: [
+					`Submitted by ${who} in support of the dispute on loan ${acct}. The monthly auto-loan payment cleared on 03/03/2026 — two days before the 03/05 due date.`,
+				],
+				table: {
+					caption: "Transaction detail",
+					columns: ["Date", "Description", "Amount", "Balance"],
+					rows: [
+						[
+							"03/01/2026",
+							"Payroll deposit — ACME Logistics",
+							"+$2,940.00",
+							"$3,512.18",
+						],
+						[
+							"03/03/2026",
+							`Auto-pay → Cascade FCU auto loan ${acct}`,
+							"−$412.00",
+							"$3,100.18",
+						],
+						[
+							"03/12/2026",
+							"Card purchase — Fred Meyer",
+							"−$86.44",
+							"$3,013.74",
+						],
+						["03/20/2026", "ATM withdrawal", "−$100.00", "$2,913.74"],
+					],
+					highlightRow: 1,
+				},
+				receivedNote: `Received ${on}`,
+			};
+		case "consumer_image":
+			return {
+				format: "form",
+				kind,
+				title,
+				header: "Consumer-submitted documentation",
+				subheader: "Scanned image received with the ACDV (TIFF)",
+				meta: [
+					{ label: "Submitted by", value: who },
+					{ label: "Account", value: acct },
+					{ label: "Received", value: on },
+				],
+				body: [
+					`Proof of payment submitted by ${who} in support of the dispute. The enclosed bank statement shows the disputed payment posting on time and clearing the account.`,
+					"Furnisher must review this documentation as part of a reasonable investigation (CFPB Circular 2022-07) — it may not be ignored in favor of internal records only.",
 				],
 				receivedNote: `Received ${on}`,
 			};

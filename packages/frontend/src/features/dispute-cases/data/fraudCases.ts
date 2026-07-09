@@ -10,13 +10,14 @@ export const FRAUD_CASES: FraudCase[] = [
 		id: "CBD-4822",
 		type: "FRAUD",
 		acdvNumber: "240612-77004",
+		attachments: [],
 		ccc: null,
 		channel: "Direct",
-		receivedDate: "2026-06-12",
-		slaDueDate: "2026-06-18",
-		status: "Triangulate & decide",
+		receivedDate: "2026-07-07",
+		slaDueDate: "2026-07-13",
+		status: "Intake",
 		assignee: "P. Okafor",
-		currentStage: 1,
+		currentStage: 0,
 		member: {
 			name: "Aisha Bello",
 			memberNumber: "100558",
@@ -37,6 +38,8 @@ export const FRAUD_CASES: FraudCase[] = [
 			reportedBureaus: ["Equifax", "Experian", "TransUnion"],
 		},
 		fraud: {
+			reasonCode: "103",
+			recommendedResponse: "07",
 			subType: "New-account fraud",
 			identityTheftReport: {
 				onFile: true,
@@ -64,10 +67,11 @@ export const FRAUD_CASES: FraudCase[] = [
 		id: "CBD-4835",
 		type: "FRAUD",
 		acdvNumber: "240617-90551",
+		attachments: [],
 		ccc: "XB",
-		channel: "ACDV",
-		receivedDate: "2026-06-17",
-		slaDueDate: "2026-06-23",
+		channel: "eOSCAR",
+		receivedDate: "2026-07-06",
+		slaDueDate: "2026-07-14",
 		status: "Triangulate & decide",
 		assignee: "P. Okafor",
 		currentStage: 1,
@@ -91,6 +95,8 @@ export const FRAUD_CASES: FraudCase[] = [
 			reportedBureaus: ["Equifax", "Experian"],
 		},
 		fraud: {
+			reasonCode: "104",
+			recommendedResponse: "01",
 			subType: "Account takeover",
 			identityTheftReport: {
 				onFile: false,
@@ -118,6 +124,7 @@ export const FRAUD_CASES: FraudCase[] = [
 		id: "CBD-4818",
 		type: "FRAUD",
 		acdvNumber: "240605-55310",
+		attachments: [],
 		ccc: "XH",
 		channel: "Direct",
 		receivedDate: "2026-06-05",
@@ -145,6 +152,8 @@ export const FRAUD_CASES: FraudCase[] = [
 			reportedBureaus: ["Equifax", "Experian", "TransUnion"],
 		},
 		fraud: {
+			reasonCode: "103",
+			recommendedResponse: "07",
 			subType: "New-account fraud",
 			identityTheftReport: {
 				onFile: true,
